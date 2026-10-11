@@ -1,0 +1,54 @@
+<view class="week-timetable">
+  <view class="grid-toolbar">
+    <view class="grid-count"><view class="arrangement-mark"></view><text>{{grid.mode === 'period' ? '按节次排列' : '节次时间待设置'}}</text></view>
+  </view>
+  <view class="grid-frame {{disabled ? 'is-disabled' : ''}}">
+    <view class="grid-scroll">
+      <view class="timetable-sheet">
+        <view class="grid-heading">
+          <view class="month-heading"><text class="month-number">{{grid.days[0].monthNumber}}</text><text>月</text></view>
+          <view class="day-headings">
+            <view wx:for="{{grid.days}}" wx:for-item="day" wx:key="date" class="day-heading {{day.isToday ? 'is-today' : ''}} {{day.disabled ? 'outside-term' : ''}}">
+              <text class="weekday-name">周{{day.label}}</text>
+              <text class="day-number">{{day.dayNumber}}</text>
+              <view class="today-mark"></view>
+            </view>
+          </view>
+        </view>
+        <view class="grid-body" style="height: {{grid.height}}rpx;">
+          <view class="time-axis">
+            <view wx:for="{{grid.rows}}" wx:for-item="row" wx:key="top" class="axis-row {{row.kind === 'break' ? 'break-axis' : ''}}" style="top: {{row.top}}rpx; height: {{row.height}}rpx;">
+              <text class="axis-label">{{row.label}}</text>
+              <block wx:if="{{row.kind === 'period' || row.kind === 'extra'}}"><text class="axis-time">{{row.startTime}}</text><text wx:if="{{row.endTime !== row.startTime}}" class="axis-time">{{row.endTime}}</text></block>
+            </view>
+          </view>
+          <view class="day-columns">
+            <view wx:for="{{grid.days}}" wx:for-item="day" wx:key="date" class="day-column {{day.isToday ? 'today-column' : ''}} {{day.disabled ? 'outside-column' : ''}}">
+              <view wx:for="{{grid.rows}}" wx:for-item="row" wx:for-index="rowIndex" wx:key="top" class="grid-cell {{row.kind === 'break' ? 'break-cell' : ''}}" style="top: {{row.top}}rpx; height: {{row.height}}rpx;" data-date="{{day.date}}" data-row="{{rowIndex}}" bindtap="selectSlot" hover-class="{{disabled || day.disabled || row.kind === 'break' ? 'none' : 'slot-pressed'}}" hover-stay-time="100" role="{{row.kind !== 'break' && !day.disabled ? 'button' : ''}}" aria-label="{{day.date}} {{row.startTime}} 至 {{row.endTime}}{{day.disabled ? ' 学期之外' : ' 点击添加课程'}}"></view>
+              <view wx:for="{{day.cards}}" wx:for-item="card" wx:key="id" class="lesson-block color-{{card.colorIndex}} {{180 > card.height ? 'short-card' : ''}} {{90 > card.height ? 'compact-card' : ''}} {{52 > card.height ? 'tiny-card' : ''}}" style="top: {{card.top}}rpx; height: {{card.height}}rpx; left: {{card.leftPercent}}%; width: {{card.widthPercent}}%;" data-id="{{card.id}}" catchtap="selectLesson" hover-class="{{disabled ? 'none' : 'lesson-pressed'}}" role="button" aria-label="{{card.name}}，{{day.date}}，{{card.start_time}} 至 {{card.end_time}}，{{card.location || '未设置地点'}}{{card.isAdjusted ? '，已调整' : ''}}，点击查看详情">
+                <view class="lesson-inner">
+                  <view class="lesson-accent"></view>
+                  <text class="lesson-name">{{card.name}}</text>
+                  <text wx:if="{{grid.mode === 'unconfigured' && card.height >= 120}}" class="lesson-location">{{card.timeLabel}}</text>
+                  <text wx:if="{{card.height >= 120 && card.location}}" class="lesson-location">{{card.location}}</text>
+                  <text wx:if="{{card.isAdjusted && card.height >= 180}}" class="adjusted-tag">已调整</text>
+                  <view wx:if="{{card.isAdjusted}}" class="adjusted-dot"></view>
+                </view>
+              </view>
+            </view>
+          </view>
+        </view>
+      </view>
+    </view>
+  </view>
+  <view class="grid-caption"><text>{{grid.mode === 'unconfigured' ? '上传课表可补齐节次时间，也可在学期设置中填写' : '点击空白处排课，点击课程查看详情'}}</text><view wx:if="{{grid.scheduledCount}}" class="adjusted-legend"><view class="legend-dot"></view><text>调整</text></view></view>
+  <view wx:if="{{!grid.scheduledCount}}" class="empty-week-note">这一周还是空白，慢慢安排也很好。</view>
+  <view wx:if="{{grid.changes.length}}" class="week-changes">
+    <view class="changes-heading"><text>本周变更</text><text class="changes-count">{{grid.changes.length}} 条</text></view>
+    <view wx:for="{{grid.changes}}" wx:for-item="change" wx:key="id" class="change-row" data-id="{{change.id}}" bindtap="selectLesson" hover-class="{{disabled ? 'none' : 'change-pressed'}}" role="button" aria-label="{{change.name}}，{{change.status === 'leave' ? '请假' : '停课'}}，{{change.local_date}}，点击查看详情">
+      <text class="change-status {{change.status === 'leave' ? 'leave-status' : ''}}">{{change.status === 'leave' ? '请假' : '停课'}}</text>
+      <view class="change-copy"><text class="change-name">{{change.name}}</text><text class="change-time">{{change.local_date}} · {{change.start_time}}–{{change.end_time}}</text><text wx:if="{{change.note}}" class="change-note">{{change.note}}</text></view>
+      <text class="change-arrow">↗</text>
+    </view>
+  </view>
+</view>

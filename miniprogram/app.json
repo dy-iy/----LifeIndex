@@ -1,0 +1,36 @@
+{
+  "pages": [
+    "pages/index/index",
+    "pages/timetable/timetable",
+    "pages/review/review",
+    "pages/settings/settings",
+    "pages/timer/timer",
+    "pages/market/market"
+  ],
+  "window": {
+    "backgroundColor": "#f5f1e7",
+    "backgroundTextStyle": "dark",
+    "navigationBarBackgroundColor": "#f5f1e7",
+    "navigationBarTitleText": "三倍做多人生",
+    "navigationBarTextStyle": "black"
+  },
+  "tabBar": {
+    "custom": true,
+    "color": "#8b9182",
+    "selectedColor": "#234b3b",
+    "backgroundColor": "#f5f1e7",
+    "list": [
+      {
+        "pagePath": "pages/index/index",
+        "text": "首页"
+      },
+      {
+        "pagePath": "pages/settings/settings",
+        "text": "我的"
+      }
+    ]
+  },
+  "sitemapLocation": "sitemap.json",
+  "style": "v2",
+  "lazyCodeLoading": "requiredComponents"
+}

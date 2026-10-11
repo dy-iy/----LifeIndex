@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="200" viewBox="0 0 720 200">
+  <path d="M404 0H720V200H571Z" fill="#d7e5eb" opacity=".025"/>
+  <path d="M561 0H720V92H561Z" fill="#daeaf2" opacity=".03"/>
+  <g fill="none" stroke="#d9e9ef" stroke-width="1" opacity=".05">
+    <path d="M324 24H720M324 64H720M324 104H720M324 144H720M324 184H720"/>
+    <path d="M361 0V200M401 0V200M441 0V200M481 0V200M521 0V200M561 0V200M601 0V200M641 0V200M681 0V200"/>
+  </g>
+  <g fill="none" stroke="#dfeaf0" stroke-width="1.2" opacity=".085">
+    <path d="M324 144H401V104H481V64H561V24H641"/>
+    <path d="M521 200V184H601V144H681V104H720"/>
+  </g>
+  <g fill="#f2e3c2" opacity=".10">
+    <circle cx="401" cy="144" r="2.5"/><circle cx="481" cy="104" r="2.5"/>
+    <circle cx="561" cy="64" r="2.5"/><circle cx="641" cy="24" r="2.5"/>
+    <circle cx="601" cy="184" r="2.5"/><circle cx="681" cy="144" r="2.5"/>
+  </g>
+  <path d="M441 24H481V64H441Z" fill="#e0ebef" opacity=".035"/>
+  <path d="M641 104H681V144H641Z" fill="#e0ebef" opacity=".035"/>
+</svg>

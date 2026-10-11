@@ -1,0 +1,39 @@
+<page-meta page-style="{{reviewOpen ? 'overflow: hidden;' : ''}}"/>
+<view class="page class-page review-list-page">
+  <view class="page-title">课后复盘</view>
+  <view class="review-list-intro">留一点时间，回看这节课。</view>
+  <view class="review-list-tabs" role="tablist">
+    <button class="review-list-tab {{filter === 'pending' ? 'selected' : ''}}" role="tab" aria-selected="{{filter === 'pending'}}" data-filter="pending" bindtap="selectFilter">未复盘</button>
+    <button class="review-list-tab {{filter === 'submitted' ? 'selected' : ''}}" role="tab" aria-selected="{{filter === 'submitted'}}" data-filter="submitted" bindtap="selectFilter">已复盘</button>
+  </view>
+  <view wx:if="{{!loggedIn}}" class="review-list-empty">
+    <view class="empty-title">登录后查看复盘记录</view>
+    <view class="empty-copy">课程复盘记录会显示在这里。</view>
+    <button class="secondary-button" bindtap="goLogin">前往登录</button>
+  </view>
+  <block wx:else>
+    <view wx:if="{{error}}" class="review-list-error"><text>{{error}}</text><button class="review-list-retry" bindtap="reload" disabled="{{loading || loadingMore}}">重试</button></view>
+    <view wx:if="{{loading}}" class="review-list-status">{{records.length ? '正在更新记录…' : '正在读取记录…'}}</view>
+    <view wx:if="{{records.length}}" class="review-records">
+      <button wx:for="{{records}}" wx:key="id" class="review-record" data-id="{{item.id}}" data-owner="{{owner}}" bindtap="openReview" aria-label="{{item.name}}，{{item.date}}，{{filter === 'pending' ? '填写复盘' : '查看复盘'}}">
+        <view class="review-record-top"><view class="review-record-name">{{item.name}}</view><text class="review-record-status">{{item.statusLabel}}</text></view>
+        <view class="review-record-date">{{item.date}} · {{item.time}}</view>
+        <view class="review-record-bottom"><text class="review-record-duration">有效计时 {{item.duration}}</text><text class="review-record-action">{{filter === 'pending' ? '填写复盘' : '查看复盘'}} <text class="review-record-arrow">›</text></text></view>
+      </button>
+    </view>
+    <view wx:elif="{{loaded && !loading && !error}}" class="review-list-empty">
+      <view class="empty-title">{{filter === 'pending' ? '暂无未复盘记录' : '暂无已复盘记录'}}</view>
+      <view class="empty-copy">{{filter === 'pending' ? '待复盘的课程会显示在这里。' : '提交复盘后，可以在这里回看。'}}</view>
+    </view>
+    <button wx:if="{{nextCursor}}" class="review-list-more" bindtap="loadMore" loading="{{loadingMore}}" disabled="{{loading || loadingMore}}">{{loadingMore ? '正在加载…' : '加载更多记录'}}</button>
+  </block>
+  <view class="review-list-retention">只保留最近7天的记录</view>
+</view>
+<class-tab-bar selected="{{3}}" bind:select="switchClassTab"/>
+<view wx:if="{{reviewOpen}}" class="review-modal-mask">
+  <view class="review-modal-backdrop" catchtouchmove="stopReviewTouch"></view>
+  <view class="review-modal" role="dialog" aria-label="课后复盘">
+    <view class="review-modal-header" catchtouchmove="stopReviewTouch"><view class="review-modal-title">课后复盘</view><button class="review-modal-close" bindtap="requestCloseReview" aria-label="关闭复盘窗口">关闭 ✕</button></view>
+    <review-panel id="review-panel" class="review-modal-panel" session-id="{{reviewSessionId}}" visible="{{reviewVisible}}" bind:close="closeReview"/>
+  </view>
+</view>

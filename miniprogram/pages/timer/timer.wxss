@@ -1,0 +1,91 @@
+@import "../../class-theme.wxss";
+@import "../../review-window.wxss";
+
+.timer-page { padding-top: 30rpx; }
+.timer-heading { margin-top: 40rpx; text-align: center; }
+.timer-course { font-family: "Songti SC", serif; font-size: 42rpx; line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Use a tappable view so native button layout cannot clip the first caption paint. */
+.timer-page .dial { position: relative; display: block; width: 500rpx; height: 500rpx; max-width: 100%; padding: 0; margin: 14rpx auto 12rpx; border: 0; border-radius: 50%; background: transparent; color: #4b3824; opacity: 1; font-weight: 400; line-height: 1.4; overflow: visible; -webkit-tap-highlight-color: transparent; }
+.dial { transition: transform .18s ease; }
+.dial-pressed { transform: scale(.965); }
+.dial-tap-a { animation: dial-tap-a .52s ease-out; }
+.dial-tap-b { animation: dial-tap-b .52s ease-out; }
+.dial-tap-ripple { position: absolute; z-index: 2; left: 0; top: 0; width: 100%; height: 100%; border: 3rpx solid #d5ac55; border-radius: 50%; box-shadow: 0 0 20rpx rgba(226, 183, 82, .3), inset 0 0 12rpx rgba(255, 232, 158, .25); opacity: 0; transform: scale(.94); pointer-events: none; }
+.dial-tap-a .dial-tap-ripple { animation: dial-ripple-a .6s ease-out; }
+.dial-tap-b .dial-tap-ripple { animation: dial-ripple-b .6s ease-out; }
+@keyframes dial-tap-a { 0% { transform: scale(.98); } 24% { transform: scale(.965); } 60% { transform: scale(1.018); } 100% { transform: scale(1); } }
+@keyframes dial-tap-b { 0% { transform: scale(.98); } 24% { transform: scale(.965); } 60% { transform: scale(1.018); } 100% { transform: scale(1); } }
+@keyframes dial-ripple-a { 0% { opacity: .75; transform: scale(.94); } 35% { opacity: .5; } 100% { opacity: 0; transform: scale(1.15); } }
+@keyframes dial-ripple-b { 0% { opacity: .75; transform: scale(.94); } 35% { opacity: .5; } 100% { opacity: 0; transform: scale(1.15); } }
+.dial-ticks { position: absolute; left: 0; top: 0; width: 500rpx; height: 500rpx; border: 1rpx solid #dbc69b; border-radius: 50%; background: #f1e6ce; box-shadow: 0 18rpx 42rpx rgba(151, 115, 55, .12), inset 0 0 0 8rpx rgba(255, 253, 244, .45); }
+.dial-tick { position: absolute; top: 0; left: 248rpx; width: 2rpx; height: 498rpx; }
+.dial-tick::before { content: ""; display: block; width: 2rpx; height: 8rpx; background: #c6ac78; }
+.dial-tick-major::before { height: 14rpx; background: #a78242; }
+.dial-track, .dial-ring, .dial-pointer { position: absolute; left: 20rpx; top: 20rpx; width: 460rpx; height: 460rpx; border-radius: 50%; }
+.dial-track { border: 4rpx solid #e1d0aa; }
+.dial-ring { color: #b88a3f; }
+/* Clipped semicircles preserve accurate progress at 0%, 50% and 100%. */
+.ring-half { position: absolute; left: 0; top: 0; width: 460rpx; height: 460rpx; clip: rect(0, 460rpx, 460rpx, 230rpx); }
+.ring-half-left { transform: rotate(180deg); }
+.ring-fill { position: absolute; left: 0; top: 0; width: 460rpx; height: 460rpx; border: 4rpx solid currentColor; border-radius: 50%; clip: rect(0, 230rpx, 460rpx, 0); }
+.dial-pointer-dot { position: absolute; left: 219rpx; top: -9rpx; width: 22rpx; height: 22rpx; border: 4rpx solid #fff9eb; border-radius: 50%; background: #bb8d41; box-shadow: 0 0 0 1rpx #c4a05d, 0 0 18rpx rgba(192, 149, 72, .2); }
+.dial-face { overflow: hidden; position: absolute; left: 36rpx; top: 36rpx; width: 428rpx; height: 428rpx; border: 2rpx solid #fffdf6; border-radius: 50%; background: radial-gradient(circle at 34% 24%, #fffdf5 0%, #fbf4de 48%, #eee1bf 100%); box-shadow: inset 0 0 0 8rpx rgba(255, 253, 244, .5); pointer-events: none; }
+/* The full-size SVG stays behind the text and is clipped to the circular face. */
+.dial-art { position: absolute; left: 0; top: 0; width: 100%; height: 100%; }
+/* Native CSS animates the decoration; no timer state updates are needed. */
+/* Embedded alpha mask: assets/art/timer-leaf-mask.svg. */
+.dial-gold-mask { -webkit-mask-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MjgiIGhlaWdodD0iNDI4IiB2aWV3Qm94PSIwIDAgNDI4IDQyOCI+CiAgPHBhdGggZmlsbD0iI2ZmZiIgZD0iTTE1OSAyOTBDMTA3IDI5OCA2NSAyNzEgNjEgMjIwQzExNiAyMTQgMTU4IDI0MiAxNTkgMjkwWiBNMTcyIDI1OUMxODAgMjA5IDIyNCAxODEgMjgyIDE5MEMyNzAgMjQxIDIyNiAyNzMgMTcyIDI1OVogTTE5OCAyMDVDMTQ5IDIwNyAxMDkgMTcwIDExNyAxMjBDMTY4IDEyNiAyMDQgMTU4IDE5OCAyMDVaIE0yMTkgMTcxQzIyNyAxMjEgMjc1IDk5IDMyNyAxMTBDMzA1IDE2MSAyNjQgMTgyIDIxOSAxNzFaIE0yNDggMTIzQzIxOCA5NyAyMzEgNTcgMjY5IDM3QzI4NyA3MiAyODAgMTAzIDI0OCAxMjNaIE0xMzIgMzI5QzE1OCAyOTMgMjA0IDI5MCAyMzkgMzExQzIwNyAzNDUgMTYzIDM1MyAxMzIgMzI5WiIvPgogIDxwYXRoIGQ9Ik05NCAzNzVDMTUxIDMxNyAxNjIgMjcwIDE5MCAyMTlDMjE0IDE3NiAyMzAgMTQ0IDI1MCAxMTJDMjU4IDk2IDI2NCA3NyAyNjYgNTciIGZpbGw9Im5vbmUiIHN0cm9rZT0iI2ZmZiIgc3Ryb2tlLXdpZHRoPSIyLjUiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPgo8L3N2Zz4K"); mask-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MjgiIGhlaWdodD0iNDI4IiB2aWV3Qm94PSIwIDAgNDI4IDQyOCI+CiAgPHBhdGggZmlsbD0iI2ZmZiIgZD0iTTE1OSAyOTBDMTA3IDI5OCA2NSAyNzEgNjEgMjIwQzExNiAyMTQgMTU4IDI0MiAxNTkgMjkwWiBNMTcyIDI1OUMxODAgMjA5IDIyNCAxODEgMjgyIDE5MEMyNzAgMjQxIDIyNiAyNzMgMTcyIDI1OVogTTE5OCAyMDVDMTQ5IDIwNyAxMDkgMTcwIDExNyAxMjBDMTY4IDEyNiAyMDQgMTU4IDE5OCAyMDVaIE0yMTkgMTcxQzIyNyAxMjEgMjc1IDk5IDMyNyAxMTBDMzA1IDE2MSAyNjQgMTgyIDIxOSAxNzFaIE0yNDggMTIzQzIxOCA5NyAyMzEgNTcgMjY5IDM3QzI4NyA3MiAyODAgMTAzIDI0OCAxMjNaIE0xMzIgMzI5QzE1OCAyOTMgMjA0IDI5MCAyMzkgMzExQzIwNyAzNDUgMTYzIDM1MyAxMzIgMzI5WiIvPgogIDxwYXRoIGQ9Ik05NCAzNzVDMTUxIDMxNyAxNjIgMjcwIDE5MCAyMTlDMjE0IDE3NiAyMzAgMTQ0IDI1MCAxMTJDMjU4IDk2IDI2NCA3NyAyNjYgNTciIGZpbGw9Im5vbmUiIHN0cm9rZT0iI2ZmZiIgc3Ryb2tlLXdpZHRoPSIyLjUiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPgo8L3N2Zz4K"); }
+.dial-gold-mask { display: none; overflow: hidden; position: absolute; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; -webkit-mask-size: 100% 100%; mask-size: 100% 100%; -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; }
+@supports ((-webkit-mask-image: linear-gradient(#fff, #fff)) or (mask-image: linear-gradient(#fff, #fff))) { .dial-gold-mask { display: block; } }
+.dial-gold-flow { position: absolute; left: -100%; top: -100%; width: 300%; height: 300%; background-image: linear-gradient(135deg, transparent 34%, rgba(159, 100, 12, .12) 40%, rgba(255, 229, 138, .32) 45%, rgba(255, 253, 218, .95) 49%, rgba(255, 246, 185, .82) 51%, rgba(233, 176, 56, .22) 56%, transparent 62%); animation: gold-leaf-flow 5.6s ease-in-out infinite; }
+.dial-gold-dust { position: absolute; left: -10%; top: -10%; width: 120%; height: 120%; background-image: radial-gradient(circle, #fffde3 0, #fff3b5 .9rpx, transparent 1.8rpx), radial-gradient(circle, #fff9d1 0, #f6d878 .7rpx, transparent 1.5rpx), radial-gradient(circle, #a7751d 0, rgba(180, 128, 29, .5) .6rpx, transparent 1.3rpx); background-size: 17rpx 23rpx, 29rpx 19rpx, 13rpx 31rpx; background-position: 0 0, 9rpx 5rpx, 3rpx 14rpx; opacity: .58; animation: gold-dust-drift 7.2s linear infinite alternate; }
+.dial-gold-glint { position: absolute; width: 18rpx; height: 18rpx; opacity: 0; transform: scale(.35) rotate(0deg); animation: gold-glint 4.6s ease-in-out infinite; }
+.dial-gold-glint::before, .dial-gold-glint::after { content: ""; position: absolute; border-radius: 50%; background: #fffce5; box-shadow: 0 0 6rpx rgba(255, 233, 135, .9); }
+.dial-gold-glint::before { left: 43%; top: 0; width: 14%; height: 100%; }
+.dial-gold-glint::after { left: 0; top: 43%; width: 100%; height: 14%; }
+.glint-tip { left: 59%; top: 15%; width: 22rpx; height: 22rpx; animation-delay: -.8s; }
+.glint-right { left: 68%; top: 28%; animation-delay: -2.2s; }
+.glint-left { left: 22%; top: 57%; width: 15rpx; height: 15rpx; animation-delay: -3.6s; }
+.glint-low { left: 46%; top: 74%; width: 13rpx; height: 13rpx; animation-delay: -1.5s; }
+.glint-mid { left: 35%; top: 36%; width: 12rpx; height: 12rpx; animation-delay: -4.1s; }
+@keyframes gold-leaf-flow { 0% { transform: translate(-28%, -28%); opacity: 0; } 12% { opacity: .85; } 75% { opacity: .85; } 90%, 100% { transform: translate(28%, 28%); opacity: 0; } }
+@keyframes gold-dust-drift { 0% { transform: translate(0, 0); opacity: .4; } 50% { opacity: .8; } 100% { transform: translate(17rpx, -23rpx); opacity: .4; } }
+@keyframes gold-glint { 0%, 38%, 100% { opacity: 0; transform: scale(.35) rotate(0deg); } 48% { opacity: 1; transform: scale(1.08) rotate(12deg); } 60% { opacity: .25; transform: scale(.65) rotate(24deg); } 68% { opacity: 0; transform: scale(.35) rotate(30deg); } }
+@media (prefers-reduced-motion: reduce) { .dial-gold-flow, .dial-gold-dust, .dial-gold-glint { animation: none; } .dial-gold-flow { opacity: 0; } .dial-gold-dust { opacity: .45; } .dial-gold-glint { opacity: .55; transform: scale(.65); } }
+@media (prefers-reduced-motion: reduce) { .dial { transition: none; } .dial-pressed { transform: none; } .dial-tap-a, .dial-tap-b { animation: none; } .dial-tap-a .dial-tap-ripple, .dial-tap-b .dial-tap-ripple { animation: none; opacity: .5; transform: scale(1); } }
+.dial-center { position: absolute; z-index: 3; left: 42rpx; right: 42rpx; top: 151rpx; display: block; text-align: center; pointer-events: none; }
+.dial-label { color: #7b603a; font-size: 21rpx; letter-spacing: 4rpx; }
+.dial-time { margin-top: 10rpx; color: #4b3824; font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif; font-size: 101rpx; line-height: 1.18; letter-spacing: -4rpx; font-weight: 500; font-variant-numeric: tabular-nums; white-space: nowrap; text-shadow: 0 2rpx 12rpx rgba(255, 253, 245, .7); }
+.dial-time-long { font-size: 74rpx; line-height: 1.61; letter-spacing: -2rpx; }
+.dial-idle .dial-time { color: #6b5536; }
+/* Both the pill and its text view have explicit widths from their first paint. */
+.dial-caption { display: block; box-sizing: border-box; width: 300rpx; min-height: 48rpx; max-width: 100%; margin: 18rpx auto 0; padding: 8rpx 18rpx; overflow: visible; text-align: center; color: #79603c; border: 1rpx solid #d5bc8c; border-radius: 40rpx; background: rgba(255, 250, 236, .94); font-size: 19rpx; line-height: 1.45; letter-spacing: .5rpx; }
+.dial-caption-text { display: block; box-sizing: border-box; width: 100%; overflow: visible; white-space: normal; overflow-wrap: break-word; }
+.dial-action { border-color: #bc9854; color: #624724; background: #ebd8ad; box-shadow: 0 4rpx 12rpx rgba(151, 115, 55, .1); }
+.caption-play::before, .caption-stop::before { content: ""; display: inline-block; vertical-align: middle; margin-right: 10rpx; }
+.caption-play::before { width: 0; height: 0; border-top: 7rpx solid transparent; border-bottom: 7rpx solid transparent; border-left: 10rpx solid #98702f; }
+.caption-stop::before { width: 12rpx; height: 12rpx; border-radius: 3rpx; background: #98702f; }
+.dial-paused .dial-ring { color: #d7a187; }
+.dial-paused .dial-pointer-dot { background: #d7a187; }
+
+.timer-summary { display: flex; justify-content: center; align-items: center; gap: 54rpx; margin-top: 6rpx; }
+.timer-summary > view { text-align: center; }
+.summary-label { display: block; font-size: 21rpx; color: #8a9189; margin-bottom: 8rpx; }
+.summary-value { font-size: 36rpx; font-variant-numeric: tabular-nums; }
+.summary-unit { font-size: 20rpx; color: #8a9189; }
+.summary-divider { height: 44rpx; width: 1rpx; background: #dcded4; }
+.timer-progress { height: 5rpx; margin: 28rpx 50rpx 32rpx; background: #e4e6dc; border-radius: 10rpx; overflow: hidden; }
+.timer-progress > view { height: 100%; border-radius: 10rpx; background: #98ad94; transition: width .3s ease; }
+.timer-hints { padding: 0 30rpx; }
+.timing-hint { color: #a17c57; font-size: 22rpx; line-height: 1.7; text-align: center; margin-top: 20rpx; }
+.sync-copy { font-size: 22rpx; color: #8a9189; padding: 20rpx 0 0; text-align: center; }
+.timer-error { margin-top: 24rpx; color: #ae654c; padding: 20rpx 24rpx; border: 1rpx solid #ecd6c5; background: #fff6ee; border-radius: 18rpx; font-size: 23rpx; line-height: 1.7; overflow-wrap: anywhere; }
+.timer-error .text-button { color: #ae654c; padding-bottom: 0; }
+.pending-note { margin-top: 24rpx; padding: 24rpx; background: #fbf1da; border: 1rpx solid #e8d7b2; border-radius: 18rpx; color: #8a7147; font-size: 25rpx; line-height: 1.7; }
+.pending-note text { display: block; font-size: 22rpx; margin-top: 10rpx; }
+.timer-empty { text-align: center; padding: 36rpx 20rpx; }
+.empty-dial { width: 360rpx; height: 360rpx; opacity: .8; margin-bottom: 20rpx; }
+.timer-empty .primary-button { margin-top: 35rpx; }
+
+.timer-dial-state { margin-top: 24rpx; text-align: center; color: #386c50; font-size: 28rpx; line-height: 1.5; }
+.timer-finalize { margin: 0 auto 20rpx; text-align: center; }

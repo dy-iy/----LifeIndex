@@ -1,0 +1,22 @@
+<view class="page tab-page home-page">
+  <view class="masthead">
+    <image class="masthead-market" src="{{headerMarket}}" mode="aspectFit" aria-hidden="true"/>
+    <image class="brand-wordmark" src="{{brandWordmark}}" mode="aspectFit" role="img" aria-label="Lifefund"/>
+    <view class="edition" bindtap="openSettings" hover-class="edition-pressed" role="button" aria-label="个人设置">{{loggedIn ? '我的账户 ↗' : '登录 ↗'}}</view>
+    <view class="masthead-footer">
+      <text class="brand-caption">三倍做多人生</text>
+    </view>
+  </view>
+  <view class="index-list">
+    <view wx:for="{{entries}}" wx:key="id" class="index-card index-card-{{item.id}}" bindtap="openIndex" data-id="{{item.id}}" hover-class="index-card-pressed" hover-start-time="20" hover-stay-time="80" role="button" aria-label="{{item.name}}">
+      <image src="{{item.surface}}" class="index-surface" mode="scaleToFill" aria-hidden="true"/>
+      <view class="index-copy">
+        <view class="index-name">{{item.name}}</view>
+        <view class="index-price"><text class="index-value serif">{{item.points === null ? '—' : item.points}}</text><text class="index-unit">点</text></view>
+        <view class="index-change {{item.direction}}">{{item.id === 'class' ? item.change ? '今日 ' + item.change : loggedIn ? '点击查看行情' : '登录后查看' : '筹备中'}}</view>
+      </view>
+      <image src="{{item.art}}" class="index-art" mode="aspectFit" aria-hidden="true"/>
+    </view>
+  </view>
+  <view wx:if="{{indexError}}" class="home-index-error" bindtap="onShow">{{indexError}}　点击重试</view>
+</view>

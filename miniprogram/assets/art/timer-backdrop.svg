@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="428" height="428" viewBox="0 0 428 428" fill="none">
+  <defs>
+    <linearGradient id="leaf" x1="75" y1="290" x2="307" y2="88" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#b88122" stop-opacity=".72"/>
+      <stop offset=".18" stop-color="#efd27a" stop-opacity=".76"/>
+      <stop offset=".34" stop-color="#c9952c" stop-opacity=".7"/>
+      <stop offset=".49" stop-color="#f8df8d" stop-opacity=".78"/>
+      <stop offset=".58" stop-color="#d6a438" stop-opacity=".74"/>
+      <stop offset=".76" stop-color="#fff0b1" stop-opacity=".86"/>
+      <stop offset="1" stop-color="#bb841c" stop-opacity=".88"/>
+    </linearGradient>
+    <clipPath id="leaf-clip">
+      <path d="M159 290C107 298 65 271 61 220C116 214 158 242 159 290Z M172 259C180 209 224 181 282 190C270 241 226 273 172 259Z M198 205C149 207 109 170 117 120C168 126 204 158 198 205Z M219 171C227 121 275 99 327 110C305 161 264 182 219 171Z M248 123C218 97 231 57 269 37C287 72 280 103 248 123Z M132 329C158 293 204 290 239 311C207 345 163 353 132 329Z"/>
+    </clipPath>
+    <pattern id="gold-grain" width="29" height="31" patternUnits="userSpaceOnUse">
+      <g fill="#fff8cf">
+        <circle cx="3" cy="5" r=".7"/><circle cx="17" cy="3" r=".45"/><circle cx="25" cy="10" r=".8"/>
+        <circle cx="10" cy="13" r=".6"/><circle cx="20" cy="21" r=".55"/><circle cx="5" cy="26" r=".9"/>
+        <path d="M15 25L15.8 27L18 27.5L15.8 28L15 30L14.2 28L12 27.5L14.2 27Z" opacity=".8"/>
+      </g>
+      <g fill="#946415" opacity=".44"><circle cx="7" cy="8" r=".45"/><circle cx="22" cy="6" r=".6"/><circle cx="14" cy="19" r=".5"/><circle cx="27" cy="27" r=".5"/></g>
+    </pattern>
+    <linearGradient id="stem" x1="95" y1="363" x2="299" y2="60" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#a87927" stop-opacity=".6"/>
+      <stop offset="1" stop-color="#a87927" stop-opacity=".95"/>
+    </linearGradient>
+  </defs>
+  <g stroke="#b68d40" stroke-opacity=".18" stroke-linecap="round">
+    <path d="M62 171C79 97 139 54 202 48M267 370C330 349 369 292 377 232"/>
+    <path d="M69 185C65 242 91 310 143 346" stroke-dasharray="1 9"/>
+  </g>
+  <g fill="url(#leaf)" stroke="#af802b" stroke-opacity=".7" stroke-width="1.8" stroke-linejoin="round">
+    <path d="M159 290C107 298 65 271 61 220C116 214 158 242 159 290Z"/>
+    <path d="M172 259C180 209 224 181 282 190C270 241 226 273 172 259Z"/>
+    <path d="M198 205C149 207 109 170 117 120C168 126 204 158 198 205Z"/>
+    <path d="M219 171C227 121 275 99 327 110C305 161 264 182 219 171Z"/>
+    <path d="M248 123C218 97 231 57 269 37C287 72 280 103 248 123Z"/>
+    <path d="M132 329C158 293 204 290 239 311C207 345 163 353 132 329Z"/>
+  </g>
+  <g clip-path="url(#leaf-clip)"><path d="M55 30H335V350H55Z" fill="url(#gold-grain)" opacity=".85"/></g>
+  <g stroke="url(#stem)" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M94 375C151 317 162 270 190 219C214 176 230 144 250 112C258 96 264 77 266 57" stroke-width="2.5"/>
+    <path d="M158 289C130 275 107 254 80 232M173 258C206 238 235 216 261 205M198 205C172 184 146 153 131 136M220 171C248 151 278 130 306 121M132 329C161 327 193 321 216 315" stroke-width="1.3"/>
+  </g>
+  <g stroke="#a97b29" stroke-opacity=".46" stroke-linecap="round">
+    <path d="M106 254L99 232M124 268L123 237M142 280L145 263M197 243L203 220M218 228L243 230M172 179L174 155M153 159L133 154M244 153L253 130M272 136L288 143M158 327L175 337M185 322L195 308"/>
+  </g>
+  <g fill="#b68a35">
+    <circle cx="84" cy="139" r="2.5" opacity=".48"/>
+    <circle cx="305" cy="280" r="3" opacity=".45"/>
+    <circle cx="293" cy="330" r="1.7" opacity=".35"/>
+    <circle cx="175" cy="79" r="1.6" opacity=".35"/>
+  </g>
+  <g stroke="#b68a35" stroke-opacity=".58" stroke-width="1.4" stroke-linecap="round">
+    <path d="M334 211V223M328 217H340M112 97V105M108 101H116"/>
+  </g>
+</svg>

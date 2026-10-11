@@ -1,0 +1,66 @@
+<view class="assistant-overlay" style="bottom: {{keyboardHeight}}px;">
+  <view class="assistant-backdrop" catchtap="closeAssistant" catchtouchmove="noop"></view>
+  <view class="assistant-dialog {{!loggedIn ? 'guest-dialog' : ''}} {{keyboardHeight ? 'keyboard-open' : ''}}" role="dialog" aria-modal="true" aria-label="课表Agent" catchtap="noop">
+    <view class="assistant-header" catchtouchmove="noop">
+      <view><view class="eyebrow">让安排跟上生活</view><view class="assistant-title">课表Agent</view></view>
+      <button class="assistant-close" bindtap="closeAssistant" aria-label="关闭课表Agent">×</button>
+    </view>
+    <view wx:if="{{loggedIn}}" class="conversation-toolbar" catchtouchmove="noop">
+      <picker class="{{(busy || uploading || pending || loading) ? 'picker-disabled' : ''}}" wx:if="{{threads.length}}" range="{{threads}}" range-key="title" value="{{threadIndex}}" disabled="{{busy || uploading || pending || loading}}" bindchange="selectThread"><view class="picker-trigger conversation-title"><text class="picker-value">{{thread.title || '历史对话'}}</text><view class="picker-chevron" aria-hidden="true"></view></view></picker>
+      <view wx:else class="conversation-title">新的安排</view>
+      <button class="text-button" disabled="{{busy || uploading || pending || loading}}" bindtap="newThread">＋ 新对话</button>
+    </view>
+    <view class="assistant-body">
+      <scroll-view class="assistant-scroll" scroll-y="{{true}}" scroll-into-view="{{scrollTarget}}" enhanced="{{true}}" show-scrollbar="{{false}}">
+        <view class="conversation-content">
+          <view wx:if="{{!loggedIn}}" class="welcome-card">
+            <view class="empty-title">从你的这一个学期开始</view>
+            <view class="empty-copy">微信登录后，就能识别课表截图、保存对话，安排假期和临时调课。</view>
+            <button class="primary-button login-button" bindtap="goLogin">去「我的」登录</button>
+          </view>
+          <block wx:else>
+            <view wx:if="{{loading}}" class="small muted loading">正在恢复对话…</view>
+            <view wx:if="{{error}}" class="error-panel"><text class="error" selectable="{{true}}">{{error}}</text></view>
+            <view wx:if="{{!messages.length && !loading}}" class="welcome-card">
+              <view class="empty-title">从一张课表开始</view>
+              <view class="empty-copy">上传课表截图，告诉我学期日期。假期、调休和临时改课，也可以在这里安排。</view>
+              <view class="example">试着说：“下周二的高数改到周四 14:00，教室不变。”</view>
+              <view class="small muted">有不清楚的地方，我会先向你确认。</view>
+            </view>
+            <view wx:if="{{thread.has_more_messages}}" class="small muted">当前显示最近 50 轮对话。</view>
+            <view wx:for="{{messages}}" wx:key="id" class="message {{item.isUser ? 'message-user' : 'message-assistant'}}">
+              <text class="message-role">{{item.isUser ? '你' : '课表Agent'}}</text>
+              <text wx:if="{{item.text}}" class="message-content" selectable="{{true}}">{{item.displayText}}</text>
+              <button wx:if="{{item.expandable}}" class="text-button expand-button" data-id="{{item.id}}" bindtap="toggleMessage">{{item.expanded ? '收起' : '展开全文'}}</button>
+              <text wx:if="{{item.image_count}}" class="image-count">附 {{item.image_count}} 张课表图片</text>
+            </view>
+            <view wx:if="{{reply}}" class="message message-assistant"><text class="message-role">课表Agent</text><text class="message-content" selectable="{{true}}">{{replyText}}</text><button wx:if="{{replyExpandable}}" class="text-button expand-button" bindtap="toggleReply">{{replyExpanded ? '收起' : '展开全文'}}</button></view>
+            <view wx:if="{{statusText}}" class="run-status {{processing ? 'working' : ''}}"><view wx:if="{{processing}}" class="working-dot"></view><text>{{statusText}}</text></view>
+            <text wx:if="{{runError}}" class="error run-error" selectable="{{true}}">{{runError}}</text>
+            <view wx:if="{{canConfirm && detailsExpanded}}" class="preview-card" id="preview-details">
+              <view class="section-title">变更详情 · 共 {{changeCount}} 项</view>
+              <view class="small muted preview-help">每页最多 20 项，可查看每次课程的具体日期。</view>
+              <view wx:for="{{changes}}" wx:key="index" class="change-row"><view class="change-title">{{item.index + 1}}. {{item.title}}</view><view class="change-label">修改前</view><text class="change-value before" selectable="{{true}}">{{item.before}}</text><view class="change-label">修改后</view><text class="change-value" selectable="{{true}}">{{item.after}}</text></view>
+              <view wx:if="{{!changes.length}}" class="small muted">当前没有需要写入的变更。</view>
+              <view wx:if="{{detailPages > 1}}" class="detail-pagination"><button class="text-button" disabled="{{detailPage === 0}}" data-direction="-1" bindtap="changeDetailPage">上一页</button><text>{{detailPage + 1}} / {{detailPages}}</text><button class="text-button" disabled="{{detailPage + 1 >= detailPages}}" data-direction="1" bindtap="changeDetailPage">下一页</button></view>
+            </view>
+            <button wx:if="{{canRetry}}" class="secondary-button retry-button" disabled="{{busy || loading || uploading || pending || needsReload}}" bindtap="retryRun">重试本次处理</button>
+            <view class="refresh-row"><button class="text-button" disabled="{{loading || busy || uploading}}" bindtap="reload">重新读取</button></view>
+          </block>
+        </view>
+      </scroll-view>
+    </view>
+    <view wx:if="{{loggedIn && canConfirm}}" class="confirmation-bar" catchtouchmove="noop">
+      <view class="confirmation-heading"><text>待确认安排</text><button class="text-button" bindtap="toggleDetails">{{detailsExpanded ? '收起详情' : '查看详情'}}</button></view>
+      <text class="preview-summary">{{previewSummary}}</text>
+      <text wx:if="{{previewWarning}}" class="preview-warning">{{previewWarning}}</text>
+      <view class="confirmation-actions"><button class="text-button" disabled="{{busy || loading || uploading || pending || needsReload}}" data-decision="cancel" bindtap="decide">取消</button><button class="primary-button" disabled="{{busy || loading || uploading || pending || needsReload}}" data-decision="apply" bindtap="decide">确认并更新课表</button></view>
+    </view>
+    <view wx:if="{{loggedIn}}" class="composer {{canConfirm ? 'compact-composer' : ''}}" catchtouchmove="noop">
+      <textarea class="message-input" value="{{text}}" bindinput="inputText" bindkeyboardheightchange="onKeyboardHeightChange" fixed="{{true}}" adjust-position="{{false}}" maxlength="4000" disabled="{{busy || pending}}" placeholder="{{canConfirm ? '回复“确认”，或说明需要修改的地方…' : '告诉我你的课程安排…'}}" aria-label="告诉我你的课程安排"/>
+      <view wx:if="{{images.length}}" class="attachments"><view wx:for="{{images}}" wx:key="id" class="attachment"><image src="{{item.path}}" mode="aspectFill" data-index="{{index}}" bindtap="previewImage"/><button class="remove-image" disabled="{{busy || pending || uploading}}" data-index="{{index}}" bindtap="removeImage" aria-label="移除第 {{index + 1}} 张图片">×</button></view></view>
+      <view class="composer-tools"><button class="text-button image-button" disabled="{{busy || loading || uploading || processing || pending || images.length >= 3}}" bindtap="chooseImages">{{uploading ? '正在上传…' : '＋ 课表截图'}}</button><text class="small muted">{{images.length}}/3 张 · 每张 ≤ 2 MB</text></view>
+      <button class="primary-button send-button" loading="{{busy}}" disabled="{{busy || loading || uploading || processing || pending || needsReload || (!text && !images.length)}}" bindtap="send">{{processing ? '正在处理，请稍候' : pending ? '请先恢复处理状态' : '发送给课表Agent'}}</button>
+    </view>
+  </view>
+</view>

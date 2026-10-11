@@ -1,0 +1,9 @@
+<view class="class-nav">
+  <view class="class-nav-inner">
+    <view wx:for="{{tabs}}" wx:key="path" class="class-nav-item {{selected === index ? 'class-nav-active' : ''}}" data-index="{{index}}" bindtap="onSelect" role="button" aria-label="{{item.text}}">
+      <image class="class-nav-icon" src="{{selected === index ? item.activeIcon : item.icon}}" />
+      <text>{{item.text}}</text>
+      <view wx:if="{{selected === index}}" class="class-nav-dot"></view>
+    </view>
+  </view>
+</view>

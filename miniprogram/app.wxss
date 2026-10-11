@@ -1,0 +1,30 @@
+@import "picker-controls.wxss";
+
+page { background: #f5f1e7; color: #234b3b; font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; font-size: 28rpx; }
+view, button, input, textarea { box-sizing: border-box; }
+button { font-size: 28rpx; font-weight: 500; border-radius: 0; }
+button::after { border: none; }
+button[disabled] { color: #93998b; background: #e5e6da; }
+.page { padding: 28rpx 36rpx 76rpx; }
+.tab-page, .class-page { padding-bottom: calc(170rpx + env(safe-area-inset-bottom)); }
+.eyebrow { display: block; color: #7e8976; font-size: 19rpx; letter-spacing: 4rpx; font-weight: 600; }
+.serif { font-family: "Baskerville", "Georgia", "Songti SC", "STSong", serif; }
+.page-title { font-family: "Songti SC", "STSong", serif; font-size: 57rpx; line-height: 1.3; font-weight: 500; letter-spacing: 1rpx; }
+.section-head { display: flex; align-items: center; justify-content: space-between; margin: 40rpx 0 22rpx; }
+.section-title { font-size: 31rpx; font-weight: 600; }
+.section-link { color: #87917e; font-size: 24rpx; padding: 10rpx 0 10rpx 20rpx; }
+.muted { color: #88917f; }
+.small { font-size: 23rpx; line-height: 1.7; }
+.prototype-note { display: flex; align-items: center; gap: 12rpx; padding: 17rpx 0; color: #8b8f7d; font-size: 21rpx; line-height: 1.6; border-bottom: 1rpx solid #dedfcf; }
+.prototype-dot { width: 8rpx; height: 8rpx; border-radius: 50%; background: #c66a4d; flex-shrink: 0; }
+.primary-button { width: 100%; margin: 0; padding: 26rpx 30rpx; line-height: 1.3; color: #fffaf0; background: #234b3b; border-radius: 100rpx; font-size: 28rpx; }
+.secondary-button { width: 100%; margin: 0; padding: 25rpx 28rpx; line-height: 1.3; color: #234b3b; border: 1rpx solid #bac2ad; background: transparent; border-radius: 100rpx; }
+.text-button { background: transparent; color: #6f806b; font-size: 25rpx; padding: 16rpx; line-height: 1.5; }
+.pill { display: inline-block; padding: 7rpx 17rpx; font-size: 20rpx; line-height: 1.3; border: 1rpx solid #c4c8b4; border-radius: 100rpx; color: #7b856f; }
+.empty-title { font-size: 33rpx; font-family: "Songti SC", "STSong", serif; margin-bottom: 16rpx; }
+.empty-copy { color: #8a917f; font-size: 24rpx; line-height: 1.8; }
+.field-label { display: block; margin: 28rpx 0 13rpx; font-size: 25rpx; color: #6d7c66; }
+.field-input { width: 100%; height: 88rpx; padding: 0 24rpx; background: #fffaf1; border: 1rpx solid #dcded0; border-radius: 15rpx; font-size: 28rpx; color: #234b3b; }
+.error { color: #b4533a; font-size: 24rpx; line-height: 1.7; margin: 20rpx 0; }
+.rule-note { color: #8b917f; font-size: 22rpx; line-height: 1.8; padding: 24rpx 2rpx; }
+.row-between { display: flex; align-items: center; justify-content: space-between; }

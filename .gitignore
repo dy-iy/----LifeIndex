@@ -1,0 +1,124 @@
+# 本地环境配置与密钥（保留配置示例）
+.env
+.env.*
+!.env.example
+!.env.*.example
+!.env.sample
+!.env.template
+.envrc
+*.key
+*.pem
+*.p12
+*.pfx
+.aws/
+.ssh/
+.netrc
+.pypirc
+.npmrc
+
+# 当前实例配置仅保存在本地；公开仓库使用对应的 example 文件
+/project.config.json
+/miniprogram/config/backend.js
+/backend/deploy/nginx/lifefund-api.conf
+/backend/deploy/systemd/lifefund-api.service
+
+# 内部设计、部署历史、个人反馈与原始截图
+# 对外使用说明集中在根目录 README.md，以下本地资料不上传
+/第一版计划书.md
+/功能接口与架构审查.md
+/指数涨跌逻辑.md
+/体验记录/
+/backend/README.md
+/backend/agents/README.md
+/backend/agents/ENGINEERING.md
+/backend/agents/reports/
+/*.jpg
+/*.jpeg
+/*.png
+/*.webp
+/*.heic
+
+# 本地工具状态
+/.codex/
+/.agents/
+
+# Python 虚拟环境、缓存与打包产物
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+*.egg-info/
+.eggs/
+.mypy_cache/
+.ruff_cache/
+.pytype/
+.tox/
+.nox/
+
+# Node.js 依赖、微信开发者工具本地配置与构建产物
+node_modules/
+miniprogram_npm/
+project.private.config.json
+dist/
+build/
+*.tsbuildinfo
+
+# 测试代码、验收样例与测试报告
+/tests/
+/backend/tests/
+/backend/scripts/*_benchmark.py
+/backend/scripts/check_agent_release.py
+.pytest_cache/
+.coverage
+.coverage.*
+coverage/
+htmlcov/
+coverage.xml
+nosetests.xml
+test-results/
+playwright-report/
+.nyc_output/
+
+# 日志、临时文件与编辑器恢复文件
+*.log
+*.log.*
+*.pid
+*.pid.lock
+logs/
+tmp/
+temp/
+.tmp/
+.temp/
+.cache/
+*.tmp
+*.temp
+*.bak
+*.orig
+*.rej
+*.swp
+*.swo
+*~
+
+# 本地数据库备份
+backups/
+*.dump
+*.dump.*
+*.backup
+*.sql.gz
+*.sql.zip
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.sqlite3-*
+
+# 操作系统与 IDE 本地文件
+.DS_Store
+._*
+Thumbs.db
+Desktop.ini
+.idea/
+.vscode/

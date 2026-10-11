@@ -1,0 +1,66 @@
+<page-meta page-style="{{reviewOpen ? 'overflow: hidden;' : ''}}"/>
+<view class="page class-page timer-page">
+  <view class="timer-header"><view class="page-title">上课计时</view></view>
+  <view wx:if="{{!loggedIn}}" class="timer-empty"><image class="empty-dial" src="{{art.dial}}" mode="aspectFit"/><view class="empty-title">登录后开始计时</view><view class="empty-copy">登录后，自动识别课表中的当前课程。计时记录会保存在个人账户中。</view><button class="primary-button" bindtap="goLogin">去「我的」登录</button></view>
+  <block wx:else>
+    <view wx:if="{{error}}" class="timer-error"><view>{{error}}</view><button class="text-button" disabled="{{loading || busy}}" bindtap="reload">重新同步</button></view>
+    <view wx:if="{{lessonError}}" class="timer-error"><view>{{lessonError}}</view><button class="text-button" disabled="{{loading || busy}}" bindtap="reload">重新同步课程</button></view>
+    <view wx:if="{{finishNotice}}" class="pending-note">{{finishNotice}}</view>
+    <view wx:if="{{loading}}" class="sync-copy">正在同步课程与计时…</view>
+    <view wx:if="{{pendingFinish}}" class="pending-note"><view>已结束，待同步</view><text>点击时间已保存在本机，显示已停止。联网后自动同步；未送达的结束操作按点击时刻补记。</text><button wx:if="{{!course}}" class="text-button" disabled="{{loading || busy}}" bindtap="retryFinish">重新同步计时记录</button></view>
+    <view class="timer-heading">
+      <view class="timer-course">{{course ? course.name : '当前无课程'}}</view>
+      <view wx:if="{{course}}" class="sync-copy">{{course.local_date}} {{course.start_time}}–{{course.end_time}}</view>
+    </view>
+    <view class="timer-dial-state" aria-live="polite">{{dialStateLabel}}</view>
+    <view class="dial {{!course ? 'dial-idle' : ''}} {{canContinue ? 'dial-paused' : ''}} {{dialTapClass}}" bindtap="tapDial" hover-class="dial-pressed" hover-start-time="0" hover-stay-time="80" aria-role="button" aria-disabled="{{busy || (loading && phase === 'idle') || reviewOpen || !loggedIn || !dialEnabled}}" aria-label="{{busy ? '正在处理' : (loading && phase === 'idle') ? '正在同步' : dialActionLabel}}">
+        <view class="dial-tap-ripple" aria-hidden="true"></view>
+        <view class="dial-ticks" aria-hidden="true">
+          <view wx:for="{{[0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330]}}" wx:key="*this" class="dial-tick {{index % 3 === 0 ? 'dial-tick-major' : ''}}" style="transform: rotate({{item}}deg);"></view>
+        </view>
+        <view class="dial-track" aria-hidden="true"></view>
+        <view class="dial-ring" aria-hidden="true">
+          <view class="ring-half"><view class="ring-fill" style="transform: rotate({{progress > 50 ? 180 : progress * 3.6}}deg);"></view></view>
+          <view class="ring-half ring-half-left"><view class="ring-fill" style="transform: rotate({{progress > 50 ? (progress - 50) * 3.6 : 0}}deg);"></view></view>
+        </view>
+        <view class="dial-pointer" style="transform: rotate({{progress * 3.6}}deg);" aria-hidden="true"><view class="dial-pointer-dot"></view></view>
+        <view class="dial-face" aria-hidden="true">
+          <image class="dial-art" src="{{art.timerBackdrop}}" mode="aspectFit"/>
+          <view class="dial-gold-mask"><view class="dial-gold-flow"></view><view class="dial-gold-dust"></view></view>
+          <view class="dial-gold-glint glint-tip"></view>
+          <view class="dial-gold-glint glint-right"></view>
+          <view class="dial-gold-glint glint-left"></view>
+          <view class="dial-gold-glint glint-low"></view>
+          <view class="dial-gold-glint glint-mid"></view>
+        </view>
+        <view class="dial-center">
+          <view class="dial-label">{{record && record.source === 'manual' ? '自报投入' : '课内有效时长'}}</view>
+          <view class="dial-time {{elapsed.length > 5 ? 'dial-time-long' : ''}}">{{elapsed}}</view>
+          <view class="dial-caption {{dialEnabled && !busy && !(loading && phase === 'idle') ? 'dial-action' : ''}}">
+            <!-- A new block per caption avoids reusing the short loading text's paint bounds on iOS. -->
+            <view wx:for="{{[busy ? '正在处理…' : (loading && phase === 'idle') ? '正在同步…' : dialActionLabel]}}" wx:for-item="caption" wx:key="*this" class="dial-caption-text {{dialEnabled && !busy && !(loading && phase === 'idle') && !pendingFinish ? (canContinue || phase === 'idle' ? 'caption-play' : (phase === 'running' || phase === 'paused') ? 'caption-stop' : '') : ''}}">{{caption}}</view>
+          </view>
+        </view>
+    </view>
+    <button wx:if="{{canFinishForReview}}" class="text-button timer-finalize" disabled="{{busy || loading}}" bindtap="finish">结束计时并复盘</button>
+    <view class="timer-summary"><view><text class="summary-label">课前准备</text><text class="summary-value serif">{{preparation}}</text></view><view class="summary-divider"></view><view><text class="summary-label">课程计划</text><text class="summary-value serif">{{plannedMinutes}}<text class="summary-unit"> 分钟</text></text></view></view>
+    <view wx:if="{{record && record.source !== 'manual'}}" class="sync-copy">累计记录（含课前课后） {{totalElapsed}} · {{phaseLabel}}</view>
+    <view class="timer-progress"><view style="width: {{progress}}%;"></view></view>
+    <view class="timer-hints">
+      <view wx:if="{{pendingFinish}}" class="timing-hint">本机已停止，等待保存到云端。</view>
+      <view wx:elif="{{cutoffReached}}" class="timing-hint">已到自动结束时间，时长不再增长；可点击圆盘结束并同步。</view>
+      <view wx:elif="{{canContinue}}" class="timing-hint">已停止，原计时已保留。点击圆盘继续，停止期间不计时。{{courseEnded ? '课程已结束，也可直接结束计时并复盘。' : '下课后停止计时才会打开复盘。'}}</view>
+      <view wx:elif="{{courseEnded && phase !== 'finished' && record}}" class="timing-hint">课内时长已停止累计，{{graceRemaining}} 后自动结束；也可现在点击停止。</view>
+      <view wx:elif="{{courseEarly && phase !== 'finished'}}" class="timing-hint">准备中：课前准备单独记录，有效时长从上课时间起累计。</view>
+      <view wx:elif="{{record && (record.finish_reason === 'timeout' || record.finish_reason === 'repair')}}" class="timing-hint">已按下课后 10 分钟的截止时间自动结束，点击圆盘填写复盘。</view>
+    </view>
+  </block>
+</view>
+<class-tab-bar selected="{{2}}" bind:select="switchClassTab"/>
+<view wx:if="{{reviewOpen}}" class="review-modal-mask">
+  <view class="review-modal-backdrop" catchtouchmove="stopReviewTouch"></view>
+  <view class="review-modal" role="dialog" aria-label="本次课后复盘">
+    <view class="review-modal-header" catchtouchmove="stopReviewTouch"><view class="review-modal-title">课后复盘</view><button class="review-modal-close" bindtap="requestCloseReview" aria-label="关闭复盘窗口">关闭 ✕</button></view>
+    <review-panel id="timer-review" class="review-modal-panel" session-id="{{reviewSessionId}}" visible="{{reviewVisible}}" bind:close="closeReview"/>
+  </view>
+</view>

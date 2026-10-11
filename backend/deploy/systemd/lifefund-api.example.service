@@ -1,0 +1,24 @@
+# 使用前创建 lifefund 用户，并按自己的安装位置修改路径。
+# 此服务只启动 API；后台任务可使用 ecosystem.config.js 统一管理。
+[Unit]
+Description=Lifefund FastAPI backend
+After=network.target
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=lifefund
+Group=lifefund
+WorkingDirectory=/opt/lifefund/backend
+ExecStart=/opt/lifefund/backend/.venv/bin/python -m uvicorn main:app --host 127.0.0.1 --port 8003 --proxy-headers --forwarded-allow-ips=127.0.0.1
+Environment=PYTHONUNBUFFERED=1
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=30
+NoNewPrivileges=true
+PrivateTmp=true
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

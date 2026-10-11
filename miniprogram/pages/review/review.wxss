@@ -1,0 +1,26 @@
+@import "../../class-theme.wxss";
+@import "../../review-window.wxss";
+
+.review-list-page { display: flex; flex-direction: column; }
+.review-list-retention { margin-top: auto; padding-top: 48rpx; text-align: center; color: #969b92; font-size: 22rpx; line-height: 1.6; }
+.review-list-intro { margin-top: 24rpx; color: #7a837f; font-size: 25rpx; line-height: 1.7; }
+.review-list-tabs { display: flex; gap: 8rpx; margin: 34rpx 0 28rpx; padding: 7rpx; background: #eceee6; border-radius: 20rpx; }
+.review-list-tab { flex: 1; margin: 0; padding: 19rpx 12rpx; border-radius: 15rpx; background: transparent; color: #7a837f; font-size: 28rpx; line-height: 1.4; }
+.review-list-tab.selected { background: #fffdf9; color: #293f3b; box-shadow: 0 3rpx 10rpx rgba(41, 63, 59, .06); }
+.review-records { display: flex; flex-direction: column; align-items: stretch; width: 100%; gap: 20rpx; }
+/* Override the native button width so cards fill the same column as the tabs. */
+.review-records .review-record { display: block; width: 100%; max-width: none; margin: 0; padding: 28rpx; text-align: left; background: #fffdf9; border: 1rpx solid #e5e3db; border-radius: 22rpx; line-height: 1.5; font-weight: 400; }
+.review-record-top { display: flex; align-items: flex-start; gap: 20rpx; }
+.review-record-name { flex: 1; min-width: 0; color: #293f3b; font-size: 31rpx; font-weight: 500; overflow-wrap: break-word; }
+.review-record-status { flex-shrink: 0; padding: 5rpx 13rpx; background: #eff2e9; border-radius: 30rpx; color: #738269; font-size: 20rpx; }
+.review-record-date { margin-top: 14rpx; color: #7a837f; font-size: 23rpx; }
+.review-record-bottom { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12rpx; margin-top: 25rpx; padding-top: 20rpx; border-top: 1rpx solid #efede6; font-size: 23rpx; }
+.review-record-duration { color: #8a9187; }
+.review-record-action { color: #47665a; }
+.review-record-arrow { margin-left: 10rpx; font-size: 30rpx; line-height: 1; }
+.review-list-empty { padding: 75rpx 24rpx; text-align: center; }
+.review-list-empty .secondary-button { margin-top: 32rpx; }
+.review-list-status { padding: 10rpx 0 24rpx; color: #7a837f; font-size: 24rpx; text-align: center; }
+.review-list-error { display: flex; align-items: center; justify-content: space-between; gap: 18rpx; margin-bottom: 24rpx; color: #b4533a; font-size: 24rpx; line-height: 1.6; }
+.review-list-retry { flex-shrink: 0; margin: 0; padding: 12rpx 18rpx; line-height: 1.5; font-size: 24rpx; color: #47665a; background: transparent; }
+.review-list-more { margin: 22rpx auto 0; padding: 16rpx 24rpx; line-height: 1.5; color: #738269; background: transparent; font-size: 24rpx; }

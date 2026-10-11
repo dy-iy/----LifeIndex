@@ -1,0 +1,136 @@
+.home-page { padding-top: 20rpx; }
+
+.masthead {
+  position: relative;
+  min-height: 254rpx;
+  margin: 0 -12rpx 22rpx;
+  padding: 24rpx 12rpx 18rpx;
+}
+
+.brand-wordmark {
+  position: relative;
+  z-index: 1;
+  display: block;
+  width: 444rpx;
+  height: 111rpx;
+}
+
+.masthead-footer {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 24rpx;
+  margin-top: 8rpx;
+  min-height: 30rpx;
+}
+
+.brand-caption { font-size: 20rpx; letter-spacing: 6rpx; color: #536b4f; }
+
+.edition {
+  position: absolute;
+  z-index: 2;
+  top: 12rpx;
+  right: 12rpx;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 120rpx;
+  min-height: 60rpx;
+  padding: 8rpx 0 8rpx 12rpx;
+  color: #667954;
+  font-size: 18rpx;
+  line-height: 1.5;
+  letter-spacing: 1rpx;
+}
+
+.edition-pressed { opacity: 0.65; }
+
+.masthead-market {
+  position: absolute;
+  top: 8rpx;
+  left: 0;
+  width: 100%;
+  height: 250rpx;
+  pointer-events: none;
+}
+
+.index-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: 188rpx;
+  margin-bottom: 20rpx;
+  padding: 25rpx 30rpx;
+  overflow: hidden;
+  border-radius: 8rpx 54rpx 8rpx 8rpx;
+  border: 1rpx solid rgba(255, 251, 230, 0.12);
+  color: #fff9eb;
+  box-shadow: 0 7rpx 18rpx rgba(41, 48, 33, 0.07), inset 0 1rpx 0 rgba(255, 255, 255, 0.1);
+  transition: opacity 160ms ease, transform 160ms ease;
+}
+
+.index-card:last-child { margin-bottom: 0; }
+.index-card-class {
+  background: radial-gradient(ellipse at 93% 8%, rgba(179, 193, 120, 0.17), transparent 62%), linear-gradient(110deg, #1e4234 0%, #2e5741 63%, #45634a 100%);
+}
+.index-card-algorithm {
+  background: radial-gradient(ellipse at 93% 8%, rgba(155, 194, 211, 0.18), transparent 62%), linear-gradient(110deg, #263e55 0%, #345973 63%, #446a81 100%);
+}
+.index-card-chores {
+  background: radial-gradient(ellipse at 93% 8%, rgba(247, 205, 143, 0.2), transparent 62%), linear-gradient(110deg, #814b38 0%, #a46b4e 63%, #b5825e 100%);
+}
+.index-card-play {
+  background: radial-gradient(ellipse at 93% 8%, rgba(208, 181, 207, 0.19), transparent 62%), linear-gradient(110deg, #53415f 0%, #715878 63%, #886b8b 100%);
+}
+.index-card-pressed { opacity: 0.88; transform: scale(0.99); }
+
+.index-copy {
+  position: relative;
+  z-index: 2;
+  width: 55%;
+}
+
+.index-name {
+  font-family: "Songti SC", "STSong", serif;
+  font-size: 33rpx;
+  line-height: 1.4;
+  letter-spacing: 1rpx;
+}
+
+.index-price {
+  display: flex;
+  align-items: baseline;
+  margin-top: 10rpx;
+  white-space: nowrap;
+}
+
+.index-value { font-size: 60rpx; line-height: 1.1; }
+.index-unit { margin-left: 17rpx; font-size: 21rpx; color: #c0cfb9; }
+.index-card-algorithm .index-unit { color: #c1d3e0; }
+.index-card-chores .index-unit { color: #efd0b5; }
+.index-card-play .index-unit { color: #ded0e3; }
+
+.index-art {
+  position: absolute;
+  z-index: 1;
+  top: 50%;
+  right: 14rpx;
+  width: 260rpx;
+  height: 174rpx;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.index-surface {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.index-change { margin-top: 6rpx; font-size: 19rpx; color: #adbaad; }.index-change.rise { color: #f0a99a; }.index-change.fall { color: #b0d7b8; }.home-index-error { margin: 20rpx 0; color: #8d796c; line-height: 1.7; font-size: 23rpx; }
+
+.index-card { height: 210rpx; }

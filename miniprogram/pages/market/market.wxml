@@ -1,0 +1,45 @@
+<page-meta page-style="{{chartPinching || chartInspecting && chartTouching ? 'overflow: hidden;' : ''}}"/>
+<view class="page class-page market-page">
+  <view class="market-title">上课指数</view>
+  <view class="market-quote">
+    <view class="market-price-row"><text class="market-value {{header.direction}}">{{header.price}}</text><text class="market-unit">点</text></view>
+    <view class="market-change {{header.direction}}"><text class="market-points">{{header.points}}<text class="market-change-unit">点</text></text><text class="market-percent">{{header.percent}}</text></view>
+  </view>
+  <view class="market-status">
+    <text class="market-datetime">{{header.stamp || (loggedIn ? '读取个人指数' : '登录后查看自己的指数')}}</text>
+    <text class="section-link market-header-refresh" bindtap="reload">{{loading ? '刷新中…' : '刷新'}}</text>
+  </view>
+  <view wx:if="{{header.state || chartLoading}}" class="market-live"><text>{{header.state}}</text><text wx:if="{{chartLoading}}" class="chart-loading">读取图表中…</text></view>
+  <view wx:if="{{!loggedIn}}" class="market-alert"><text>你的上课记录会形成独立的个人指数。</text><button class="text-button" bindtap="goLogin">前往登录</button></view>
+  <view wx:if="{{error}}" class="market-alert">{{error}}</view>
+  <view class="market-meta"><view wx:for="{{header.meta}}" wx:key="label"><text>{{item.label}}</text><text class="meta-value {{item.direction}}">{{item.value}}</text></view></view>
+  <view class="chart-tabs"><view wx:for="{{tabs}}" wx:key="*this" data-index="{{index}}" bindtap="changeTab" class="chart-tab {{tab === index ? 'active' : ''}}">{{item}}</view></view>
+  <view wx:if="{{tab !== 0}}" class="chart-toolbar">
+    <text class="chart-period-note">{{tab === 1 ? '自然日 · 含周末' : tab === 2 ? '周一开周' : '自然月'}}</text>
+  </view>
+  <view class="chart">
+    <view class="chart-stage">
+    <scroll-view scroll-x="{{chart.width > chart.viewportWidth && !chartInspecting && !chartPinching}}" scroll-left="{{chartScrollLeft}}" bindscroll="scrollChart" class="chart-scroll" enhanced show-scrollbar="{{false}}">
+      <view class="chart-plot" style="width: {{chart.width}}rpx;" bindtouchstart="startChartTouch" bindtouchmove="moveChartTouch" bindtouchend="endChartTouch" bindtouchcancel="endChartTouch" bindlongpress="inspectChart" bindtap="tapChart">
+        <view wx:for="{{chart.ticks}}" wx:key="slot" class="plot-grid" style="top: {{item.y}}rpx;"></view>
+        <image wx:if="{{chart.lineImage}}" src="{{chart.lineImage}}" class="intraday-line" style="width: {{chart.width}}rpx;" mode="scaleToFill"/>
+        <view wx:for="{{chart.markers}}" wx:key="id" class="plot-point-hit" style="left: {{item.x - 32}}rpx; top: {{item.y - 32}}rpx;"><view class="plot-point"></view></view>
+        <text wx:for="{{chart.renderLabels}}" wx:key="id" class="plot-label" style="left: {{item.x - 40}}rpx;">{{item.label}}</text>
+        <view wx:for="{{chart.renderCandles}}" wx:key="id" class="candle-hit {{selectedCandleId === item.id ? 'candle-selected' : ''}}" style="left: {{item.x - item.step / 2}}rpx; width: {{item.step}}rpx; color: {{item.color}};" role="button" aria-label="{{item.date}} 开{{item.open}} 高{{item.high}} 低{{item.low}} 收{{item.close}} {{item.ongoing ? '进行中' : ''}}"><view class="candle-wick" style="left: {{item.step / 2 - 1}}rpx; top: {{item.top}}rpx; height: {{item.wick}}rpx;"></view><view class="candle-body {{item.direction}}" style="left: {{(item.step - item.bodyWidth) / 2}}rpx; width: {{item.bodyWidth}}rpx; top: {{item.bodyTop}}rpx; height: {{item.bodyHeight}}rpx;"></view></view>
+        <block wx:if="{{crosshair}}"><view class="plot-crosshair-v" style="left: {{crosshair.x}}rpx;"></view><view class="plot-crosshair-h" style="left: {{crosshair.lineLeft}}rpx; width: {{crosshair.lineWidth}}rpx; top: {{crosshair.y}}rpx;"></view><view wx:if="{{tab === 0}}" class="crosshair-dot" style="left: {{crosshair.x - 6}}rpx; top: {{crosshair.y - 6}}rpx;"></view><text class="crosshair-date" style="left: {{crosshair.labelLeft}}rpx; width: {{crosshair.labelWidth}}rpx;">{{crosshair.label}}</text></block>
+      </view>
+    </scroll-view>
+    <view class="chart-axis"><text wx:for="{{chart.ticks}}" wx:key="slot" class="chart-axis-label {{item.direction}}" style="top: {{item.y}}rpx;">{{item.label}}</text></view>
+    <text wx:if="{{crosshair}}" class="crosshair-price" style="top: {{crosshair.y - 22}}rpx;">{{crosshair.price}}</text>
+    <view wx:if="{{tab !== 0 && chart.candleCount > 0 && chart.candleCount <= 6 && !chartInspecting}}" class="chart-history-hint" style="left: {{chart.historyHintLeft}}rpx;"><text>历史积累中</text><text>已记录 {{chart.candleCount}} 个周期</text></view>
+    </view>
+    <view wx:if="{{chart.empty}}" class="chart-empty"><image src="{{art.emptyMarket}}" class="chart-empty-art"/><view class="empty-title">{{chartLoading ? '读取行情中' : tab === 0 ? '当天暂无行情' : '暂无行情历史'}}</view><view class="chart-empty-note">{{quoteActivated ? '行情会随计时和复盘持续变化' : '首次开启计时后，指数开始持续运行'}}</view></view>
+  </view>
+  <view class="chart-caption chart-caption-controls">
+    <view class="chart-caption-copy"><view class="chart-legend"><view class="legend-rise"></view><text>涨</text><view class="legend-fall"></view><text>跌</text><text wx:if="{{tab !== 0}}" class="chart-count">{{chart.candleCount}} 根</text><text wx:elif="{{intradayZoom > 1}}" class="chart-count">{{intradayZoom}}×</text></view><text class="chart-gesture-note">{{chartInspecting ? '拖动查看 · 松手 2 秒恢复' : tab === 0 ? intradayZoom > 1 ? '横滑查看 · 长按读数' : '长按查看' : '长按查看 · 横滑历史 · 双指缩放'}}</text></view>
+    <view wx:if="{{!chart.empty}}" class="chart-zoom"><button class="chart-zoom-button" size="mini" data-delta="{{-1}}" bindtap="changeChartZoom" disabled="{{tab === 0 ? intradayZoom <= 1 || !chart.zoomable : candleStep <= 16}}" aria-label="{{tab === 0 ? '缩小分时' : '缩小 K 线'}}">−</button><button class="chart-zoom-button" size="mini" data-delta="{{1}}" bindtap="changeChartZoom" disabled="{{tab === 0 ? intradayZoom >= 8 || !chart.zoomable : candleStep >= 52}}" aria-label="{{tab === 0 ? '放大分时' : '放大 K 线'}}">＋</button></view>
+  </view>
+  <view wx:if="{{chartError}}" class="market-alert" bindtap="retryChart">{{chartError}}　点击重试</view>
+  <button wx:if="{{nextBefore}}" class="text-button" loading="{{chartLoading}}" disabled="{{chartLoading}}" bindtap="olderCandles">加载更早 K 线</button>
+</view>
+<class-tab-bar selected="{{0}}" bind:select="switchClassTab"/>

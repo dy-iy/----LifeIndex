@@ -1,0 +1,8 @@
+{
+  "backgroundColor": "#faf7f2",
+  "navigationBarBackgroundColor": "#faf7f2",
+  "usingComponents": {
+    "class-tab-bar": "/components/class-tab-bar/index"
+  },
+  "navigationBarTitleText": "上课指数"
+}

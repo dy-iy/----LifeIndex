@@ -1,0 +1,170 @@
+<view class="review-panel-layout review-panel-layout-window">
+  <scroll-view class="review-panel-body" scroll-y enhanced show-scrollbar="{{false}}">
+<view class="review-panel-embedded {{wizard ? 'review-wizard' : ''}}">
+  
+  <view wx:if="{{!loggedIn}}" class="review-empty">
+    <view class="review-empty-title">登录后查看计时记录</view>
+    <view class="review-empty-text">复盘与你的已完成计时关联，本机草稿按账户分别保存。</view>
+    <button class="primary-button" bindtap="goLogin">前往登录</button>
+  </view>
+  <block wx:else>
+    
+    <view wx:if="{{loading && !record}}" class="review-status">正在读取本次复盘…</view>
+    <view wx:if="{{loadingLabel}}" class="review-status">{{loadingLabel}}</view>
+    <view wx:if="{{error}}" class="review-error"><text>{{error}}</text><text class="guide-link" bindtap="reload" role="button">重试</text></view>
+    <block wx:if="{{record}}">
+      <view class="review-course"><view class="review-course-name">{{record.name}}</view><view class="review-course-meta">{{record.source === 'untimed' ? '未计时' : cloud.voided ? '原计时（已撤销）' : record.source === 'manual' ? '自报时长' : '有效计时'}} {{record.durationLabel}}</view></view>
+      <view wx:if="{{reviewResult}}" class="recorded-answers">
+        <view class="question-title">我的复盘</view>
+        <block wx:if="{{modern}}">
+          <view wx:if="{{untimedReason !== 'unspecified'}}" class="recorded-choice"><text class="recorded-label">未计时原因</text><text>{{untimedReasonLabel}}</text></view>
+          <view wx:if="{{participation !== 'unspecified'}}" class="recorded-choice"><text class="recorded-label">课堂情况</text><text>{{participationLabel}}</text></view>
+          <view wx:if="{{focusRating > 0}}" class="recorded-choice"><text class="recorded-label">专注自评</text><view class="recorded-focus" aria-label="{{focusRating + ' 星，' + focusLabel}}"><text wx:for="{{focusStars}}" wx:key="value" class="{{focusRating >= item.rating ? 'lit' : ''}}">{{focusRating >= item.rating ? '★' : '☆'}}</text><text class="recorded-focus-label">{{focusLabel}}</text></view></view>
+          <text class="answer-text recorded-text" selectable>{{answers[0] || '本次未填写文字说明'}}</text>
+        </block>
+        <block wx:else>
+          <view wx:for="{{questions}}" wx:key="number" class="recorded-answer"><view class="recorded-label">{{item.title}}</view><text class="answer-text" selectable>{{answers[index] || '（未填写）'}}</text></view>
+        </block>
+      </view>
+      <view wx:if="{{reviewResult}}" class="review-result" role="status" aria-label="{{reviewResult.headline + '，本次涨跌幅 ' + reviewResult.percentLabel + '，变动 ' + reviewResult.changeLabel + ' 点'}}">
+        <view class="result-heading">本次复盘结果</view>
+        <view class="result-headline serif {{reviewResult.tone}}">{{reviewResult.headline}}</view>
+        <view wx:if="{{reviewResult.note}}" class="result-note">{{reviewResult.note}}</view>
+        <view class="result-label">本次涨跌幅</view>
+        <view class="result-percent serif {{reviewResult.direction}}">{{reviewResult.percentLabel}}</view>
+        <view class="result-points {{reviewResult.direction}}">{{reviewResult.changeLabel}} 点</view>
+      </view>
+      <block wx:elif="{{wizard}}">
+        <view wx:if="{{draftError}}" class="review-error"><text>{{draftError}}</text><text class="guide-link" bindtap="retryDraft" role="button">{{draftReadFailed ? '重试读取' : '重试保存'}}</text></view>
+        <view wx:if="{{evaluationError}}" class="review-error">{{evaluationError}}</view>
+        <view wx:if="{{evaluation.status === 'invalid_answer' && wizardPage === evaluation.invalid_step}}" class="review-error">回答无效，请重新回答</view>
+        <view wx:if="{{cloud.can_submit === false && cloud.status === 'draft'}}" class="review-error">{{courseNotEnded ? '课程尚未结束，可先保存草稿' : '已超过提交期限，仍可保存草稿'}}</view>
+        <view wx:if="{{revision && !canRevise}}" class="review-error">已超过重新提交期限，仍可回看记录</view>
+        <view class="wizard-question">
+          <block wx:if="{{wizardPage === 'untimed_reason'}}">
+            <view class="question-title">未计时原因</view>
+            <view class="review-choices"><button wx:for="{{untimedReasonOptions}}" wx:key="value" class="choice {{untimedReason === item.value ? 'selected' : ''}}" disabled="{{readonly}}" data-value="{{item.value}}" data-record-id="{{record.id}}" data-owner="{{owner}}" bindtap="chooseUntimedReason">{{item.label}}</button></view>
+          </block>
+          <block wx:elif="{{wizardPage === 'participation'}}">
+            <view class="question-title">这节课是什么情况？</view>
+            <view class="review-choices"><button wx:for="{{wizardParticipationOptions}}" wx:key="value" class="choice {{participation === item.value ? 'selected' : ''}}" disabled="{{readonly}}" data-value="{{item.value}}" data-record-id="{{record.id}}" data-owner="{{owner}}" bindtap="chooseParticipation">{{item.label}}</button></view>
+          </block>
+          <block wx:elif="{{wizardPage === 'focus'}}">
+            <view class="question-title">给自己的专注情况打星</view>
+            <view class="focus-stars" aria-label="专注情况，满分5星"><button wx:for="{{focusStars}}" wx:key="value" class="focus-star {{focusRating >= item.rating ? 'lit' : ''}}" disabled="{{readonly}}" aria-label="{{item.rating}}星，{{item.label}}{{focusRating === item.rating ? '，已选' : ''}}" data-value="{{item.value}}" data-record-id="{{record.id}}" data-owner="{{owner}}" bindtap="chooseFocus">{{focusRating >= item.rating ? '★' : '☆'}}</button></view>
+          </block>
+          <block wx:else>
+            <view class="question-title">{{wizardTextTitle}}</view>
+            <textarea class="answer-input wizard-text-input" value="{{answers[0]}}" disabled="{{readonly}}" data-index="0" data-record-id="{{record.id}}" data-owner="{{owner}}" data-step="{{wizardPage}}" data-participation="{{participation}}" bindinput="answerWizardText" bindblur="rememberDraft" maxlength="8000" cursor-spacing="24" placeholder="{{wizardTextPlaceholder}}" placeholder-class="wizard-text-placeholder" aria-label="{{wizardTextTitle}}"/>
+          </block>
+        </view>
+      </block>
+      <block wx:else>
+      <view class="review-status"><text>{{statusLabel}}</text><text wx:if="{{loading}}">正在更新…</text></view>
+      
+      <view wx:if="{{correctionDeadline}}" class="evaluation-note">可提交至 {{correctionDeadline}}；提交后可回看记录。</view>
+      <view wx:if="{{cloud.voided}}" class="evaluation-note">参与情况已更正，原计时与答案保留用于回看，旧评估不再生效。</view>
+      <view wx:if="{{draftError}}" class="review-error"><text>{{draftError}}</text><text class="guide-link" bindtap="retryDraft" role="button">{{draftReadFailed ? '重试读取' : '重试保存'}}</text></view>
+      <view wx:if="{{cloud.can_submit === false && cloud.status === 'draft'}}" class="review-error">{{courseNotEnded ? '课程尚未结束，当前可继续计时；下课后再提交复盘。' : '已超过课后 7 天，仍可保存资料，但不再参与首次评分和结算。'}}</view>
+      <view wx:if="{{revision}}" class="review-error">正在重新填写无效回答。本机自动保存，提交后重新评估。</view>
+      <view wx:if="{{revision && evaluationError}}" class="review-error">{{evaluationError}}</view>
+      <view wx:if="{{conflict}}" class="review-error">云端已有另一份答案。本机内容已保留，请对照每题下方的云端答案，再选择要保留的版本。</view>
+      <view wx:if="{{modern && (untimed || untimedReason !== 'unspecified')}}" class="participation-card">
+        <view class="question-title">未计时原因：{{untimedReasonLabel}}</view>
+        <view wx:if="{{conflict}}" class="cloud-answer"><text class="cloud-label">云端未计时原因</text><text>{{cloudUntimedReasonLabel}}</text></view>
+      </view>
+      <view wx:if="{{modern && (!readonly || participation !== 'unspecified')}}" class="participation-card">
+        <view class="question-title">{{readonly ? participationLabel : '这节课是什么情况？'}}</view>
+        <view wx:if="{{!readonly}}" class="review-choices"><button wx:for="{{wizardParticipationOptions}}" wx:key="value" class="choice {{participation === item.value ? 'selected' : ''}}" disabled="{{readonly}}" data-value="{{item.value}}" data-record-id="{{record.id}}" data-owner="{{owner}}" bindtap="chooseParticipation">{{item.label}}</button></view>
+        <button wx:if="{{participation !== 'unspecified' && !readonly}}" class="text-button" data-value="unspecified" data-record-id="{{record.id}}" data-owner="{{owner}}" bindtap="chooseParticipation">清除选择</button>
+        <view wx:if="{{participation === 'not_learning' && evaluation.prompt_version && evaluation.prompt_version !== 'class-quality-v5' && evaluation.prompt_version !== 'class-summary-v6' && evaluation.prompt_version !== 'class-summary-v7'}}" class="evaluation-note">已选择到课但基本未参与学习，无需填写知识点。本次质量按未参与规则记录，不代表你的原有知识或能力。</view>
+        <view wx:if="{{conflict}}" class="cloud-answer"><text class="cloud-label">云端参与情况</text><text>{{cloudParticipationLabel}}</text></view>
+      </view>
+      <view wx:if="{{modern && ((!readonly && showFocus) || (readonly && focusRating > 0))}}" class="participation-card focus-card review-branch">
+        <view class="question-title">给自己的专注情况打星</view>
+        <view class="focus-stars" aria-label="专注情况，满分5星">
+          <button wx:for="{{focusStars}}" wx:key="value" class="focus-star {{focusRating >= item.rating ? 'lit' : ''}}" disabled="{{readonly}}" aria-label="{{item.rating}}星，{{item.label}}{{focusRating === item.rating ? '，已选' : ''}}" data-value="{{item.value}}" data-record-id="{{record.id}}" data-owner="{{owner}}" bindtap="chooseFocus">{{focusRating >= item.rating ? '★' : '☆'}}</button>
+        </view>
+        <view wx:if="{{conflict}}" class="cloud-answer"><text class="cloud-label">云端专注情况</text><text>{{cloudFocusLabel || '未打星，原文字说明保留在记录中'}}</text></view>
+      </view>
+      <block wx:if="{{modern}}">
+      <view wx:if="{{readonly || showDescription || conflict}}" class="question review-branch"><view class="question-content">
+        <view class="question-title">{{readonly ? '我的记录' : '说说这节课的实际情况'}}</view>
+        <text wx:if="{{readonly}}" class="answer-text" selectable>{{answers[0] || '本次未填写文字说明'}}</text>
+        <textarea wx:else class="answer-input" value="{{answers[0]}}" data-index="0" data-record-id="{{record.id}}" data-owner="{{owner}}" bindinput="answer" bindblur="rememberDraft" maxlength="8000" auto-height placeholder="收获或疑问，一段话就可以；没听进去也可以如实记录" placeholder-class="answer-placeholder"/>
+        <view wx:if="{{conflict}}" class="cloud-answer"><text class="cloud-label">云端记录</text><text selectable>{{cloud.answers}}</text><text wx:if="{{!showFocus}}">专注情况：{{cloudFocusLabel || '未打星，原文字说明保留在记录中'}}</text></view>
+      </view></view>
+      </block>
+      <block wx:else>
+        <button wx:if="{{!readonly}}" class="text-button" bindtap="upgradeReview">改用一段描述（保留三项原文）</button>
+        <view wx:for="{{questions}}" wx:key="number" class="question"><view class="question-number serif">{{item.number}}</view><view class="question-content"><view class="question-title">{{item.title}}</view>
+          <text wx:if="{{readonly}}" class="answer-text" selectable>{{answers[index] || '（未填写）'}}</text>
+          <block wx:elif="{{index === 2}}">
+            <view class="focus-stars" aria-label="专注情况，满分5星"><button wx:for="{{focusStars}}" wx:for-item="option" wx:key="value" class="focus-star {{focusRating >= option.rating ? 'lit' : ''}}" aria-label="{{option.rating}}星，{{option.label}}{{focusRating === option.rating ? '，已选' : ''}}" data-value="{{option.value}}" data-record-id="{{record.id}}" data-owner="{{owner}}" bindtap="chooseFocus">{{focusRating >= option.rating ? '★' : '☆'}}</button></view>
+            <view wx:if="{{answers[2] && focusChoice === 'unspecified'}}" class="cloud-answer"><text class="cloud-label">原文字回答已保留；点选后才会替换</text><text selectable>{{answers[2]}}</text></view>
+          </block>
+          <textarea wx:else class="answer-input" value="{{answers[index]}}" data-index="{{index}}" data-record-id="{{record.id}}" data-owner="{{owner}}" bindinput="answer" bindblur="rememberDraft" placeholder="{{item.placeholder}}" placeholder-class="answer-placeholder" maxlength="2000" auto-height show-confirm-bar="{{false}}"/>
+          <view wx:if="{{conflict && cloud}}" class="cloud-answer"><text class="cloud-label">云端答案</text><text selectable>{{cloud.answers[index] || '（未填写）'}}</text></view>
+        </view></view>
+      </block>
+      <view wx:if="{{cloud.status === 'pending_evaluation' && !revision && (!cloud.voided || evaluation.outcome)}}" class="evaluation-card">
+        <view class="evaluation-heading"><view class="evaluation-status">{{evaluation ? evaluation.statusLabel : '已保存 · 状态待更新'}}</view><text class="guide-link" bindtap="refreshEvaluation" role="button">{{evaluationLoading ? '读取中…' : '刷新'}}</text></view>
+        <view wx:if="{{evaluationError}}" class="review-error">{{evaluationError}}</view>
+        <view wx:if="{{evaluation.status === 'queued' || evaluation.status === 'running'}}" class="evaluation-note">复盘已提交，结果会自动更新。可以离开，稍后回来查看。</view>
+        <view wx:if="{{evaluation.status === 'failed'}}" class="review-error">{{evaluation.error || '评估暂时未能完成，尚未因此产生涨跌。'}}<button class="primary-button" disabled="{{busy || evaluationPending}}" loading="{{busy}}" bindtap="retryEvaluation">重试评估</button></view>
+        <view wx:if="{{evaluation.status === 'invalid_answer'}}" class="review-error">回答无效，请重新回答</view>
+        <view wx:if="{{evaluation.status === 'succeeded' && evaluation.outcome}}" class="evaluation-note">{{evaluation.outcome.label}}</view>
+        <view wx:if="{{evaluation.status === 'hold'}}" class="evaluation-note">{{evaluation.error || '资料暂不充分，已保留本次复盘，尚未结算。'}}可以结束本次记录；有新信息时再补充。</view>
+        <view wx:if="{{evaluation.missing_information.length}}" class="evaluation-note">当前尚不清楚：<view wx:for="{{evaluation.missing_information}}" wx:key="*this">· {{item}}</view></view>
+        <view wx:if="{{evaluation.status === 'needs_input'}}" class="clarification">
+          <view class="question-title">{{evaluation.flow.key === 'focus' ? '给自己的专注情况打星' : evaluation.question}}</view>
+          <view wx:if="{{evaluation.flow}}" class="evaluation-note">最多补问 {{evaluation.flow.followup_limit}} 次，已补充 {{evaluation.flow.followup_count}} 次。{{evaluation.flow.reason}}</view>
+          <view wx:if="{{modern && (evaluation.flow.key === 'participation' || evaluation.flow.key === 'uncertain')}}" class="review-choices"><button wx:for="{{participationOptions}}" wx:key="value" class="choice {{clarificationParticipation === item.value ? 'selected' : ''}}" disabled="{{busy || evaluationPending || !canRevise}}" data-value="{{item.value}}" data-owner="{{owner}}" bindtap="chooseClarification">{{item.label}}</button></view>
+          <view wx:if="{{evaluation.flow.key === 'focus'}}">
+            <view class="focus-stars" aria-label="专注情况，满分5星"><button wx:for="{{focusStars}}" wx:key="value" class="focus-star {{clarificationFocusRating >= item.rating ? 'lit' : ''}}" disabled="{{busy || evaluationPending || !canRevise}}" aria-label="{{item.rating}}星，{{item.label}}{{clarificationFocusRating === item.rating ? '，已选' : ''}}" data-value="{{item.value}}" data-record-id="{{record.id}}" data-owner="{{owner}}" bindtap="chooseFocusClarification">{{clarificationFocusRating >= item.rating ? '★' : '☆'}}</button></view>
+          </view>
+          <block wx:else><textarea class="answer-input" value="{{clarificationAnswer}}" data-record-id="{{record.id}}" data-owner="{{owner}}" bindinput="clarificationInput" bindblur="rememberDraft" disabled="{{busy || evaluationPending || !canRevise}}" maxlength="2000" auto-height placeholder="补充本次学习的具体事实或例子" placeholder-class="answer-placeholder"/><view class="answer-count">{{clarificationAnswer.length}} / 2000</view></block>
+          <view wx:if="{{evaluation.flow.key === 'focus' && clarificationAnswer && clarificationFocus === 'unspecified'}}" class="cloud-answer"><text class="cloud-label">原补充说明已保留；点选后才会替换</text><text selectable>{{clarificationAnswer}}</text></view>
+          <button class="primary-button" disabled="{{!!clarificationDisabledReason}}" loading="{{busy}}" bindtap="submitClarification">{{evaluation.flow.key === 'focus' ? '确认专注情况' : '提交补充说明'}}</button><view wx:if="{{clarificationDisabledReason}}" class="evaluation-note">{{clarificationDisabledReason}}</view>
+          <view class="evaluation-note">{{canRevise ? (evaluation.flow.key === 'focus' ? '选择会自动保存在本机。' : '补充说明会自动保存在本机。') : '已超过纠错期限，仅可查看。'}}</view>
+        </view>
+      </view>
+      <view wx:if="{{cloud.status === 'pending_evaluation' && !settlement && !cloud.voided}}" class="evaluation-note">本次版本暂未产生指数调整，已有历史流水保留；行情仍会正常波动。</view>
+      <view wx:if="{{participation === 'not_attended' || evaluation.flow.participation === 'not_attended' || cloud.voided}}" class="evaluation-note">未到课需要区分缺席、请假或停课。计时记录不能证明到课。</view>
+      <view wx:if="{{evaluationPending || pending || conflict || revision || (cloud.status === 'draft' && !cloud.voided)}}" class="review-actions">
+        <block wx:if="{{evaluationPending}}"><view class="review-footnote">评估操作的结果尚未确认，答案和请求已保留。请重试同一次操作。</view><button class="primary-button" loading="{{busy}}" disabled="{{busy}}" bindtap="retryEvaluationPending">重试并确认评估操作</button></block>
+        <block wx:elif="{{pending}}"><view class="review-footnote">上次操作的结果尚未确认，答案已保留。请联网后重试同一次操作。</view><button class="primary-button" loading="{{busy}}" disabled="{{busy}}" bindtap="retryPending">重试并确认结果</button></block>
+        <block wx:elif="{{conflict}}"><button wx:if="{{cloud.status === 'draft' || revision}}" class="primary-button" disabled="{{busy}}" bindtap="keepLocal">{{revision ? '保留本机答案并重新评估' : '保留本机答案并保存云端'}}</button><button class="text-button" disabled="{{busy}}" bindtap="useCloud">使用云端答案</button></block>
+        <block wx:elif="{{revision}}"><button class="primary-button" disabled="{{!!revisionDisabledReason}}" loading="{{busy}}" bindtap="submitRevision">重新提交回答</button><view wx:if="{{revisionDisabledReason}}" class="review-footnote">{{revisionDisabledReason}}</view><button class="text-button" disabled="{{busy}}" bindtap="useCloud">恢复原回答</button><view class="review-footnote">修改内容自动保存在本机，重新提交后才会评估。</view></block>
+        <block wx:else><button class="primary-button" loading="{{busy}}" disabled="{{!!submitDisabledReason}}" bindtap="submitReview">提交复盘</button><view wx:if="{{submitDisabledReason}}" class="review-footnote">{{submitDisabledReason}}</view><view class="review-footnote">{{draftError ? '本机草稿保存失败，请重试保存' : '填写时自动保留本机草稿'}}</view></block>
+      </view>
+      <button wx:if="{{!revision && !cloud.voided && (cloud.status === 'draft' || evaluation.status === 'needs_input' || evaluation.status === 'hold')}}" class="text-button" disabled="{{busy || pending || evaluationPending || conflict || draftReadFailed || !cloud}}" bindtap="finishRecord">{{cloud.status === 'draft' ? '先记录到这里' : '结束本次记录'}}</button>
+      <view wx:if="{{cloud.status === 'draft' && !revision && !cloud.voided}}" class="review-footnote">“先记录到这里”会保存草稿，之后可以继续填写。</view>
+      <button wx:if="{{cloud.status === 'draft' && !revision && !pending && !evaluationPending && !conflict && !cloud.voided}}" class="text-button" loading="{{busy}}" disabled="{{busy || draftReadFailed || !cloud}}" bindtap="keepDraft">保存草稿到云端</button>
+      </block>
+      <block wx:if="{{!wizard && readonly}}">
+        <view wx:for="{{evaluation.dialogue}}" wx:key="key" class="cloud-answer"><text class="cloud-label">我的补充说明</text><text selectable>{{item.answer}}</text><text wx:if="{{item.participationLabel}}">{{item.participationLabel}}</text></view>
+        <view wx:if="{{evaluation.clarification && !evaluation.dialogue.length}}" class="cloud-answer"><text class="cloud-label">我的补充说明</text><text selectable>{{evaluation.clarification}}</text></view>
+        <view wx:if="{{cloud.note}}" class="cloud-answer"><text class="cloud-label">我的心得</text><text selectable>{{cloud.note}}</text></view>
+      </block>
+    </block>
+    <view wx:elif="{{!loading}}" class="review-empty">
+      <view class="review-empty-title">{{error ? '暂时无法读取复盘记录' : filter === 'pending' ? '暂无待复盘记录' : filter === 'submitted' ? '暂无已提交复盘' : '先完成一次计时'}}</view>
+      <view class="review-empty-text">{{error ? '请联网后重试，本机未同步的答案会继续保留。' : '完成计时后，回到这里记录收获、疑问和专注情况。'}}</view>
+      
+    </view>
+    
+  </block>
+</view>
+  </scroll-view>
+  <view wx:if="{{wizard}}" class="wizard-navigation">
+    <button wx:if="{{wizardPageNumber > 1}}" class="wizard-previous" disabled="{{readonly || !!loadingLabel}}" data-record-id="{{record.id}}" data-owner="{{owner}}" bindtap="previousReviewPage">上一页</button>
+    <button wx:if="{{evaluationPending}}" class="primary-button" disabled="{{busy}}" loading="{{busy}}" bindtap="retryEvaluationPending">重试提交</button>
+    <button wx:elif="{{pending}}" class="primary-button" disabled="{{busy}}" loading="{{busy}}" bindtap="retryPending">重试提交</button>
+    <button wx:elif="{{wizardAnswered && wizardHasNext}}" class="primary-button" disabled="{{!!wizardDisabledReason}}" data-record-id="{{record.id}}" data-owner="{{owner}}" bindtap="nextReviewPage">下一页</button>
+    <button wx:else class="primary-button" disabled="{{!!wizardDisabledReason}}" loading="{{busy}}" data-record-id="{{record.id}}" data-owner="{{owner}}" bindtap="submitWizard">提交</button>
+  </view>
+  <view wx:if="{{wizard}}" class="wizard-pagination" role="img" aria-label="第 {{wizardPageNumber}} 页，共 {{wizardPageNumbers.length}} 页">
+    <view wx:for="{{wizardPageNumbers}}" wx:key="*this" class="wizard-page-dot {{item === wizardPageNumber ? 'active' : ''}}"></view>
+  </view>
+</view>

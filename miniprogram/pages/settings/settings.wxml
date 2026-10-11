@@ -1,0 +1,23 @@
+<view class="page tab-page">
+  <view class="profile-heading">
+    <button wx:if="{{user}}" class="avatar-button" open-type="chooseAvatar" bindchooseavatar="chooseAvatar" disabled="{{!!busy}}" aria-label="选择头像">
+      <image wx:if="{{avatarSrc}}" class="profile-avatar" src="{{avatarSrc}}" mode="aspectFill" binderror="avatarLoadError"/>
+      <view wx:else class="profile-monogram serif">L<text>✳</text></view>
+    </button>
+    <view wx:else class="profile-monogram serif">L<text>✳</text></view>
+    <view class="profile-copy"><view class="profile-title">{{user ? (user.display_name || '我的账户') : '未登录'}}</view><view wx:if="{{user}}" class="avatar-hint">{{busy === 'avatar' ? '正在保存头像…' : '点击头像更换'}}</view></view>
+  </view>
+  <view wx:if="{{!user}}" class="login-panel"><button class="primary-button" bindtap="login" loading="{{busy === 'login'}}" disabled="{{!!busy}}">微信登录</button></view>
+  <view wx:if="{{error}}" class="error">{{error}}</view>
+  <button wx:if="{{user && canRetryAvatar}}" class="text-button avatar-retry" bindtap="retryAvatar" disabled="{{!!busy}}">重试保存头像</button>
+  <form wx:if="{{user}}" class="profile-form" bindsubmit="saveProfile">
+    <text class="field-label">昵称</text><input class="field-input" type="nickname" name="display_name" value="{{displayName}}" bindfocus="focusName" bindinput="inputName" bindblur="inputName" placeholder="填写或选择微信昵称" maxlength="60" disabled="{{!!busy}}"/>
+    <button class="secondary-button" form-type="submit" loading="{{busy === 'save'}}" disabled="{{!!busy}}">保存设置</button>
+  </form>
+  <view class="section-head"><text class="section-title">设置</text></view>
+  <view class="settings-list">
+    <view class="settings-row" bindtap="showDataInfo"><text>数据与隐私</text><text class="row-arrow">↗</text></view>
+  </view>
+  <view wx:if="{{user}}" class="session-actions"><button class="text-button" bindtap="refreshSession" loading="{{busy === 'refresh'}}" disabled="{{!!busy}}">续期登录</button><button class="text-button logout-button" bindtap="logout" loading="{{busy === 'logout'}}" disabled="{{!!busy}}">退出登录</button></view>
+  <view class="profile-footer"><image src="{{art.growth}}"/></view>
+</view>

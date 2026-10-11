@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="750" height="250" viewBox="0 0 750 250" fill="none">
+  <defs>
+    <linearGradient id="marketInk" x1="0" y1="195" x2="715" y2="62" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#234b3b" stop-opacity=".12"/>
+      <stop offset=".43" stop-color="#234b3b" stop-opacity=".24"/>
+      <stop offset=".64" stop-color="#234b3b" stop-opacity=".7"/>
+      <stop offset="1" stop-color="#70956b"/>
+    </linearGradient>
+    <linearGradient id="marketWash" x1="547" y1="76" x2="547" y2="229" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#70956b" stop-opacity=".15"/>
+      <stop offset="1" stop-color="#70956b" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="breakout" x1="659" y1="118" x2="715" y2="62" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#70956b"/>
+      <stop offset=".72" stop-color="#c66a4d"/>
+    </linearGradient>
+  </defs>
+
+  <!-- The open paper is part of the composition; there is no panel or frame. -->
+  <g stroke="#234b3b" stroke-width="1" opacity=".055">
+    <path d="M461 81H736M400 127H736M244 173H736M16 219H736"/>
+    <path d="M462 80V231M530 61V231M598 58V231M666 52V231M734 51V231"/>
+  </g>
+
+  <!-- Quiet volume bars anchor the rising line to a market-chart rhythm. -->
+  <g fill="#234b3b" opacity=".07">
+    <path d="M363 216h7v12h-7zM382 208h7v20h-7zM401 213h7v15h-7zM420 204h7v24h-7zM439 211h7v17h-7zM458 197h7v31h-7zM477 205h7v23h-7zM496 190h7v38h-7zM515 203h7v25h-7zM534 184h7v44h-7zM553 198h7v30h-7zM572 192h7v36h-7zM591 175h7v53h-7zM610 185h7v43h-7zM629 165h7v63h-7zM648 181h7v47h-7zM667 158h7v70h-7zM686 169h7v59h-7zM705 147h7v81h-7z"/>
+  </g>
+
+  <path d="M0 212L30 205L51 218L78 199L104 208L139 192L159 200L190 194L214 212L238 205L259 218L292 198L316 207L344 190L369 202L399 192L427 181L455 151L475 160L498 125L523 152L549 113L573 131L602 83L626 98L645 87L659 118L686 91L715 62V236H0Z" fill="url(#marketWash)"/>
+
+  <!-- Small, actual candlesticks sit behind the single dominant price line. -->
+  <g stroke="#234b3b" stroke-width="1.3" opacity=".18">
+    <path d="M491 141V175M536 113V147M579 99V139M620 71V111M666 65V99M701 57V86"/>
+    <path d="M487.5 148h7v14h-7zM532.5 120h7v18h-7zM575.5 108h7v19h-7zM616.5 79h7v21h-7zM662.5 74h7v15h-7zM697.5 63h7v14h-7z" fill="#70956b" fill-opacity=".2"/>
+  </g>
+  <g stroke="#c66a4d" stroke-width="1.3" opacity=".26">
+    <path d="M558 126V163M644 101V137"/>
+    <path d="M554.5 135h7v17h-7zM640.5 111h7v16h-7z" fill="#c66a4d" fill-opacity=".18"/>
+  </g>
+
+  <path d="M0 212L30 205L51 218L78 199L104 208L139 192L159 200L190 194L214 212L238 205L259 218L292 198L316 207L344 190L369 202L399 192L427 181L455 151L475 160L498 125L523 152L549 113L573 131L602 83L626 98L645 87L659 118L686 91L715 62" stroke="url(#marketInk)" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M659 118L686 91L715 62" stroke="url(#breakout)" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/>
+
+  <!-- A displaced ink echo and fine motion marks give the breakout energy. -->
+  <path d="M581 148L611 99L634 111M666 130L694 103L724 73" stroke="#70956b" stroke-width="1" stroke-linejoin="round" opacity=".22"/>
+  <path d="M722 76L734 79M730 61L741 57" stroke="#c66a4d" stroke-width="1.2" stroke-linecap="round" opacity=".36"/>
+  <circle cx="715" cy="62" r="7" fill="#c66a4d" fill-opacity=".1"/>
+  <circle cx="715" cy="62" r="3.4" fill="#c66a4d"/>
+</svg>
