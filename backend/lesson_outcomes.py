@@ -7,7 +7,7 @@ from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, Field, model_validator
-from sqlalchemy import and_, or_, select
+from sqlalchemy import DateTime, and_, cast, or_, select, union_all
 
 from auth import CurrentUser, Db
 from models import Lesson, LessonOutcome, Review, StudySession
@@ -90,7 +90,8 @@ def response(lesson, outcome, study, now, settlement=None):
 
 
 def records(db, user_id, lesson_id):
-    lesson = owned(db, Lesson, user_id, lesson_id)
+    from timetable_lifecycle import learning_lesson
+    lesson = learning_lesson(db, user_id, lesson_id)
     outcome = db.scalar(select(LessonOutcome).where(LessonOutcome.user_id == user_id, LessonOutcome.lesson_id == lesson_id)
                         .execution_options(populate_existing=True))
     study = db.scalar(select(StudySession).where(StudySession.user_id == user_id, StudySession.lesson_id == lesson_id))
@@ -112,16 +113,23 @@ def list_outcomes(user: CurrentUser, db: Db, status: Literal["pending", "confirm
                   cursor: Annotated[str | None, Query(max_length=100)] = None):
     lock_reader(db, user.id)
     now = utcnow()
-    query = select(Lesson, LessonOutcome, StudySession).outerjoin(LessonOutcome, and_(
+    live = select(Lesson.id.label("id"), Lesson.ends_at.label("ends_at")).outerjoin(LessonOutcome, and_(
         LessonOutcome.lesson_id == Lesson.id, LessonOutcome.user_id == Lesson.user_id,
     )).outerjoin(StudySession, and_(StudySession.lesson_id == Lesson.id, StudySession.user_id == Lesson.user_id)).where(
         Lesson.user_id == user.id, Lesson.status == "scheduled", Lesson.is_deleted.is_(False), Lesson.ends_at <= now,
-        or_(StudySession.id.is_(None), LessonOutcome.lesson_id.is_not(None)),
+        StudySession.id.is_(None), LessonOutcome.lesson_id.is_(None),
     )
-    if status == "pending":
-        query = query.where(or_(LessonOutcome.lesson_id.is_(None), LessonOutcome.decision == "pending"))
-    elif status == "confirmed":
-        query = query.where(LessonOutcome.decision != "pending")
+    saved_end = cast(LessonOutcome.lesson_snapshot["ends_at"].astext, DateTime(timezone=True))
+    history = select(LessonOutcome.lesson_id.label("id"), saved_end.label("ends_at")).where(
+        LessonOutcome.user_id == user.id, saved_end <= now,
+    )
+    if status == "confirmed":
+        candidates = history.where(LessonOutcome.decision != "pending").subquery()
+    else:
+        if status == "pending":
+            history = history.where(LessonOutcome.decision == "pending")
+        candidates = union_all(live, history).subquery()
+    query = select(candidates.c.id, candidates.c.ends_at)
     if cursor:
         try:
             stamp, identifier = cursor.split("|", 1)
@@ -130,11 +138,12 @@ def list_outcomes(user: CurrentUser, db: Db, status: Literal["pending", "confirm
                 raise ValueError()
         except (ValueError, TypeError):
             raise HTTPException(422, "记录游标无效，请刷新。") from None
-        query = query.where(or_(Lesson.ends_at < before, and_(Lesson.ends_at == before, Lesson.id < before_id)))
-    rows = db.execute(query.order_by(Lesson.ends_at.desc(), Lesson.id.desc()).limit(limit + 1)).all()
+        query = query.where(or_(candidates.c.ends_at < before,
+                               and_(candidates.c.ends_at == before, candidates.c.id < before_id)))
+    rows = db.execute(query.order_by(candidates.c.ends_at.desc(), candidates.c.id.desc()).limit(limit + 1)).all()
     page = rows[:limit]
-    last = page[-1][0] if len(rows) > limit else None
-    return {"items": [response(lesson, outcome, study, now) for lesson, outcome, study in page],
+    last = page[-1] if len(rows) > limit else None
+    return {"items": [response(*records(db, user.id, row.id), now) for row in page],
             "next_cursor": f"{last.ends_at.isoformat()}|{last.id}" if last else None}
 
 
@@ -165,6 +174,8 @@ def save_record(db, user, lesson, outcome, now):
     outcome.updated_at = now
     # Also invalidates old timetable/agent previews; history stays immutable.
     lesson.version += 1
+    from timetable_lifecycle import snapshot_lesson
+    outcome.lesson_snapshot = snapshot_lesson(lesson)
     return outcome
 
 
@@ -224,9 +235,11 @@ def apply_decision(db, user, lesson, outcome, study, now, decision, reason, repo
             job.lease_owner = job.lease_until = None
             job.updated_at = now
     elif decision == "makeup":
+        from timetable_lifecycle import snapshot_lesson
         study = StudySession(user_id=user.id, lesson_id=lesson.id, name=lesson.name, location=lesson.location,
             timezone=lesson.timezone, starts_at=lesson.starts_at, ends_at=lesson.ends_at, phase="finished", version=1,
-            started_at=now, finished_at=now, is_makeup=True, reported_seconds=reported_seconds, voided=False)
+            started_at=now, finished_at=now, is_makeup=True, reported_seconds=reported_seconds, voided=False,
+            lesson_snapshot=snapshot_lesson(lesson))
         db.add(study)
     db.flush()
     evaluation = None if automatic_job is None else {

@@ -2,6 +2,7 @@
 import uuid
 from datetime import date, datetime, time, timedelta, timezone
 from datetime import date as LocalDate
+from types import SimpleNamespace
 from typing import Annotated, Literal
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -9,9 +10,9 @@ from fastapi import HTTPException
 from pydantic import BaseModel, Field, field_validator, model_validator
 from sqlalchemy import select
 
-from db import Input, Version, owned, check_version
+from db import Input, Version, owned, check_version, lock_reader
 from models import CourseTemplate, Lesson, LessonOutcome, Semester, StudySession
-from schedule_conflicts import ScheduleConflictError, find_conflicts
+from schedule_conflicts import find_conflicts
 
 ClockTime = Annotated[str, Field(pattern=r"^(?:[01][0-9]|2[0-3]):[0-5][0-9]$")]
 WeekPattern = Literal["all", "odd", "even"]
@@ -35,12 +36,12 @@ def valid_timezone(value):
 
 class Period(Input):
     number: int = Field(strict=True, ge=1, le=30)
-    start_time: ClockTime
-    end_time: ClockTime
+    start_time: ClockTime | None = None
+    end_time: ClockTime | None = None
 
     @model_validator(mode="after")
     def valid_times(self):
-        if self.end_time <= self.start_time:
+        if self.start_time is not None and self.end_time is not None and self.end_time <= self.start_time:
             raise ValueError("节次结束时间必须晚于开始时间，不支持跨日节次。")
         return self
 
@@ -50,7 +51,7 @@ def validate_periods(value):
         return value
     if len({item.number for item in value}) != len(value):
         raise ValueError("节次编号不能重复。")
-    ordered = sorted(value, key=lambda item: item.start_time)
+    ordered = sorted((item for item in value if item.start_time is not None and item.end_time is not None), key=lambda item: item.start_time)
     if any(left.end_time > right.start_time for left, right in zip(ordered, ordered[1:])):
         raise ValueError("节次时间不能重叠。")
     return value
@@ -102,6 +103,7 @@ class CourseCreate(Input):
     start_time: ClockTime
     end_time: ClockTime
     location: str = Field(default="", max_length=200)
+    weeks: list[Annotated[int, Field(strict=True, ge=1, le=54)]] | None = Field(default=None, max_length=54)
 
 
 class CoursePatch(Patch):
@@ -113,6 +115,7 @@ class CoursePatch(Patch):
     start_time: ClockTime | None = None
     end_time: ClockTime | None = None
     location: str | None = Field(default=None, max_length=200)
+    weeks: list[Annotated[int, Field(strict=True, ge=1, le=54)]] | None = Field(default=None, max_length=54)
 
 
 class LessonPatch(Patch):
@@ -158,6 +161,9 @@ class CourseResponse(BaseModel):
     location: str
     version: int
     is_deleted: bool
+    weeks: list[int] | None = None
+    structured_course_id: str | None = None
+    schedule_id: str | None = None
 
 
 class LessonResponse(BaseModel):
@@ -202,6 +208,9 @@ def course_result(item):
         start_week=item.start_week, end_week=item.end_week, week_pattern=item.week_pattern,
         start_time=item.start_time, end_time=item.end_time, location=item.location,
         version=item.version, is_deleted=item.is_deleted,
+        weeks=getattr(item, "weeks", None),
+        structured_course_id=str(item.source_course_id) if getattr(item, "source_course_id", None) else None,
+        schedule_id=str(item.source_schedule_id) if getattr(item, "source_schedule_id", None) else None,
     ).model_dump(mode="json")
 
 
@@ -263,8 +272,12 @@ def generate(course, semester):
     if course.start_time >= course.end_time:
         raise HTTPException(422, "结束时间必须晚于开始时间，不支持跨日课程。")
     result = {}
-    for week in range(course.start_week, course.end_week + 1):
-        if (course.week_pattern == "odd" and week % 2 == 0) or (course.week_pattern == "even" and week % 2 == 1):
+    exact_weeks = getattr(course, "weeks", None)
+    selected_weeks = sorted(set(exact_weeks)) if exact_weeks is not None else range(course.start_week, course.end_week + 1)
+    if any(type(week) is not int or not 1 <= week <= total_weeks(semester) for week in selected_weeks):
+        raise HTTPException(422, "课程周次必须在学期内。")
+    for week in selected_weeks:
+        if exact_weeks is None and ((course.week_pattern == "odd" and week % 2 == 0) or (course.week_pattern == "even" and week % 2 == 1)):
             continue
         day = semester.first_week_monday + timedelta(days=(week - 1) * 7 + course.weekday - 1)
         if semester.start_date <= day <= semester.end_date:
@@ -275,6 +288,7 @@ def generate(course, semester):
 
 
 def assert_no_overlap(db, user_id, *, before_lessons=None, semester_id=None):
+    """Return overlap diagnostics; overlapping courses are valid saved data."""
     db.flush()
     items = db.scalars(select(Lesson).where(
         Lesson.user_id == user_id, Lesson.status == "scheduled", Lesson.is_deleted.is_(False),
@@ -292,7 +306,7 @@ def assert_no_overlap(db, user_id, *, before_lessons=None, semester_id=None):
                     | set(db.scalars(select(LessonOutcome.lesson_id).where(LessonOutcome.user_id == user_id)).all()))
         conflicts = find_conflicts((lesson_result(item) for item in items), before_lessons=before_lessons,
                                    recorded_lesson_ids=recorded)
-        raise ScheduleConflictError(conflicts)
+    return conflicts
 
 
 def new_lesson(course, semester, week, starts_at, ends_at):
@@ -333,101 +347,150 @@ def create_course_record(db, user, body, *, record_id=None, lesson_id_factory=No
             item.id = lesson_id_factory(week)
         db.add(item)
     db.flush()
+    _capture_course(db, user, course)
     return course
 
 
-def update_course_record(db, user, course_id, body, *, now, lesson_id_factory=None):
+def _prepare_course_update(db, user, course_id, body):
+    """Compute real occurrence changes without mutating any live record."""
     course = owned(db, CourseTemplate, user.id, course_id)
     check_version(course, body.version)
     semester = owned(db, Semester, user.id, course.semester_id)
-    for name, value in body.model_dump(exclude_unset=True, exclude={"version"}).items():
-        setattr(course, name, value)
-    generated = generate(course, semester)
+    fields = ("name", "weekday", "weeks", "start_week", "end_week", "week_pattern", "start_time", "end_time", "location")
+    candidate = SimpleNamespace(**{field: getattr(course, field) for field in fields})
+    if body.model_fields_set & {"start_week", "end_week", "week_pattern"} and "weeks" not in body.model_fields_set:
+        candidate.weeks = None
+    for field, value in body.model_dump(exclude_unset=True, exclude={"version"}).items():
+        setattr(candidate, field, value)
+    generated = generate(candidate, semester)
     lessons = {item.week_number: item for item in db.scalars(select(Lesson).where(
         Lesson.course_id == course.id, Lesson.user_id == user.id,
-    )).all()}
-    recorded = recorded_lessons(db, user.id)
+    ).order_by(Lesson.id)).all()}
+    updates, removals = [], []
     for week, item in lessons.items():
-        if item.is_deleted or item.starts_at <= now or item.is_override or item.id in recorded:
+        if item.is_deleted:
             continue
-        target = generated.get(week)
-        if target is None or target[0] <= now:
-            if item.status != "cancelled":
-                item.status = "cancelled"
-                item.version += 1
-            continue
-        starts_at, ends_at = target
-        changed = (item.starts_at != starts_at or item.ends_at != ends_at or item.name != course.name
-                   or item.location != course.location or item.status != "scheduled")
-        if changed:
-            item.starts_at, item.ends_at = starts_at, ends_at
-            item.name, item.location = course.name, course.location
-            item.status = "scheduled"
-            item.version += 1
+        if item.is_override:
+            # Keep single-occurrence dates/statuses, while course metadata follows
+            # the user's edit even for past and completed occurrences.
+            values = {"name": candidate.name, "location": candidate.location}
+        else:
+            target = generated.get(week)
+            if target is None:
+                removals.append(item)
+                continue
+            values = {"starts_at": target[0], "ends_at": target[1], "name": candidate.name,
+                      "location": candidate.location, "status": "scheduled"}
+        if any(getattr(item, field) != value for field, value in values.items()):
+            updates.append((item, values))
+    affected = [item for item, _ in updates] + removals
+    # A legacy template represents one schedule. Renaming its logical course
+    # also changes sibling schedules during the JSONB projection.
+    if course.source_course_id and candidate.name != course.name:
+        sibling_ids = select(CourseTemplate.id).where(CourseTemplate.user_id == user.id,
+            CourseTemplate.source_course_id == course.source_course_id, CourseTemplate.id != course.id)
+        affected.extend(db.scalars(select(Lesson).where(Lesson.user_id == user.id,
+            Lesson.course_id.in_(sibling_ids), Lesson.is_deleted.is_(False), Lesson.name != candidate.name)).all())
+    return course, candidate, generated, lessons, updates, removals, affected
+
+
+def update_course_record(db, user, course_id, body, *, now, lesson_id_factory=None):
+    from timetable_lifecycle import assert_not_timing, remove_lessons
+    lock_reader(db, user.id)
+    course, candidate, generated, lessons, updates, removals, affected = _prepare_course_update(db, user, course_id, body)
+    assert_not_timing(db, user.id, affected, operation="modify", now=now)
+    # All checks finish before changing template fields or occurrence rows.
+    for field in ("name", "weekday", "weeks", "start_week", "end_week", "week_pattern", "start_time", "end_time", "location"):
+        setattr(course, field, getattr(candidate, field))
+    for item, values in updates:
+        for field, value in values.items():
+            setattr(item, field, value)
+        item.version += 1
+    remove_lessons(db, user.id, removals, now=now)
+    semester = owned(db, Semester, user.id, course.semester_id)
     for week, (starts_at, ends_at) in generated.items():
-        if week not in lessons and starts_at > now:
+        if week not in lessons:
             item = new_lesson(course, semester, week, starts_at, ends_at)
             if lesson_id_factory is not None:
                 item.id = lesson_id_factory(week)
             db.add(item)
     course.version += 1
     db.flush()
+    _capture_course(db, user, course)
     return course
 
 
 def delete_course_record(db, user, course_id, version, *, now):
+    from timetable_lifecycle import assert_not_timing, remove_lessons
+    from timetable_structured import capture_legacy_course, sync_document
+    from models import TimetableDocument
+    lock_reader(db, user.id)
     course = owned(db, CourseTemplate, user.id, course_id)
     check_version(course, version)
-    recorded = recorded_lessons(db, user.id)
-    for item in db.scalars(select(Lesson).where(
-        Lesson.course_id == course.id, Lesson.user_id == user.id,
-        Lesson.is_deleted.is_(False),
-    )).all():
-        if item.id not in recorded:
-            item.is_deleted = True
-            item.version += 1
+    lessons = db.scalars(select(Lesson).where(Lesson.course_id == course.id,
+        Lesson.user_id == user.id).order_by(Lesson.id)).all()
+    assert_not_timing(db, user.id, lessons, operation="delete", now=now)
     course.is_deleted = True
     course.version += 1
+    # Capture before removing the live rows so future projection cannot recreate
+    # a deleted schedule. Historical learning records keep independent snapshots.
+    logical = capture_legacy_course(db, user, course)
+    document = owned(db, TimetableDocument, user.id, logical.document_id) if logical is not None else None
+    remove_lessons(db, user.id, lessons, now=now)
+    db.delete(course)
     db.flush()
+    if document is not None:
+        sync_document(db, user, document)
     return course
 
 
-def delete_lesson_record(db, user, lesson_id, version):
+def delete_lesson_record(db, user, lesson_id, version, *, now=None):
+    from timetable_lifecycle import assert_not_timing, remove_lessons
+    from timetable_structured import capture_legacy_lesson
+    now = now or utcnow()
+    lock_reader(db, user.id)
     item = owned(db, Lesson, user.id, lesson_id)
+    assert_not_timing(db, user.id, [item], operation="delete", now=now)
     check_version(item, version)
-    if item.id in recorded_lessons(db, user.id):
-        raise HTTPException(409, "这节课已有计时或课后记录，已保留学习记录；如需纠错，请到计时或复盘页修改记录。")
     item.is_deleted = True
     item.is_override = True
     item.version += 1
-    db.flush()
+    capture_legacy_lesson(db, user, item)
+    remove_lessons(db, user.id, [item], now=now)
     return item
 
 
+def _capture_course(db, user, course):
+    from models import TimetableDocument
+    from timetable_structured import capture_legacy_course, sync_document
+    logical = capture_legacy_course(db, user, course)
+    if logical is not None:
+        document = owned(db, TimetableDocument, user.id, logical.document_id)
+        sync_document(db, user, document)
+
+
 def update_lesson_record(db, user, lesson_id, body, *, now, allow_history=False):
+    from timetable_lifecycle import assert_not_timing
+    lock_reader(db, user.id)
     item = owned(db, Lesson, user.id, lesson_id)
-    check_version(item, body.version)
-    if db.scalar(select(StudySession.id).where(
-        StudySession.user_id == user.id, StudySession.lesson_id == item.id,
-    )) is not None or db.scalar(select(LessonOutcome.lesson_id).where(
-        LessonOutcome.user_id == user.id, LessonOutcome.lesson_id == item.id,
-    )) is not None:
-        raise HTTPException(409, "该课程已有计时或课后记录，不能修改课表中的这一次安排。")
-    if not allow_history and item.starts_at <= now:
-        raise HTTPException(409, "已开始或过去的课程不能在课表中修改，请到计时页查看课后确认与补记。")
+    values = {}
     if body.date is not None:
         semester = owned(db, Semester, user.id, item.semester_id)
         if not semester.start_date <= body.date <= semester.end_date:
             raise HTTPException(422, "调课日期必须在该学期内。")
-        starts_at, ends_at = interval(body.date, body.start_time, body.end_time, item.timezone)
-        if not allow_history and starts_at <= now:
-            raise HTTPException(422, "不能调课到已经开始或过去的时刻。")
-        item.starts_at, item.ends_at = starts_at, ends_at
+        values["starts_at"], values["ends_at"] = interval(body.date, body.start_time, body.end_time, item.timezone)
     if body.status is not None:
-        item.status = body.status
+        values["status"] = body.status
     if body.note is not None:
-        item.note = body.note
-    item.is_override = True
+        values["note"] = body.note
+    values["is_override"] = True
+    if any(getattr(item, field) != value for field, value in values.items()):
+        assert_not_timing(db, user.id, [item], operation="modify", now=now)
+    check_version(item, body.version)
+    for field, value in values.items():
+        setattr(item, field, value)
     item.version += 1
     db.flush()
+    from timetable_structured import capture_legacy_lesson
+    capture_legacy_lesson(db, user, item)
     return item

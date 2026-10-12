@@ -22,8 +22,6 @@ class LearningArchive(Base):
 
 class OutcomeRevision(Base):
     __tablename__ = "outcome_revisions"
-    __table_args__ = (ForeignKeyConstraint(["user_id", "lesson_id"], ["lessons.user_id", "lessons.id"],
-                        ondelete="CASCADE", name="fk_outcome_revisions_owner"),)
     lesson_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
     input_version: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"))

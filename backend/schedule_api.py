@@ -1,7 +1,6 @@
 """Authenticated conversation API. Model work is performed by a durable worker."""
 from db import IdempotencyKey, Input, Version, check_version, mutate, owned
 import uuid
-import re
 from datetime import timedelta
 from io import BytesIO
 from typing import Literal
@@ -9,7 +8,7 @@ from typing import Literal
 from fastapi import APIRouter, HTTPException, Query, Request
 from PIL import Image, ImageOps, UnidentifiedImageError
 from pydantic import Field, model_validator
-from sqlalchemy import func, select, update
+from sqlalchemy import Text, cast, func, select, update
 from starlette.concurrency import run_in_threadpool
 
 from auth import CurrentSession, CurrentUser, Db, unauthorized, utcnow
@@ -81,7 +80,7 @@ def detail(db, thread):
     return {**summary(thread), "messages": messages, "has_more_messages": len(rows) == 50,
             "run": None if run is None else {
                 "id": str(run.id), "status": run.status, "reply": run.reply, "error": run.error,
-                "preview": run.preview, "created_at": run.created_at.isoformat(),
+                "preview": None, "result": run.result, "created_at": run.created_at.isoformat(),
             }}
 
 
@@ -89,30 +88,6 @@ def touch(thread):
     thread.version += 1
     thread.updated_at = utcnow()
 
-
-def confirms_preview(text, run):
-    """Only an exact affirmative can approve a concrete, currently visible plan."""
-    if not run or run.status != "awaiting_confirmation" or not run.preview:
-        return False
-    value = re.sub(r"[\s，。！!,.]", "", text)
-    if value in {"确认", "确认执行", "确认导入", "确认更新", "执行", "应用", "确认应用",
-                 "全部确认", "都确认", "没问题", "可以", "好的", "同意", "按这个方案执行"}:
-        return True
-    operations = (run.plan or {}).get("operations", [])
-    return value in {"删除", "确认删除", "删掉", "直接删除"} and bool(operations) and all(
-        item.get("kind") in {"delete_course", "delete_lesson"} for item in operations)
-
-
-def queue_decision(db, thread, run, decision):
-    from schedule_plan import snapshot_hash
-    if run.status != "awaiting_confirmation" or not run.preview:
-        raise HTTPException(409, "当前没有可以确认的方案，请读取最新对话。")
-    if decision == "apply" and run.preview["baseline_hash"] != snapshot_hash(db, run.user_id, thread.semester_id,
-            legacy=not run.preview["baseline_hash"].startswith("semester-v1:")):
-        raise HTTPException(409, "课表已经改变，这份预览已过期。请发送说明，重新生成方案后确认。")
-    run.status, run.decision, run.error = "confirm_queued", decision, ""
-    run.updated_at = utcnow()
-    touch(thread)
 
 
 @router.get("/threads")
@@ -153,26 +128,13 @@ def post_message(thread_id: uuid.UUID, body: MessageCreate, request: Request, us
         if previous and previous.status in BUSY:
             raise HTTPException(409, "上一条请求仍在处理，请稍后读取结果。")
         if not body.image_ids and body.text.strip(" 。！!，,") in {"取消", "取消导入", "取消这次导入", "取消本次任务", "不用了"}:
-            # Cancelling an unfinished task must not require model budget, a
-            # readable upload, or a valid preview. Keep the original audit rows.
-            if previous and previous.status == "awaiting_confirmation":
+            if previous and previous.status in {"awaiting_confirmation", "needs_input"}:
                 previous.status = "superseded"
                 previous.updated_at = utcnow()
             run = ScheduleRun(user_id=user.id, thread_id=thread.id, input_text=body.text,
-                              image_ids=[], status="cancelled", reply="已取消这次课表修改。")
+                              image_ids=[], status="cancelled", reply="本次未执行课表修改，已保存的课程仍可编辑。")
             db.add(run)
-            # Choosing a file uploads it before the client sends a message.
-            # Cancelling a task must not discard those unsent attachments.
-            references = db.scalars(select(ScheduleRun.image_ids).where(
-                ScheduleRun.user_id == user.id, ScheduleRun.thread_id == thread.id)).all()
-            referenced_ids = {uuid.UUID(value) for values in references for value in values}
-            db.execute(update(ScheduleImage).where(ScheduleImage.user_id == user.id,
-                       ScheduleImage.thread_id == thread.id, ScheduleImage.id.in_(referenced_ids)).values(data=None))
             touch(thread)
-            return detail(db, thread)
-        if not body.image_ids and confirms_preview(body.text, previous):
-            queue_decision(db, thread, previous, "apply")
-            previous.confirmation_text = body.text
             return detail(db, thread)
         for image_id in body.image_ids:
             image = owned(db, ScheduleImage, user.id, image_id)
@@ -203,11 +165,7 @@ def selected_run(db, user, thread_id, run_id, version):
 
 @router.post("/threads/{thread_id}/runs/{run_id}/confirm", status_code=202)
 def confirm_run(thread_id: uuid.UUID, run_id: uuid.UUID, body: Decision, request: Request, user: CurrentUser, db: Db, key: IdempotencyKey):
-    def action():
-        thread, run = selected_run(db, user, thread_id, run_id, body.version)
-        queue_decision(db, thread, run, body.decision)
-        return detail(db, thread)
-    return mutate(db, user, request, key, body, 202, action)
+    raise HTTPException(410, "课表助手已改为直接保存，不再使用预览确认；旧版预览任务已被替代。")
 
 
 @router.post("/threads/{thread_id}/runs/{run_id}/retry", status_code=202)
@@ -215,8 +173,10 @@ def retry_run(thread_id: uuid.UUID, run_id: uuid.UUID, body: Retry, request: Req
     def action():
         thread, run = selected_run(db, user, thread_id, run_id, body.version)
         if run.status != "failed":
-            raise HTTPException(409, "只能重试失败的请求；课表有变化时请发送说明重新生成方案。")
-        run.status = "confirm_queued" if run.decision else "queued"
+            raise HTTPException(409, "只能重试技术处理失败的请求。")
+        if run.decision is not None or (run.plan and "operations" in run.plan):
+            raise HTTPException(409, "旧版课表任务已被替代，原始输入和图片已保留。")
+        run.status = "queued"
         run.error, run.lease_owner, run.lease_until = "", None, None
         run.attempts = 0
         run.updated_at = utcnow()
@@ -257,8 +217,20 @@ def save_image(db, auth_id, token_hash, thread_id, raw):
         raise unauthorized()
     db.scalar(select(User).where(User.id == auth.user_id).with_for_update())
     owned(db, ScheduleThread, auth.user_id, thread_id)
+    # Retain successful source images for seven days without consuming pending
+    # upload slots. Failed or active uses still need their attachments for retry.
+    reference = ScheduleRun.image_ids.contains(func.jsonb_build_array(cast(ScheduleImage.id, Text)))
+    finished = select(ScheduleRun.id).where(
+        ScheduleRun.user_id == auth.user_id, ScheduleRun.thread_id == ScheduleImage.thread_id,
+        ScheduleRun.status.in_(["applied", "completed", "superseded", "cancelled"]), reference,
+    ).correlate(ScheduleImage).exists()
+    pending = select(ScheduleRun.id).where(
+        ScheduleRun.user_id == auth.user_id, ScheduleRun.thread_id == ScheduleImage.thread_id,
+        ScheduleRun.status.not_in(["applied", "completed", "superseded", "cancelled"]), reference,
+    ).correlate(ScheduleImage).exists()
     count = db.scalar(select(func.count()).select_from(ScheduleImage).where(
-        ScheduleImage.user_id == auth.user_id, ScheduleImage.expires_at > utcnow(), ScheduleImage.data.is_not(None)))
+        ScheduleImage.user_id == auth.user_id, ScheduleImage.expires_at > utcnow(), ScheduleImage.data.is_not(None),
+        ~finished | pending))
     if count >= 20:
         raise HTTPException(429, "待处理图片较多，请先完成已有课表对话。")
     image = ScheduleImage(user_id=auth.user_id, thread_id=thread_id, data=raw,

@@ -150,9 +150,8 @@ def settle_lesson(db, user_id, lesson_id, source_key, kind, effective_seconds=0,
         if receipt.fingerprint != fingerprint:
             raise HTTPException(409, "结算来源已用于不同的评估版本。")
         return event_result(db.get(ClassIndexEvent, receipt.event_id)) if receipt.event_id else None
-    lesson = db.scalar(select(Lesson).where(Lesson.id == lesson_id, Lesson.user_id == user_id))
-    if lesson is None:
-        raise HTTPException(404, "课程不存在。")
+    from timetable_lifecycle import learning_lesson
+    lesson = learning_lesson(db, user_id, lesson_id)
     previous = db.scalar(select(ClassIndexEvent).where(ClassIndexEvent.user_id == user_id, ClassIndexEvent.lesson_id == lesson_id)
                          .order_by(ClassIndexEvent.revision.desc()).limit(1))
     if kind == "excluded" and previous is None:

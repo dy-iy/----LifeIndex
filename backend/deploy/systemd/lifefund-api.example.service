@@ -1,7 +1,8 @@
 # 使用前创建 lifefund 用户，并按自己的安装位置修改路径。
-# 此服务只启动 API；后台任务可使用 ecosystem.config.js 统一管理。
+# API lifespan 同时启动后台任务线程；保持单实例，不使用 --workers 或 --reload。
+# PM2 与 systemd 二选一，不另行启动独立 worker 服务。
 [Unit]
-Description=Lifefund FastAPI backend
+Description=Lifefund API and background tasks
 After=network.target
 StartLimitIntervalSec=60
 StartLimitBurst=5
@@ -15,7 +16,7 @@ ExecStart=/opt/lifefund/backend/.venv/bin/python -m uvicorn main:app --host 127.
 Environment=PYTHONUNBUFFERED=1
 Restart=on-failure
 RestartSec=3
-TimeoutStopSec=30
+TimeoutStopSec=210
 NoNewPrivileges=true
 PrivateTmp=true
 UMask=0077

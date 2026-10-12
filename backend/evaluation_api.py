@@ -218,7 +218,7 @@ def get_evaluation(session_id: uuid.UUID, user: CurrentUser, db: Db):
     value = response(study, review, job, now)
     if review and review.outcome_evaluation_id:
         from reviews import result
-        value["review"] = result(study, review, session_segments(db, user.id, study.id), now, job)
+        value["review"] = result(study, review, session_segments(db, user.id, study.id), now, job, db=db)
     return value
 
 
@@ -317,7 +317,7 @@ def revise_evaluation(session_id: uuid.UUID, body: ReviewInput, request: Request
         validate_submission(body)
         if review.answers == body.answers and review.question_version == body.question_version and review.review_context == input_context(body):
             # Reposting identical evidence must never draw another, luckier score.
-            return {**response(study, review, job, now), "review": result(study, review, session_segments(db, user.id, study.id), now)}
+            return {**response(study, review, job, now), "review": result(study, review, session_segments(db, user.id, study.id), now, db=db)}
         review.answers, review.updated_at, review.submitted_at = body.answers, now, now
         review.question_version, review.review_context = body.question_version, input_context(body)
         review.version += 1
@@ -325,5 +325,5 @@ def revise_evaluation(session_id: uuid.UUID, body: ReviewInput, request: Request
         job = enqueue_evaluation(db, user.id, review, study, now)
         from learning_lifecycle import reopen_lesson
         reopen_lesson(db, user.id, study.lesson_id, now)
-        return {**response(study, review, job, now), "review": result(study, review, session_segments(db, user.id, study.id), now)}
+        return {**response(study, review, job, now), "review": result(study, review, session_segments(db, user.id, study.id), now, db=db)}
     return mutate(db, user, request, key, body, 200, action)

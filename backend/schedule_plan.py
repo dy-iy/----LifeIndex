@@ -242,8 +242,54 @@ def _summarize(before, after, semester_id, baseline_hash):
             if category == "lessons":
                 title = f'{value["local_date"]} {value["start_time"]} {title}'
             changes.append({"kind": kind, "title": title, "before": old, "after": value})
+        if category in {"courses", "lessons"}:
+            for record_id in before[category].keys() - after[category].keys():
+                old = before[category][record_id]
+                if old.get("semester_id", str(semester_id)) != str(semester_id):
+                    # Frozen pre-v5 snapshots may contain other semesters.
+                    continue
+                kind, count = ("delete_course", "deleted_courses") if category == "courses" else ("delete_lesson", "deleted_lessons")
+                counts[count] += 1
+                title = old.get("name", "课表变更")
+                if category == "lessons":
+                    title = f'{old["local_date"]} {old["start_time"]} {title}'
+                changes.append({"kind": kind, "title": title, "before": old, "after": None})
     return {"semester_id": str(semester_id), "baseline_hash": baseline_hash,
             "changes": changes, "counts": counts}
+
+
+def _preflight_timing(db, user, semester_id, plan, now):
+    """Check a batch before its first business write, under the timer-start lock."""
+    from timetable_lifecycle import assert_not_timing
+    tt.lock_reader(db, user.id)
+    if semester_id is None:
+        return
+    rows = db.scalars(select(Lesson).where(Lesson.user_id == user.id, Lesson.semester_id == semester_id,
+                                          Lesson.is_deleted.is_(False))).all()
+    deleting, modifying, lesson_versions = [], [], []
+    for op in plan.operations:
+        if op.kind == "delete_course":
+            course = _require_semester_record(db, user.id, CourseTemplate, op.course_id, semester_id)
+            tt.check_version(course, op.version)
+            deleting.extend(db.scalars(select(Lesson).where(Lesson.user_id == user.id, Lesson.course_id == course.id)).all())
+        elif op.kind == "update_course":
+            _require_semester_record(db, user.id, CourseTemplate, op.course_id, semester_id)
+            *_, affected = tt._prepare_course_update(db, user, op.course_id, _body(op, tt.CoursePatch, "course_id"))
+            modifying.extend(affected)
+        elif op.kind in {"patch_lesson", "delete_lesson"}:
+            lesson = _require_semester_record(db, user.id, Lesson, op.lesson_id, semester_id)
+            lesson_versions.append((lesson, op.version))
+            (deleting if op.kind == "delete_lesson" else modifying).append(lesson)
+        elif op.kind == "cancel_range":
+            modifying.extend(row for row in rows
+                if op.start_date.isoformat() <= tt.lesson_result(row)["local_date"] <= op.end_date.isoformat()
+                and not (row.status == "cancelled" and row.note == op.reason and row.is_override))
+        elif op.kind == "move_day":
+            modifying.extend(row for row in rows if tt.lesson_result(row)["local_date"] == op.source_date.isoformat())
+    assert_not_timing(db, user.id, deleting, operation="delete", now=now)
+    assert_not_timing(db, user.id, modifying, operation="modify", now=now)
+    for lesson, version in lesson_versions:
+        tt.check_version(lesson, version)
 
 
 def _execute(db, user, semester_id, plan, proposal_id, baseline_hash, before):
@@ -257,6 +303,7 @@ def _execute(db, user, semester_id, plan, proposal_id, baseline_hash, before):
     if (semester_id is None and len(initial_creates) != 1) or (semester_id is not None and initial_creates):
         raise HTTPException(422, "新对话需创建一个学期；已绑定学期的对话不能新建其他学期。")
     now = tt.utcnow()
+    _preflight_timing(db, user, semester_id, plan, now)
     if semester_id is not None:
         semester = tt.owned(db, Semester, user.id, semester_id)
     else:
@@ -292,7 +339,7 @@ def _execute(db, user, semester_id, plan, proposal_id, baseline_hash, before):
             update_lesson_record(db, user, op.lesson_id, _body(op, tt.LessonPatch, "lesson_id"), now=now)
         elif op.kind == "delete_lesson":
             _require_semester_record(db, user.id, Lesson, op.lesson_id, semester_id)
-            delete_lesson_record(db, user, op.lesson_id, op.version)
+            delete_lesson_record(db, user, op.lesson_id, op.version, now=now)
     db.flush()
     new_lesson_ids = {row.id for row in db.scalars(select(Lesson).where(
         Lesson.user_id == user.id, Lesson.semester_id == semester_id,

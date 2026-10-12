@@ -1,19 +1,103 @@
 """HTTP bindings for timetable actions."""
 import uuid
 from datetime import date, datetime, time, timedelta, timezone
-from typing import Annotated
+from typing import Annotated, Any
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from sqlalchemy import select
+from pydantic import Field
 
 from auth import CurrentUser, Db
-from db import IdempotencyKey, mutate, owned, check_version
+from db import IdempotencyKey, Input, Version, mutate, owned, check_version
 from models import CourseTemplate, Lesson, Semester
 import timetable_actions as actions
 from timetable_actions import SemesterCreate, SemesterPatch, CourseCreate, CoursePatch, LessonPatch, SemesterResponse, CourseResponse, LessonResponse, semester_result, course_result, lesson_result, validate_semester, assert_no_overlap
 
 router = APIRouter()
+
+
+class StructuredCourseCreate(Input):
+    document_id: uuid.UUID
+    data: dict[str, Any]
+
+
+class StructuredCoursePatch(Input):
+    version: Version
+    name: str | None = Field(default=None, max_length=100)
+    schedule_updates: list[dict[str, Any]] = Field(default_factory=list, max_length=100)
+    schedule_additions: list[dict[str, Any]] = Field(default_factory=list, max_length=100)
+    schedule_removals: list[uuid.UUID] = Field(default_factory=list, max_length=100)
+
+
+class StructuredBind(Input):
+    version: Version
+    semester_id: uuid.UUID
+
+
+@router.get("/api/timetables/structured")
+def get_structured(user: CurrentUser, db: Db, semester_id: uuid.UUID | None = None,
+                   thread_id: uuid.UUID | None = None):
+    from timetable_structured import structured_snapshot
+    if (semester_id is None) == (thread_id is None):
+        raise HTTPException(422, "请指定学期或未关联学期的对话。")
+    return structured_snapshot(db, user.id, semester_id=semester_id, thread_id=thread_id)
+
+
+@router.post("/api/timetables/structured/courses", status_code=201)
+def create_structured(body: StructuredCourseCreate, request: Request, user: CurrentUser, db: Db,
+                      key: IdempotencyKey):
+    from timetable_structured import create_structured_course
+    return mutate(db, user, request, key, body, 201,
+                  lambda: create_structured_course(db, user, body.document_id, body.data))
+
+
+@router.patch("/api/timetables/structured/courses/{course_id}")
+def patch_structured(course_id: uuid.UUID, body: StructuredCoursePatch, request: Request,
+                     user: CurrentUser, db: Db, key: IdempotencyKey):
+    from timetable_structured import patch_structured_course
+    return mutate(db, user, request, key, body, 200,
+                  lambda: patch_structured_course(db, user, course_id, body.model_dump(mode="json", exclude_unset=True)))
+
+
+@router.post("/api/timetables/structured/documents/{document_id}/bind")
+def bind_structured(document_id: uuid.UUID, body: StructuredBind, request: Request,
+                    user: CurrentUser, db: Db, key: IdempotencyKey):
+    from models import TimetableDocument
+    from timetable_structured import associate_document, structured_snapshot
+    def action():
+        document = owned(db, TimetableDocument, user.id, document_id)
+        check_version(document, body.version)
+        owned(db, Semester, user.id, body.semester_id)
+        associate_document(db, user, document, body.semester_id)
+        return structured_snapshot(db, user.id, semester_id=body.semester_id)
+    return mutate(db, user, request, key, body, 200, action)
+
+
+def _capture_periods(db, user, semester):
+    """Save the current semester clocks and retime its period-based courses."""
+    from copy import deepcopy
+    from timetable_structured import get_document, sync_period_axis, _apply_period_table_changes, _current_period_table
+    document = get_document(db, user.id, semester_id=semester.id, create=True)
+    data = deepcopy(document.data or {})
+    tables = data.setdefault("period_tables", [])
+    table = _current_period_table(data)
+    if table is None:
+        table = {"id": str(uuid.uuid4()), "weeks": None, "source": "manual"}
+        tables.append(table)
+    table["source"] = "manual"
+    table["periods"] = deepcopy(semester.periods or [])
+    data["display_period_table_id"] = table["id"]
+    document.data = data
+    document.version += 1
+    document.updated_at = datetime.now(timezone.utc)
+    sync_period_axis(db, user, document, preferred_id=table["id"])
+    unapplied = []
+    _apply_period_table_changes(db, user, document, [{"action": "update", "id": table["id"],
+        "periods": deepcopy(table["periods"])}], {}, unapplied)
+    if unapplied:
+        raise HTTPException(409, unapplied[0]["reason"])
+    db.flush()
 
 @router.get("/api/timetables/semesters", response_model=list[SemesterResponse])
 def list_semesters(user: CurrentUser, db: Db):
@@ -29,7 +113,9 @@ def list_semesters(user: CurrentUser, db: Db):
 def create_semester(body: SemesterCreate, request: Request, user: CurrentUser, db: Db, key: IdempotencyKey):
     from timetable_actions import create_semester_record
     def action():
-        return semester_result(create_semester_record(db, user, body))
+        item = create_semester_record(db, user, body)
+        _capture_periods(db, user, item)
+        return semester_result(item)
     return mutate(db, user, request, key, body, 201, action)
 
 
@@ -51,6 +137,8 @@ def patch_semester(semester_id: uuid.UUID, body: SemesterPatch, request: Request
         validate_semester(item)
         item.version += 1
         db.flush()
+        if "periods" in values:
+            _capture_periods(db, user, item)
         return semester_result(item, has_courses)
     return mutate(db, user, request, key, body, 200, action)
 
@@ -128,6 +216,6 @@ def delete_lesson(lesson_id: uuid.UUID, request: Request, user: CurrentUser, db:
                   version: Annotated[int, Query(ge=1)]):
     from timetable_actions import delete_lesson_record
     def action():
-        delete_lesson_record(db, user, lesson_id, version)
+        delete_lesson_record(db, user, lesson_id, version, now=actions.utcnow())
         return None
     return mutate(db, user, request, key, {"version": version}, 204, action)

@@ -29,6 +29,7 @@ from lesson_outcomes import router as lesson_outcomes_router
 from evaluation_api import router as evaluation_router
 from class_index import router as class_index_router
 from learning_lifecycle import router as lifecycle_router
+from worker_runtime import WorkerRuntime
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 load_dotenv(Path(__file__).with_name(".env"))
@@ -36,7 +37,7 @@ MODEL = "deepseek-flash"
 logger = logging.getLogger(__name__)
 
 
-def create_app(settings: Settings | None = None):
+def create_app(settings: Settings | None = None, *, background_workers: bool = True):
     @asynccontextmanager
     async def lifespan(application: FastAPI):
         configured = settings or Settings.from_env()
@@ -45,13 +46,19 @@ def create_app(settings: Settings | None = None):
         application.state.session_factory = sessionmaker(engine, expire_on_commit=False) if engine is not None else None
         application.state.chat_requests = deque()
         application.state.chat_slots = asyncio.Semaphore(2)
+        runtime = WorkerRuntime(configured) if background_workers and engine is not None else None
+        application.state.worker_runtime = runtime
         try:
             async with httpx.AsyncClient(base_url="https://api.deepseek.com", timeout=40, trust_env=False) as ai_client:
                 with httpx.Client(base_url="https://api.weixin.qq.com", timeout=10, trust_env=False) as wechat_client:
                     application.state.ai_client = ai_client
                     application.state.wechat_client = wechat_client
+                    if runtime is not None:
+                        await asyncio.to_thread(runtime.start)
                     yield
         finally:
+            if runtime is not None:
+                await asyncio.to_thread(runtime.stop)
             if engine is not None:
                 engine.dispose()
 
@@ -121,8 +128,12 @@ class ChatResponse(BaseModel):
     model: str = MODEL
 
 
-def health():
-    return {"status": "ok"}
+def health(request: Request):
+    runtime = request.app.state.worker_runtime
+    workers = runtime.status() if runtime is not None else {}
+    healthy = all(state == "running" for state in workers.values())
+    return JSONResponse(status_code=200 if healthy else 503,
+                        content={"status": "ok" if healthy else "degraded", "background_workers": workers})
 
 
 async def chat(body: ChatRequest, request: Request, user: CurrentUser, db: Db):

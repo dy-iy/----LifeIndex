@@ -1,20 +1,21 @@
-"""Durable LangGraph worker. Run schema setup explicitly before starting it."""
+"""Durable one-pass multimodal timetable worker."""
 import argparse
+from contextlib import contextmanager
 from copy import deepcopy
+from datetime import date, timedelta
 import hashlib
 import json
 import logging
-from contextlib import contextmanager
-from datetime import timedelta
 import os
+import re
 from pathlib import Path
 import time
 import uuid
+from zoneinfo import ZoneInfo
 
 from dotenv import load_dotenv
 from fastapi import HTTPException
 from langgraph.checkpoint.postgres import PostgresSaver
-from langgraph.types import Command
 import psycopg
 from psycopg import sql
 from sqlalchemy import and_, or_, select, update
@@ -24,19 +25,18 @@ from auth import utcnow
 from config import Settings
 from db import make_engine, checkpoint_location
 from diagnostics import log_failure
-from models import ScheduleImage, ScheduleRun, ScheduleThread, ScheduleModelCall, User
+from models import CourseTemplate, ScheduleImage, ScheduleRun, ScheduleThread, ScheduleModelCall, User
 from agents.memory import remember_schedule
-from agents.context import CONTEXT_VERSION, CONTEXT_CODE_SHA256
-from agents.schedule_memory import MAX_TASK_TURNS, TaskMemoryError, active_task_rows, completes_import, validate_import_progress
+from agents.prompts import prompt_manifest
+from agents.schedule_image_reader import SCHEMA_VERSION
 from agents.tools.registry import Scope, record_trace
-from agents.tools.schedule import ScheduleTools
 from schedule_api import latest_run, touch
 from schedule_budget import reserve, settle
-from schedule_graph import PlanningResult, build_graph
-from schedule_model import ModelError, prepare_messages, invoke_planner, validate_plan
-from schedule_plan import apply_plan, context_snapshot, preview_plan
+from schedule_graph import build_graph
+from schedule_model import MODEL_NAME, PROMPT_VERSION, ModelError, prepare_messages, invoke_planner, validate_plan
 
 logger = logging.getLogger(__name__)
+CACHE_VERSION = "schedule-understanding-v6"
 
 
 def setup_checkpoints(database_url):
@@ -51,8 +51,7 @@ def setup_checkpoints(database_url):
 def open_checkpointer(database_url, run_id):
     dsn, _ = checkpoint_location(database_url)
     with PostgresSaver.from_conn_string(dsn) as saver:
-        # A fencing lock protects an entire graph invocation, including slow
-        # provider work, even if another process reclaims an expired job lease.
+        # Fencing covers the provider call without holding a business-row lock.
         lock_id = int.from_bytes(uuid.UUID(str(run_id)).bytes[:8], "big", signed=True)
         acquired = saver.conn.execute("SELECT pg_try_advisory_lock(%s) AS acquired", (lock_id,)).fetchone()["acquired"]
         if not acquired:
@@ -64,26 +63,151 @@ def open_checkpointer(database_url, run_id):
             saver.conn.execute("SELECT pg_advisory_unlock(%s)", (lock_id,))
 
 
-def compact_context(context):
-    fields = {"id", "course_id", "version", "name", "local_date", "start_time", "end_time", "status", "is_override", "week_number", "has_learning_record"}
-    return {**context, "lessons": [{key: value for key, value in item.items() if key in fields}
-                                  for item in context.get("lessons", [])]}
+def model_context(db, user_id, document, snapshot):
+    """Project current facts; the audit trail is never fed back into inference."""
+    from schedule_plan import context_snapshot
+    facts = context_snapshot(db, user_id, document.semester_id)
+    source = snapshot.get("document", {})
+    data = source.get("data", {})
+    projected = {**snapshot, "document": {
+        key: value for key, value in source.items() if key in {"id", "version", "semester_id", "thread_id"}}}
+    projected["document"]["data"] = {key: deepcopy(data[key]) for key in ("period_tables", "display_period_table_id", "semester") if key in data}
+    projected["courses"] = [{"id": item["id"], "version": item["version"], "data": {
+        key: deepcopy(item.get("data", {}).get(key)) for key in ("name", "schedules", "exceptions")}}
+        for item in snapshot.get("courses", []) if not item.get("is_deleted")]
+    for key in ("today", "timezone", "semester", "semesters", "week_dates"):
+        projected[key] = facts.get(key)
+    zone = (facts.get("semester") or {}).get("timezone") or facts.get("timezone") or "Asia/Shanghai"
+    now = utcnow().astimezone(ZoneInfo(zone))
+    projected["now"], projected["today"], projected["timezone"] = now.isoformat(), now.date().isoformat(), zone
+    templates = db.scalars(select(CourseTemplate).where(CourseTemplate.user_id == user_id,
+        CourseTemplate.semester_id == document.semester_id)).all() if document.semester_id else []
+    by_template = {str(item.id): item for item in templates}
+    keep = {"id", "course_id", "version", "name", "local_date", "start_time", "end_time", "status", "is_override", "week_number", "location", "has_learning_record"}
+    projected["lessons"] = []
+    for lesson in facts.get("lessons", []):
+        item = {key: value for key, value in lesson.items() if key in keep}
+        template = by_template.get(lesson.get("course_id"))
+        if template and template.source_course_id and template.source_schedule_id:
+            item.update(structured_course_id=str(template.source_course_id), schedule_id=str(template.source_schedule_id),
+                        original_week=lesson.get("week_number"))
+        projected["lessons"].append(item)
+    return projected
 
 
-def compact_history(history):
-    """Keep user answers and the latest unfinished proposal, not repeated plans."""
-    rows = history[-12:]
-    last_plan = next((index for index in range(len(rows) - 1, -1, -1)
-                      if (rows[index].get("unapplied_plan") or {}).get("operations")), None)
-    return [{**row, "reply": row["reply"][:1200 if index == len(rows) - 1 else 500],
-             "unapplied_plan": row.get("unapplied_plan") if index == last_plan else None}
-            for index, row in enumerate(rows)]
+def _read_range(state):
+    context, text = state.get("context", {}), state.get("input_text", "")
+    try:
+        today = date.fromisoformat(context["today"])
+    except (KeyError, TypeError, ValueError):
+        return None
+    dates = re.findall(r"\d{4}-\d{2}-\d{2}", text)
+    if dates:
+        try:
+            start, end = date.fromisoformat(dates[0]), date.fromisoformat(dates[-1])
+            return start, end
+        except ValueError:
+            return None
+    for word, offset in (("后天", 2), ("明天", 1), ("昨天", -1), ("今天", 0)):
+        if word in text:
+            day = today + timedelta(days=offset)
+            return day, day
+    for word, offset in (("下周", 7), ("上周", -7), ("本周", 0), ("这周", 0)):
+        if word in text:
+            monday = today - timedelta(days=today.weekday()) + timedelta(days=offset)
+            return monday, monday + timedelta(days=6)
+    match = re.search(r"第\s*(\d+)\s*周", text)
+    if match:
+        row = next((item for item in context.get("week_dates", []) or [] if item.get("number") == int(match[1])), None)
+        if row:
+            return date.fromisoformat(row["start_date"]), date.fromisoformat(row["end_date"])
+    match = re.search(r"(?:周|星期)([一二三四五六日天])", text)
+    if match:
+        weekday = "一二三四五六日".index("日" if match[1] == "天" else match[1])
+        day = today - timedelta(days=today.weekday()) + timedelta(days=weekday)
+        return day, day
+    return None
+
+
+def period_time_setup(result, state):
+    """An image import can succeed while period clocks still need manual input."""
+    empty = {"required": False, "tables": []}
+    if (not state.get("image_ids") and not state.get("period_time_setup_pending")) or state.get("plan", {}).get("intent") == "read" or result.get("saved") is False:
+        return empty
+    structured = result.get("structured") or {}
+    tables = structured.get("period_tables", [])
+    from timetable_structured import _current_period_table
+    document_data = (structured.get("document") or {}).get("data") or {}
+    current = _current_period_table({"period_tables": tables,
+                                     "display_period_table_id": document_data.get("display_period_table_id")})
+    tables = [current] if current is not None else []
+    missing = {}
+    known = {}
+    for table in tables:
+        identifier = table.get("id")
+        periods = {item["number"]: item for item in table.get("periods", [])}
+        known[identifier] = periods
+        for number, period in periods.items():
+            start, end = period.get("start_time"), period.get("end_time")
+            if not start or not end or start >= end:
+                missing.setdefault(identifier, set()).add(number)
+    # Preserve the prompt even if only a course's period numbers were extracted,
+    # without a corresponding period-table row.
+    for course in structured.get("courses", []):
+        if course.get("is_deleted"):
+            continue
+        for schedule in course.get("data", {}).get("schedules", []):
+            if schedule.get("start_time") and schedule.get("end_time"):
+                continue
+            identifier = current["id"] if current is not None else None
+            periods = known.get(identifier, {})
+            for number in schedule.get("period_numbers") or []:
+                if number not in periods:
+                    missing.setdefault(identifier, set()).add(number)
+    rows = [{"id": identifier, "period_numbers": sorted(numbers)} for identifier, numbers in missing.items() if numbers]
+    return {"required": bool(rows), "tables": rows}
+
+
+def saved_reply(result, state):
+    if state.get("plan", {}).get("intent") == "read":
+        timeframe = _read_range(state)
+        if timeframe:
+            start, end = timeframe
+            lessons = [item for item in state.get("context", {}).get("lessons", [])
+                       if start.isoformat() <= item.get("local_date", "") <= end.isoformat()]
+            lessons.sort(key=lambda item: (item.get("local_date", ""), item.get("start_time", "")))
+            label = start.isoformat() if start == end else f"{start.isoformat()} 至 {end.isoformat()}"
+            if not lessons:
+                return f"{label} 没有已排定的课程。"
+            labels = {"leave": "（请假）", "cancelled": "（停课）"}
+            return f"{label} 的课程：\n" + "\n".join(
+                f"{item['local_date']} {item.get('start_time', '')}—{item.get('end_time', '')} {item.get('name') or '未命名课程'}"
+                + (f" · {item['location']}" if item.get("location") else "")
+                + labels.get(item.get("status"), "") for item in lessons)
+        courses = result.get("structured", {}).get("courses", [])
+        names = [item.get("data", {}).get("name") or "未命名课程" for item in courses if not item.get("is_deleted")]
+        return "当前课程：" + "、".join(names) + "。" if names else "当前没有已保存的课程。"
+    created = len(result.get("created_courses", []))
+    updated = len(result.get("updated_courses", []))
+    reply = f"已保存课表信息：新增 {created} 门课程，更新 {updated} 门课程。"
+    period_changes = result.get("period_table_changes", [])
+    if period_changes:
+        labels = {"create": "设置作息时间", "update": "修改作息时间", "delete": "删除作息时间", "clear": "清空作息时间"}
+        reply += "作息时间已保存：" + "、".join(f"{label} {sum(item.get('action') == action for item in period_changes)} 项"
+            for action, label in labels.items() if any(item.get("action") == action for item in period_changes)) + "。已选节次的课程时间会同步跟随当前作息；缺少对应节次或完整起止时间的安排暂不进入周课表。"
+    if result.get("unapplied_changes"):
+        reply += "部分修改未应用，详情已保留在处理结果中。"
+    if result.get("diagnostics"):
+        reply += "缺失信息和时间重叠已标记，可在课程列表查看和编辑。"
+    setup = result.get("period_time_setup") or period_time_setup(result, state)
+    if setup.get("required"):
+        reply += "部分节次缺少对应时间段，请手动设置每节课的开始和结束时间。只有开始和结束时间填写完整的课程安排，才可在对应时段被计时功能识别；时间未填完整的安排暂不会被识别。可在聊天框输入各节时间，也可到学期设置中补充作息时间；设置前保留已识别信息，不使用默认作息。"
+    return reply
 
 
 class Worker:
-    def __init__(self, settings, planner=invoke_planner, image_reader=None):
+    def __init__(self, settings, planner=invoke_planner):
         self.settings, self.planner = settings, planner
-        self.image_reader = image_reader
         self.engine = make_engine(settings.database_url)
         if self.engine is None:
             raise ValueError("DATABASE_URL is required for the schedule worker")
@@ -103,173 +227,70 @@ class Worker:
             if run is None:
                 db.commit()
                 return None
+            if run.decision is not None or run.status in {"confirm_queued", "confirming"}:
+                run.status, run.reply = "superseded", "旧版预览任务已被替代，原始输入和图片已保留。"
+                run.lease_owner, run.lease_until = None, None
+                touch(db.get(ScheduleThread, run.thread_id))
+                db.commit()
+                return None
             run.attempts += 1
             run.updated_at = now
-            # Every visible transition invalidates known_version polling,
-            # including the terminal failure after repeated lease expiry.
             db.execute(update(ScheduleThread).where(ScheduleThread.id == run.thread_id).values(
                 version=ScheduleThread.version + 1, updated_at=now))
             if run.attempts > 3:
-                run.status, run.error = "failed", "任务多次中断，已保留对话和方案，请手动重试。"
+                run.status, run.error = "failed", "任务多次中断，输入和有效识别结果已保留，可主动重试。"
                 run.lease_owner, run.lease_until = None, None
                 db.commit()
                 return None
             lease_owner = uuid.uuid4()
-            run.status = "confirming" if run.decision else "running"
+            run.status = "running"
             run.lease_owner, run.lease_until = lease_owner, now + timedelta(minutes=5)
             db.commit()
             return run.id, lease_owner
 
     def load_state(self, run_id):
+        from timetable_structured import get_document, structured_snapshot
         with self.factory() as db:
             run = db.get(ScheduleRun, run_id)
             thread = db.get(ScheduleThread, run.thread_id)
-            history = []
-            image_ids = []
-            historical_images = []
+            if thread is None or thread.user_id != run.user_id:
+                raise HTTPException(404, "未找到当前课表对话。")
+            # Include user words only. Assistant guesses never become evidence;
+            # previously applied actions are labelled and cannot be replayed.
             rows = db.scalars(select(ScheduleRun).where(ScheduleRun.user_id == run.user_id,
                 ScheduleRun.thread_id == thread.id, ScheduleRun.created_at <= run.created_at)
-                .order_by(ScheduleRun.created_at.desc(), ScheduleRun.id.desc()).limit(MAX_TASK_TURNS + 1)).all()
-            try:
-                rows = active_task_rows(rows)
-            except TaskMemoryError as error:
-                raise ModelError(str(error), status_code=422) from None
-            for item in rows:
-                if item.status == "applied":
-                    if completes_import(item.plan, item.result):
-                        historical_images = []
-                    else:
-                        historical_images.extend(image_ids + item.image_ids)
-                    image_ids = []
-                elif item.status == "cancelled":
-                    historical_images, image_ids = [], []
-                if item.id != run.id:
-                    history.append({"input": item.input_text, "confirmation": item.confirmation_text,
-                                    "reply": item.reply, "status": item.status,
-                                    "unapplied_plan": item.plan if item.status in {"needs_input", "superseded"} else None})
-                if item.status not in {"applied", "cancelled"}:
-                    image_ids.extend(item.image_ids)
-                if item.id == run.id:
-                    break
-            def usable_image(image_id):
-                image = db.get(ScheduleImage, uuid.UUID(image_id))
-                if image is None or image.user_id != run.user_id or image.thread_id != thread.id:
-                    return False
-                if image.expires_at > utcnow() and image.data is not None:
-                    return True
-                from agents.schedule_image_reader import image_cache_key
-                cached = db.scalar(select(ScheduleModelCall.response).join(ScheduleRun,
-                    ScheduleRun.id == ScheduleModelCall.run_id).where(
-                    ScheduleModelCall.user_id == run.user_id, ScheduleRun.thread_id == thread.id,
-                    ScheduleModelCall.input_hash == image_cache_key(image_id),
-                    ScheduleModelCall.response.is_not(None)).order_by(ScheduleModelCall.created_at).limit(1))
-                return isinstance(cached, dict) and cached.get("kind") == "image_reading"
-
-            if run.image_ids:
-                # A replacement upload can recover an expired earlier image;
-                # otherwise report the expiry and ask the user to reattach it.
-                image_ids = [image_id for image_id in image_ids if image_id in run.image_ids or usable_image(image_id)]
-            # A small applied edit (e.g. deleting an old course) must not erase
-            # the screenshot needed to finish the same conversation's import.
-            historical_images = [image_id for image_id in dict.fromkeys(historical_images) if usable_image(image_id)]
+                .order_by(ScheduleRun.created_at.desc(), ScheduleRun.id.desc()).limit(100)).all()
+            rows.reverse()
+            previous_write = next((item for item in reversed(rows) if item.id != run.id and item.status == "applied"), None)
+            setup_pending = bool(previous_write and (previous_write.result or {}).get("period_time_setup", {}).get("required"))
+            history = [{"run_id": str(item.id), "input": item.input_text,
+                        "confirmation": item.confirmation_text, "status": item.status,
+                        "unapplied_changes": [{key: deepcopy(value) for key, value in change.items()
+                            if key in {"reason", "change", "fields", "candidate_course_ids", "candidate_period_table_ids",
+                                       "period_table_change", "period_table_changes", "source_text"}}
+                            for change in (item.result or {}).get("unapplied_changes", []) if isinstance(change, dict)]}
+                       for item in rows if item.id != run.id]
+            document = get_document(db, run.user_id, semester_id=thread.semester_id,
+                                    thread_id=None if thread.semester_id else thread.id, create=True)
+            context = model_context(db, run.user_id, document, structured_snapshot(db, run.user_id, document))
+            db.commit()
             return {"run_id": str(run.id), "thread_id": str(thread.id), "user_id": str(run.user_id),
-                    "context_policy": CONTEXT_VERSION,
-                    "schedule_prompt": "schedule_v5.txt",
-                    "context_code_sha256": CONTEXT_CODE_SHA256,
+                    "schedule_prompt": PROMPT_VERSION,
                     "semester_id": str(thread.semester_id) if thread.semester_id else None,
-                    "new_image_ids": list(run.image_ids),
-                    "input_text": run.input_text, "image_ids": list(dict.fromkeys(historical_images + image_ids)),
-                    "context": compact_context(context_snapshot(db, run.user_id, thread.semester_id)),
-                    "history": compact_history(history)}
+                    "input_text": run.input_text, "image_ids": list(run.image_ids),
+                    "context": context, "history": history, "period_time_setup_pending": setup_pending}
 
-    def extract_images(self, state):
-        """Cache image facts per owned immutable upload, independently of chat turns."""
-        if state.get("schedule_prompt") not in {"schedule_v3.txt", "schedule_v4.txt", "schedule_v5.txt"} or state.get("route") == "read":
-            return []
+    def interpret(self, state):
         identifiers = state.get("image_ids", [])
-        if len(identifiers) > 6 or len(identifiers) != len(set(identifiers)):
-            raise ModelError("一段待处理的安排最多使用六张不同课表图片，请先完成当前导入。", status_code=422)
-        from agents.schedule_vision import analyze_schedule_image
-        from agents.schedule_image_reader import image_cache_key, prepare_image_messages, bind_reading, invoke_image_reader
-        facts = []
-        for image_id in state.get("image_ids", []):
-            digest = image_cache_key(image_id)
-            with self.factory() as db:
-                item = db.get(ScheduleImage, uuid.UUID(image_id))
-                if item is None or str(item.user_id) != state["user_id"] or str(item.thread_id) != state["thread_id"]:
-                    raise ModelError("图片不可用，请重新选择上传。", status_code=422)
-                cached = db.scalar(select(ScheduleModelCall.response).join(ScheduleRun, ScheduleRun.id == ScheduleModelCall.run_id)
-                    .where(ScheduleModelCall.user_id == item.user_id, ScheduleRun.thread_id == item.thread_id,
-                           ScheduleModelCall.input_hash == digest, ScheduleModelCall.response.is_not(None))
-                    .order_by(ScheduleModelCall.created_at).limit(1))
-                if cached and cached.get("kind") == "image_reading":
-                    facts.append(bind_reading(cached["reading"], cached["layout"], image_id))
-                    continue
-                if item.expires_at <= utcnow() or not item.data:
-                    raise ModelError("之前的课表图片已过期，请重新上传并继续说明。", status_code=422)
-                layout = analyze_schedule_image(item.data, item.mime_type)
-                if layout is None:
-                    # Other layouts retain the existing bounded vision path;
-                    # uncertain geometry must never supply invented coordinates.
-                    continue
-                pending = db.scalars(select(ScheduleModelCall.id).where(ScheduleModelCall.user_id == item.user_id,
-                    ScheduleModelCall.run_id == uuid.UUID(state["run_id"]), ScheduleModelCall.input_hash == digest,
-                    ScheduleModelCall.status == "reserved")).all()
-            for call_id in pending:
-                settle(self.factory, call_id, {})
-            messages = prepare_image_messages(layout, {"data": item.data, "mime_type": item.mime_type})
-            call_id = reserve(self.factory, state["user_id"], state["run_id"], messages, self.settings, input_hash=digest)
-            answer = None
-            try:
-                reader = self.image_reader or invoke_image_reader
-                answer = reader(messages, api_key=os.getenv("DEEPSEEK_API_KEY", "").strip())
-                observation = bind_reading(answer["reading"], layout, image_id)
-            except ModelError as error:
-                settle(self.factory, call_id, answer.get("usage", {}) if answer else error.usage)
-                raise
-            except Exception as error:
-                log_failure(logger, "Schedule image reading failed run_id=%s image_id=%s", error,
-                            state["run_id"], image_id)
-                settle(self.factory, call_id, {})
-                raise ModelError("课表图像读取暂未完成，原图和要求已保留，请重试。") from None
-            settle(self.factory, call_id, answer.get("usage", {}),
-                {"kind": "image_reading", "reading": answer["reading"], "layout": layout.metadata()})
-            facts.append(observation)
-        if facts and len(facts) != len(identifiers):
-            # A progress manifest covers checked cards only. Calling a mixed
-            # batch complete would abandon the unrecognised uploads.
-            raise ModelError("不同格式的课表图片暂不能同批导入，请分别上传到新对话；原图与要求已保留。", status_code=422)
-        return facts
-
-    def interpret(self, state, *, with_progress=False):
-        # Keep the shared evaluation compiler stable. The task capsule is its
-        # existing protected slot for required schedule facts and repair feedback.
-        state = deepcopy(state)
-        if state.get("schedule_prompt") in {"schedule_v3.txt", "schedule_v4.txt", "schedule_v5.txt"}:
-            memory = state.setdefault("conversation_memory", {})
-            pending = memory.get("pending_proposal") or {"source": state["run_id"], "plan": None}
-            if state.get("image_observations") or state.get("validation_feedback"):
-                memory["pending_proposal"] = {**pending, "image_observations": state.get("image_observations", []),
-                    "validation_feedback": state.get("validation_feedback", {}),
-                    "candidate_plan": state.get("plan") if state.get("validation_feedback") else None}
-        images = []
-        observed = {item["image_id"] for item in state.get("image_observations", [])}
-        with self.factory() as db:
-            for image_id in ([] if state.get("route") == "read" else state.get("image_ids", [])):
-                if image_id in observed:
-                    continue
-                item = db.get(ScheduleImage, uuid.UUID(image_id))
-                if item is None or str(item.user_id) != state["user_id"] or str(item.thread_id) != state["thread_id"]:
-                    raise ModelError("图片不可用，请重新选择上传。", status_code=422)
-                if item.expires_at <= utcnow() or item.data is None:
-                    raise ModelError("之前的课表图片已过期，请重新上传并继续说明。", status_code=422)
-                images.append({"mime_type": item.mime_type, "data": item.data})
-        key = os.getenv("DEEPSEEK_API_KEY", "").strip()
-        if not key:
-            raise ModelError("课表助手尚未配置模型服务，请联系管理员。", status_code=503)
-        prepared = prepare_messages(state, images)
-        messages = prepared["messages"]
-        digest = hashlib.sha256(json.dumps(messages, ensure_ascii=False, sort_keys=True).encode()).hexdigest()
+        if len(identifiers) > 3 or len(set(identifiers)) != len(identifiers):
+            raise ModelError("每条消息最多处理三张不同的课表图片。", status_code=422)
+        # Uploads are immutable and account-scoped. Their IDs identify the image
+        # batch without requiring expired bytes to reuse a completed response.
+        cache_input = {"version": CACHE_VERSION, "model": MODEL_NAME, "schema": SCHEMA_VERSION,
+                       "prompt_hash": prompt_manifest([PROMPT_VERSION])[PROMPT_VERSION],
+                       "context": state.get("context", {}), "history": state.get("history", []),
+                       "input_text": state.get("input_text", ""), "image_ids": identifiers}
+        digest = hashlib.sha256(json.dumps(cache_input, ensure_ascii=False, sort_keys=True).encode()).hexdigest()
         with self.factory() as db:
             cached = db.scalar(select(ScheduleModelCall.response).where(
                 ScheduleModelCall.user_id == uuid.UUID(state["user_id"]), ScheduleModelCall.run_id == uuid.UUID(state["run_id"]),
@@ -279,106 +300,99 @@ class Worker:
                 ScheduleModelCall.status == "reserved")).all()
         for call in pending:
             settle(self.factory, call, {})
-        record_trace(self.factory, Scope(uuid.UUID(state["user_id"]), uuid.UUID(state["run_id"]), "schedule-v2", "context"),
-                     "context_schedule", "succeeded", time.monotonic(), {**prepared["manifest"], "cache_hit": cached is not None})
-        if cached is not None:
-            return self._compiled_plan(cached, state, with_progress=with_progress)
+        if isinstance(cached, dict) and cached.get("kind") == CACHE_VERSION:
+            return cached["understanding"]
+        images = []
+        with self.factory() as db:
+            for image_id in identifiers:
+                item = db.get(ScheduleImage, uuid.UUID(image_id))
+                if item is None or str(item.user_id) != state["user_id"] or str(item.thread_id) != state["thread_id"]:
+                    raise ModelError("附件不可用，任务输入已保留。", status_code=422)
+                if item.expires_at <= utcnow() or item.data is None:
+                    raise ModelError("本次附件已过期，任务原始输入已保留。", status_code=422)
+                images.append({"mime_type": item.mime_type, "data": item.data})
+        prepared = prepare_messages(state, images)
+        messages = prepared["messages"]
+        record_trace(self.factory, Scope(uuid.UUID(state["user_id"]), uuid.UUID(state["run_id"]), CACHE_VERSION, "context"),
+                     "context_schedule", "succeeded", time.monotonic(),
+                     {**prepared["manifest"], "context_hash": digest, "cache_hit": False})
+        key = os.getenv("DEEPSEEK_API_KEY", "").strip()
+        if not key:
+            raise ModelError("课表助手尚未配置模型服务，任务输入已保留。", status_code=503)
         call_id = reserve(self.factory, state["user_id"], state["run_id"], messages, self.settings, input_hash=digest)
         result = None
         try:
             result = self.planner(messages, api_key=key)
-            if state.get("schedule_prompt") in {"schedule_v3.txt", "schedule_v4.txt", "schedule_v5.txt"}:
-                from agents.schedule_image_reader import validate_image_planning_plan
-                result["plan"] = validate_image_planning_plan(result["plan"])
-            else:
-                result["plan"] = validate_plan(result["plan"])
+            understanding = validate_plan(result.get("understanding", result.get("plan")))
+            # Versions are pinned to the context sent to the LLM, never re-read
+            # after inference. Missing model versions cannot disable concurrency.
+            versions = {item["id"]: item["version"] for item in state["context"].get("courses", [])}
+            for course in understanding.get("courses", []):
+                if course.get("id") in versions:
+                    course["version"] = versions[course["id"]]
+            for change in understanding.get("changes", []):
+                if change.get("course_id") in versions:
+                    change["version"] = versions[change["course_id"]]
+            understanding["document_version"] = state["context"].get("document", {}).get("version", state["context"].get("version"))
+            understanding["expected_document_id"] = state["context"].get("document", {}).get("id", state["context"].get("document_id"))
         except ModelError as error:
             settle(self.factory, call_id, result.get("usage", {}) if result else error.usage)
             raise
         except Exception as error:
-            log_failure(logger, "Schedule planning failed run_id=%s", error, state["run_id"])
+            log_failure(logger, "Schedule understanding failed run_id=%s", error, state["run_id"])
             settle(self.factory, call_id, {})
-            raise ModelError("课表助手暂时无法处理，请稍后重试。") from None
-        settle(self.factory, call_id, result.get("usage", {}), result["plan"])
-        return self._compiled_plan(result["plan"], state, with_progress=with_progress)
-
-    @staticmethod
-    def _compiled_plan(plan, state, *, with_progress=False):
-        if state.get("schedule_prompt") not in {"schedule_v3.txt", "schedule_v4.txt", "schedule_v5.txt"}:
-            return validate_plan(plan)
-        from agents.schedule_image_reader import compile_image_imports_with_progress
-        try:
-            pending = (state.get("conversation_memory") or {}).get("pending_proposal") or {}
-            compiled, progress = compile_image_imports_with_progress(plan, state.get("image_observations", []),
-                pending.get("image_import_progress"),
-                persist_periods=state.get("schedule_prompt") in {"schedule_v4.txt", "schedule_v5.txt"},
-                semester_timezone=state["context"]["timezone"] if state.get("schedule_prompt") == "schedule_v5.txt" else "Asia/Shanghai")
-            return PlanningResult(compiled, progress) if with_progress else compiled
-        except HTTPException as error:
-            error.plan = plan
-            raise
-
-    def memory(self, state):
-        return ScheduleTools(self, state).memory()
-
-    def retrieve(self, state):
-        return ScheduleTools(self, state).retrieve()
-
-    @staticmethod
-    def execution_plan(state):
-        # Pre-v5 checkpoints may omit a create-semester zone. Preserve the
-        # already previewed default when resuming those frozen proposals.
-        plan = deepcopy(state["plan"])
-        for operation in plan.get("operations", []):
-            if operation["kind"] == "create_semester" and not operation.get("timezone"):
-                operation["timezone"] = (state["context"]["timezone"]
-                    if state.get("schedule_prompt") == "schedule_v5.txt" else "Asia/Shanghai")
-        return plan
-
-    def preview(self, state):
-        with self.factory() as db:
-            user = db.scalar(select(User).where(User.id == uuid.UUID(state["user_id"])).with_for_update())
-            # The executor rolls back its own savepoint; no business records are saved.
-            return preview_plan(db, user, state["semester_id"], self.execution_plan(state), state["run_id"])
+            raise ModelError("课表助手处理暂时中断，输入已保留，可重试。") from None
+        settle(self.factory, call_id, result.get("usage", {}), {"kind": CACHE_VERSION, "understanding": understanding, "context_hash": digest})
+        return understanding
 
     def apply(self, state, lease_owner):
+        from timetable_structured import get_document, apply_understanding
         with self.factory() as db:
             user = db.scalar(select(User).where(User.id == uuid.UUID(state["user_id"])).with_for_update())
             run = db.scalar(select(ScheduleRun).where(ScheduleRun.id == uuid.UUID(state["run_id"])).with_for_update())
-            if run is None or run.user_id != user.id or str(run.thread_id) != state["thread_id"]:
+            if run is None or user is None or run.user_id != user.id or str(run.thread_id) != state["thread_id"]:
                 raise HTTPException(404, "未找到当前课表任务。")
-            if run.status == "applied":
+            if run.status in {"applied", "completed"}:
                 return run.result
-            if run.lease_owner != lease_owner or run.decision != "apply" or run.status != "confirming":
-                raise HTTPException(409, "方案状态已经变化，请读取最新对话。")
+            if run.lease_owner != lease_owner or run.status != "running":
+                raise HTTPException(409, "任务状态已经变化，请读取最新对话。")
             thread = db.get(ScheduleThread, run.thread_id)
             current = latest_run(db, thread.id)
-            if current.id != run.id:
-                raise HTTPException(409, "方案已被后续对话替代，请读取最新对话。")
-            result = apply_plan(db, user, thread.semester_id, self.execution_plan(state), run.id, state["preview"]["baseline_hash"])
-            if state.get("image_import_progress") is not None:
-                # Derived only from owned source rows and the compiled proposal.
-                # Save it in the same transaction as course writes/idempotency.
-                result["image_import_progress"] = validate_import_progress(state["image_import_progress"])
-            thread.semester_id = uuid.UUID(result["semester_id"])
-            touch(thread)
-            run.status, run.result, run.reply = "applied", result, "已按确认的方案更新课表。"
+            if current is None or current.id != run.id:
+                raise HTTPException(409, "任务已被后续对话替代，请读取最新对话。")
+            document = get_document(db, user.id, semester_id=thread.semester_id,
+                                    thread_id=None if thread.semester_id else thread.id, create=True)
+            understanding = deepcopy(state["plan"])
+            # A manual association may merge this thread's document into another
+            # document with a coincidentally equal version during inference.
+            # Pin identity again here so older valid caches get the same fence.
+            understanding["expected_document_id"] = state["context"].get("document", {}).get("id", state["context"].get("document_id"))
+            understanding.setdefault("sources", []).append({"kind": "user_message", "run_id": str(run.id),
+                "input": run.input_text, "image_ids": list(run.image_ids)})
+            result = apply_understanding(db, user, document, understanding, run_id=run.id)
+            result["period_time_setup"] = period_time_setup(result, state)
+            result["reply"] = saved_reply(result, state)[:12000]
+            semester_id = result.get("semester_id") or result.get("structured", {}).get("semester_id")
+            if semester_id:
+                thread.semester_id = uuid.UUID(str(semester_id))
+            run.status = "completed" if understanding.get("intent") == "read" else "applied"
+            run.result, run.reply = result, result["reply"]
+            run.plan, run.preview = state["plan"], None
             run.lease_owner, run.lease_until, run.error = None, None, ""
             run.updated_at = utcnow()
+            touch(thread)
             remember_schedule(db, run, thread)
-            if completes_import(state["plan"], result):
-                db.execute(update(ScheduleImage).where(ScheduleImage.user_id == user.id,
-                    ScheduleImage.thread_id == thread.id,
-                    ScheduleImage.id.in_([uuid.UUID(item) for item in state.get("image_ids", [])])).values(data=None))
             db.commit()
             return result
 
     def finish(self, run_id, lease_owner, state=None, error=None):
         with self.factory() as db:
             initial = db.get(ScheduleRun, run_id)
+            if initial is None:
+                return
             db.scalar(select(User).where(User.id == initial.user_id).with_for_update())
             run = db.scalar(select(ScheduleRun).where(ScheduleRun.id == run_id).with_for_update().execution_options(populate_existing=True))
-            if run.lease_owner != lease_owner or run.status == "applied":
+            if run.lease_owner != lease_owner or run.status in {"applied", "completed"}:
                 return
             thread = db.get(ScheduleThread, run.thread_id)
             if error is not None:
@@ -386,21 +400,22 @@ class Worker:
             else:
                 run.status = state.get("status", "failed")
                 run.reply = state.get("reply", "")[:12000]
-                run.plan = state.get("plan")
-                run.preview = state.get("preview") or None
-                run.error = ""
-                if run.status == "needs_input" and run.decision:
-                    run.status = "stale"
-                    run.error = run.reply
-                if run.status == "cancelled":
-                    db.execute(update(ScheduleImage).where(ScheduleImage.user_id == run.user_id,
-                        ScheduleImage.thread_id == thread.id,
-                        ScheduleImage.id.in_([uuid.UUID(item) for item in state.get("image_ids", [])])).values(data=None))
+                run.plan, run.preview = state.get("plan"), None
+                run.result, run.error = state.get("result"), ""
             run.lease_owner, run.lease_until = None, None
             run.updated_at = utcnow()
             touch(thread)
-            if error is None:
-                remember_schedule(db, run, thread)
+            db.commit()
+
+    def supersede_legacy(self, run_id, lease_owner):
+        with self.factory() as db:
+            run = db.scalar(select(ScheduleRun).where(ScheduleRun.id == run_id).with_for_update())
+            if run.lease_owner != lease_owner:
+                return
+            run.status, run.reply = "superseded", "旧版课表任务已被替代，原始输入和图片已保留。"
+            run.lease_owner, run.lease_until = None, None
+            run.updated_at = utcnow()
+            touch(db.get(ScheduleThread, run.thread_id))
             db.commit()
 
     def run_once(self):
@@ -412,38 +427,30 @@ class Worker:
             with open_checkpointer(self.settings.database_url, run_id) as saver:
                 if saver is None:
                     return True
-                graph = build_graph(saver, lambda state: self.interpret(state, with_progress=True), self.preview, lambda state: self.apply(state, lease_owner),
-                                    retrieve=self.retrieve, memory=self.memory, extract=self.extract_images)
-                config = {"configurable": {"thread_id": str(run_id)}, "recursion_limit": 20}
+                graph = build_graph(saver, self.interpret, lambda state: self.apply(state, lease_owner))
+                config = {"configurable": {"thread_id": str(run_id)}, "recursion_limit": 5}
                 snapshot = graph.get_state(config)
-                if snapshot.values and snapshot.values.get("schedule_prompt") not in {"schedule_v3.txt", "schedule_v4.txt", "schedule_v5.txt"}:
-                    graph = build_graph(saver, lambda state: self.interpret(state, with_progress=True), self.preview, lambda state: self.apply(state, lease_owner),
-                                        retrieve=self.retrieve, memory=self.memory, legacy=True)
-                    snapshot = graph.get_state(config)
+                if snapshot.values and snapshot.values.get("schedule_prompt") != PROMPT_VERSION:
+                    self.supersede_legacy(run_id, lease_owner)
+                    return True
                 with self.factory() as db:
                     run = db.get(ScheduleRun, run_id)
-                    decision = run.decision
-                    # A previous owner may have finished while this worker waited.
-                    if run.lease_owner != lease_owner or run.status == "applied":
+                    if run.lease_owner != lease_owner or run.status in {"applied", "completed"}:
                         return True
                 if snapshot.values and not snapshot.next:
                     result = snapshot.values
-                elif decision and any(task.interrupts for task in snapshot.tasks):
-                    result = graph.invoke(Command(resume={"decision": decision}), config, durability="sync")
                 elif snapshot.values:
                     result = graph.invoke(None, config, durability="sync")
-                elif decision:
-                    raise HTTPException(409, "方案恢复信息不可用，请重新发送说明生成方案。")
                 else:
                     result = graph.invoke(self.load_state(run_id), config, durability="sync")
                 self.finish(run_id, lease_owner, result)
         except ModelError as error:
             self.finish(run_id, lease_owner, error=error.message)
         except HTTPException as error:
-            self.finish(run_id, lease_owner, error=error.detail if isinstance(error.detail, str) else "任务无法处理，请重试。")
+            self.finish(run_id, lease_owner, error=error.detail if isinstance(error.detail, str) else "任务无法处理，可重试。")
         except Exception as error:
             log_failure(logger, "Schedule worker failed run_id=%s", error, run_id)
-            self.finish(run_id, lease_owner, error="处理暂时中断，已保留对话。请稍后重试。")
+            self.finish(run_id, lease_owner, error="处理暂时中断，已保留输入和有效识别结果，可稍后重试。")
         return True
 
 

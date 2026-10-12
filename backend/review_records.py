@@ -26,10 +26,11 @@ def missing_lessons(now):
 
 def create_record(db, lesson):
     # No segments, attendance decision, or evaluation are invented by this record.
+    from timetable_lifecycle import snapshot_lesson
     db.add(StudySession(user_id=lesson.user_id, lesson_id=lesson.id, name=lesson.name,
         location=lesson.location, timezone=lesson.timezone, starts_at=lesson.starts_at, ends_at=lesson.ends_at,
         phase="finished", version=1, started_at=lesson.ends_at, finished_at=lesson.ends_at,
-        finish_reason="untimed", is_makeup=False, voided=False))
+        finish_reason="untimed", is_makeup=False, voided=False, lesson_snapshot=snapshot_lesson(lesson)))
     lesson.version += 1
 
 

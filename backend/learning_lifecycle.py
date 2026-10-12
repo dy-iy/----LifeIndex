@@ -104,9 +104,11 @@ def backfill_outcomes(factory, now=None, limit=100):
     for lesson_id, user_id in candidates:
         with factory.begin() as db:
             lock_reader(db, user_id)
-            lesson, outcome = db.get(Lesson, lesson_id), db.get(LessonOutcome, lesson_id)
-            if not lesson or not outcome or outcome.decision not in ("absent", "leave", "cancelled"):
+            outcome = db.get(LessonOutcome, lesson_id)
+            if not outcome or outcome.decision not in ("absent", "leave", "cancelled"):
                 continue
+            from timetable_lifecycle import learning_lesson
+            lesson = learning_lesson(db, user_id, lesson_id)
             key = f"outcome:{lesson.id}:{outcome.input_version}"
             if db.get(ClassIndexReceipt, (user_id, key)):
                 continue

@@ -72,10 +72,11 @@ page { background: #fbf7ee; color: #183844; }
 .form-gap { margin-top: 15rpx; }
 .form-help { margin-top: 14rpx; }
 .compact { margin-top: 28rpx; }
-.period-row { display: flex; align-items: center; gap: 9rpx; margin-top: 16rpx; font-size: 23rpx; }
+.period-row { display: flex; flex-wrap: wrap; align-items: center; gap: 9rpx; margin-top: 16rpx; font-size: 23rpx; }
 .period-row picker { flex: 1; min-width: 0; }
 .period-row .date-picker { padding: 18rpx 10rpx; gap: 10rpx; font-size: 24rpx; }
 .period-number { width: 72rpx; padding: 0 10rpx; text-align: center; }
+.period-actions { display: flex; justify-content: flex-end; gap: 20rpx; width: 100%; }
 .remove-period { color: #a36852; padding: 16rpx 0 16rpx 5rpx; font-size: 22rpx; }
 .template-row { position: relative; padding: 20rpx 125rpx 20rpx 0; border-bottom: 1rpx solid #e8dece; }
 .template-name { font-size: 28rpx; padding-bottom: 7rpx; overflow-wrap: break-word; }
@@ -87,7 +88,6 @@ page { background: #fbf7ee; color: #183844; }
 .error-panel .text-button { text-align: left; padding: 0 0 20rpx; }
 .loading-copy { padding: 20rpx 0; font-size: 23rpx; color: #879087; }
 .lesson-heading { margin: 25rpx 0 12rpx; font-size: 33rpx; }
-.timer-entry { border-top: 1rpx solid #e8dece; padding-top: 25rpx; margin-top: 35rpx; text-align: center; }
 .schedule-heading { gap: 18rpx; }
 .schedule-heading .eyebrow { font-size: 16rpx; letter-spacing: 3rpx; margin-bottom: 10rpx; }
 .schedule-heading .section-title { font-family: "Songti SC", serif; font-weight: 500; font-size: 34rpx; }
@@ -108,17 +108,18 @@ page { background: #fbf7ee; color: #183844; }
 .placement-options { display: flex; gap: 12rpx; margin: 18rpx 0 12rpx; }
 .course-dialog .placement-options .placement-button { flex: 1; margin: 0; padding: 14rpx 8rpx; line-height: 1.4; border-radius: 24rpx; color: #795b93; font-size: 23rpx; background: #fffcf6; }
 .course-dialog .placement-options .chosen { color: #fffcf6; background: #7954a0; }
-.course-editor-overlay { position: fixed; top: 0; left: 0; right: 0; z-index: 960; display: flex; align-items: center; justify-content: center; padding: 28rpx 32rpx; padding-bottom: calc(28rpx + env(safe-area-inset-bottom)); }
+.course-editor-overlay { position: fixed; top: 0; bottom: 0; left: 0; right: 0; z-index: 960; display: flex; align-items: center; justify-content: center; padding: 28rpx 32rpx; padding-bottom: calc(28rpx + env(safe-area-inset-bottom)); }
+.course-editor-overlay.keyboard-open { padding-top: 12rpx; padding-bottom: 12rpx; }
 .course-editor-backdrop { position: absolute; inset: 0; background: rgba(27, 40, 31, .36); }
 .course-dialog { position: relative; display: flex; flex-direction: column; width: 100%; max-width: 680rpx; height: 82vh; max-height: 100%; min-height: 0; overflow: hidden; border: 1rpx solid #e9dfd0; border-radius: 20rpx; background: #fffcf6; box-shadow: 0 20rpx 80rpx rgba(46, 51, 58, .18); }
 .course-dialog-header { flex-shrink: 0; padding: 26rpx 28rpx 22rpx; border-bottom: 1rpx solid #e8dfd3; background: radial-gradient(circle at 84% 18%, #eadcf1 0, #eadcf1 26rpx, transparent 27rpx), linear-gradient(110deg, #fffcf6, #f4eaf7); }
 .course-dialog-header .eyebrow { margin-bottom: 8rpx; font-size: 19rpx; letter-spacing: 2rpx; }
 .course-dialog-title { font-family: "Songti SC", serif; font-size: 38rpx; }
-.course-dialog-body { flex: 1; min-height: 0; overflow: hidden; }
+.course-dialog-body { flex: 1; height: 0; min-height: 0; overflow: hidden; }
 .course-dialog-scroll { height: 100%; }
 .course-dialog-content { padding: 0 28rpx 28rpx; }
 .course-dialog .placement-note { margin-top: 20rpx; }
-.course-dialog-footer { flex-shrink: 0; padding: 22rpx 28rpx; border-top: 1rpx solid #e8dfd3; background: #fffcf6; }
+.course-dialog-footer { position: relative; z-index: 1; flex-shrink: 0; padding: 22rpx 28rpx; border-top: 1rpx solid #e8dfd3; background: #fffcf6; }
 .course-dialog-footer .error { margin: 0 0 16rpx; }
 .course-dialog-footer .text-button { padding-top: 0; font-size: 23rpx; }
 .course-dialog-actions { display: flex; gap: 16rpx; }
@@ -148,8 +149,19 @@ page { background: #fbf7ee; color: #183844; }
 .has-semester .schedule-heading .eyebrow { display: none; }
 .has-semester .schedule-heading .section-title { font-size: 29rpx; }
 
-.detail-timer { margin-bottom: 18rpx; }
-.ticket-timer { text-align: left; padding-left: 0; }
+.structured-course { padding: 20rpx 0; border-bottom: 1rpx solid #e8dece; }
+.structured-course .template-name { flex: 1; min-width: 0; }
+.structured-schedule { margin-top: 14rpx; padding: 16rpx 18rpx; background: #faf6ee; border-radius: 10rpx; color: #687c70; font-size: 24rpx; line-height: 1.8; overflow-wrap: anywhere; }
+.missing-information { display: block; margin-top: 6rpx; color: #a17a51; font-size: 22rpx; }
+.structured-scope { margin: 6rpx 0 18rpx; }
+.structured-thread-picker { display: block; margin: 12rpx 0 18rpx; }
+.unlinked-note { padding: 18rpx 20rpx; margin-bottom: 18rpx; border: 1rpx solid #e5d7eb; border-radius: 12rpx; background: #f7eff9; font-size: 23rpx; color: #795b93; }
+.unlinked-note .arrange-actions { margin-top: 14rpx; }
+.unlinked-note .arrange-actions button { padding: 16rpx 10rpx; }
+.structured-add { text-align: left; padding-left: 0; margin-top: 12rpx; }
+.structured-schedule-editor { border-top: 1rpx solid #e8dece; margin-top: 28rpx; padding-top: 16rpx; }
+.structured-schedule-editor .section-title { font-size: 26rpx; }
+.structured-schedule-editor .time-fields input { min-width: 0; }
 
 /* Paper notes keep the existing controls and geometry in their original places. */
 .timetable-page .semester-head { padding: 16rpx 207rpx 16rpx 22rpx; margin-top: 28rpx; border: 1rpx solid #e9dfd0; border-radius: 10rpx 13rpx 9rpx 12rpx; background: #fffcf6; box-shadow: 0 4rpx 9rpx rgba(125, 101, 70, .07); }
@@ -164,8 +176,6 @@ page { background: #fbf7ee; color: #183844; }
 .timetable-page .view-switch, .course-dialog .view-switch { border-radius: 12rpx; }
 .timetable-page .course-ticket .pill { background: #f5eaf9; }
 .timetable-page .inactive-ticket .pill { background: #eeeae4; border-color: #ddd6cc; color: #8a8279; }
-.timetable-page .ticket-timer { margin-left: 0; }
-.timetable-page .timer-entry { border-top-style: dashed; }
 @media (max-width: 360px) {
   .timetable-page .semester-head { padding-right: 192rpx; }
   .timetable-page .semester-actions .section-link { font-size: 22rpx; padding-left: 14rpx; }

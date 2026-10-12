@@ -1,21 +1,15 @@
 const agent = require("../../services/timetable-agent");
 const session = require("../../services/session");
-const { displayText, summarize } = require("../../services/timetable-preview");
+const { displayText } = require("../../services/timetable-preview");
+const { presentResult } = require("../../services/timetable-agent-result");
+const timetableChange = require("../../services/timetable-change");
 const RUNNING = ["queued", "running", "confirm_queued", "confirming"];
-const STATUS = { queued: "正在等待识别与整理…", running: "正在整理课程和日期安排…", confirm_queued: "正在等待应用，尚未写入课表…", confirming: "正在应用已确认的变更…", needs_input: "还需要你补充一些信息", awaiting_confirmation: "请核对下方变更，再确认写入课表", applied: "已应用到个人课表", cancelled: "本次变更已取消，课表保持原状", failed: "这次处理未完成，可以重试或继续说明", stale: "课表已有变化，请继续说明以重新生成预览", completed: "已整理好你的课表信息" };
-const LABELS = { name: "名称", title: "名称", start_date: "开始日期", end_date: "结束日期", first_week_monday: "第 1 周周一", weekday: "星期", start_week: "开始周", end_week: "结束周", week_pattern: "周次", start_time: "开始时间", end_time: "结束时间", location: "地点", date: "日期", local_date: "日期", starts_at: "开始", ends_at: "结束", original_start_at: "原上课时间", status: "状态", note: "备注", number: "节次", periods: "节次时间", course_name: "课程", from_date: "原日期", to_date: "调整日期", source_date: "原日期", target_date: "调整日期", duration_minutes: "时长（分钟）", total_weeks: "周数", week_number: "原课程周次" };
-const VALUES = { all: "每周", odd: "单周", even: "双周", scheduled: "正常上课", leave: "请假", cancelled: "停课" };
-function readable(value) {
-  if (value == null || value === "") return "无";
-  if (Array.isArray(value)) return value.map(readable).join("；");
-  if (typeof value === "object") return Object.keys(value).filter((key) => !["id", "user_id", "semester_id", "course_id", "version", "is_override", "is_deleted", "created_at", "has_courses", "today", "starts_at", "ends_at", "original_start_at", "timezone"].includes(key)).map((key) => `${LABELS[key] || key}：${key === "weekday" ? `周${["", "一", "二", "三", "四", "五", "六", "日"][value[key]] || value[key]}` : readable(value[key])}`).join("\n");
-  return displayText(VALUES[value] || String(value));
-}
+const STATUS = { queued: "正在等待识别与整理…", running: "正在读取全部图片、整理并保存课程…", confirm_queued: "正在完成旧版已确认任务…", confirming: "正在完成旧版已确认任务…", needs_input: "旧版任务已停止，请发送新的课表说明", awaiting_confirmation: "旧版任务待更新，请发送新的课表说明", applied: "已保存到个人课表", cancelled: "本次处理已取消", failed: "这次处理未完成，可以重试", stale: "课表已有变化，未应用的修改已保留", completed: "处理已完成", superseded: "旧版任务已替代，原始输入已保留" };
 function initialData() {
-  return { loggedIn: false, loading: false, busy: false, uploading: false, error: "", threads: [], threadIndex: 0, thread: null, messages: [], text: "", images: [], processing: false, statusText: "", reply: "", replyText: "", replyExpanded: false, replyExpandable: false, runError: "", changes: [], changeCount: 0, previewSummary: "", previewWarning: "", detailsExpanded: false, detailPage: 0, detailPages: 0, scrollTarget: "", canConfirm: false, canRetry: false, pending: false, needsReload: false, keyboardHeight: 0 };
+  return { loggedIn: false, loading: false, busy: false, uploading: false, error: "", threads: [], threadIndex: 0, thread: null, messages: [], text: "", images: [], processing: false, statusText: "", reply: "", replyText: "", replyExpanded: false, replyExpandable: false, runError: "", unappliedChanges: [], unappliedCount: 0, unappliedExpanded: false, diagnosticRows: [], diagnosticCount: 0, diagnosticsExpanded: false, periodTimeSetupRequired: false, periodTimeSetupTables: [], periodInputFocused: false, scrollTarget: "", canRetry: false, pending: false, needsReload: false, keyboardHeight: 0 };
 }
 Component({
-  properties: { semesterId: { type: String, value: "" } },
+  properties: { semesterId: { type: String, value: "" }, threadId: { type: String, value: "" } },
   data: initialData(),
   lifetimes: {
     attached() {
@@ -28,6 +22,7 @@ Component({
       this._pending = null; this._appliedRuns = {};
       this.unsubscribe = session.subscribe(() => { if (!this._disposed) this.syncIdentity(); });
       this.restore();
+      if (this.properties.threadId && !this._pending && !this.data.text && !this.data.images.length) this.setData({ thread: { id: this.properties.threadId } });
       return this.resume();
     },
     detached() {
@@ -73,7 +68,7 @@ Component({
     },
     active(snapshot, epoch) { return !this._disposed && !this._closing && this._visible && agent.isCurrent(snapshot) && (epoch == null || epoch === this._epoch); },
     restore() {
-      this._changeRows = []; this._previewKey = "";
+      this._displayKey = "";
       const draft = agent.recall(this._scope);
       this._pending = draft && draft.pending || null;
       this.setData(Object.assign(initialData(), { loggedIn: Boolean(this._snapshot.owner), text: draft && draft.text || "", images: draft && draft.images || [], thread: draft && draft.thread || null, pending: Boolean(this._pending) }));
@@ -111,13 +106,14 @@ Component({
       } catch (error) { if (this.active(snapshot, epoch)) this.setData({ error: `${error.message} 点击“重新读取”恢复处理状态。` }); }
     },
     displayThread(thread) {
-      const run = thread.run || null; const preview = run && run.preview;
-      const rawChanges = preview && Array.isArray(preview.changes) ? preview.changes : [];
-      const key = `${thread.id}:${run && run.id}:${run && run.status}:${JSON.stringify(preview)}`;
-      const samePreview = key === this._previewKey; this._previewKey = key;
-      const changes = rawChanges.map((change, index) => ({ index, title: displayText(change.title || "课表变更"), before: readable(change.before),
-        after: change.kind === "delete_lesson" ? "删除这次课程安排" : change.kind === "delete_course" ? "删除每周安排及未记录的课次；已有学习记录保留" : readable(change.after) }));
-      this._changeRows = changes;
+      const run = thread.run || null;
+      const input = run && (thread.messages || []).find((message) => message.id === `${run.id}:user`);
+      const result = presentResult(run && run.result, input && input.text);
+      const key = `${thread.id}:${run && run.id}:${run && run.status}:${run && run.reply}:${JSON.stringify(result)}`;
+      const sameResult = key === this._displayKey; this._displayKey = key;
+      this._unappliedChanges = result.unapplied; this._diagnosticRows = result.diagnostics;
+      const unappliedExpanded = Boolean(sameResult && this.data.unappliedExpanded);
+      const diagnosticsExpanded = Boolean(sameResult && this.data.diagnosticsExpanded);
       const previousMessages = this.data.thread && this.data.thread.id === thread.id ? this.data.messages : [];
       const messages = (thread.messages || []).map((message) => {
         const text = message.role === "user" ? message.text : displayText(message.text);
@@ -126,28 +122,21 @@ Component({
         return Object.assign({}, message, { text, isUser: message.role === "user", expanded, expandable, displayText: expandable && !expanded ? text.slice(0, 200) + "…" : text });
       });
       const reply = displayText(run && run.reply);
-      const replyExpanded = samePreview && this.data.replyExpanded;
-      const detailPage = samePreview ? this.data.detailPage : 0;
-      const summary = summarize(rawChanges);
-      const summaryThread = { id: thread.id, semester_id: thread.semester_id, title: thread.title, version: thread.version, updated_at: thread.updated_at };
+      const replyExpanded = sameResult && this.data.replyExpanded;
+      const summaryThread = { id: thread.id, semester_id: thread.semester_id, title: thread.title, version: thread.version, updated_at: thread.updated_at, has_more_messages: thread.has_more_messages };
       const threads = thread.id ? [summaryThread].concat(this.data.threads.filter((item) => item.id !== thread.id)) : this.data.threads;
       thread = { ...summaryThread, run: run ? { id: run.id, status: run.status } : null };
-      this.setData({ thread, threads, threadIndex: 0, messages, needsReload: false, processing: Boolean(run && RUNNING.includes(run.status)), statusText: run ? STATUS[run.status] || "正在读取处理状态" : "", changes: changes.slice(detailPage * 20, (detailPage + 1) * 20), changeCount: changes.length, previewSummary: summary.summary, previewWarning: summary.warning, detailsExpanded: samePreview && this.data.detailsExpanded, detailPage, detailPages: Math.ceil(changes.length / 20), scrollTarget: samePreview ? this.data.scrollTarget : "", replyExpanded, replyExpandable: reply.length > 200, replyText: !replyExpanded && reply.length > 200 ? reply.slice(0, 200) + "…" : reply, canConfirm: Boolean(run && run.status === "awaiting_confirmation" && preview), canRetry: Boolean(run && run.status === "failed"), reply: messages.some((message) => !message.isUser && message.text === reply) ? "" : reply, runError: displayText(run && run.error) });
+      this.setData({ thread, threads, threadIndex: 0, messages, needsReload: false, processing: Boolean(run && RUNNING.includes(run.status)), statusText: run ? STATUS[run.status] || "正在读取处理状态" : "", replyExpanded, replyExpandable: reply.length > 200, replyText: !replyExpanded && reply.length > 200 ? reply.slice(0, 200) + "…" : reply, canRetry: Boolean(run && run.status === "failed"), reply: messages.some((message) => !message.isUser && message.text === reply) ? "" : reply, runError: displayText(run && run.error),
+        unappliedChanges: unappliedExpanded ? result.unapplied : result.unapplied.slice(0, 5), unappliedCount: result.unapplied.length, unappliedExpanded,
+        diagnosticRows: diagnosticsExpanded ? result.diagnostics : result.diagnostics.slice(0, 5), diagnosticCount: result.diagnostics.length, diagnosticsExpanded,
+        periodTimeSetupRequired: result.periodTimeSetup.required, periodTimeSetupTables: result.periodTimeSetup.tables });
       this.remember();
+      if (thread.id) this.triggerEvent("threadchange", { threadId: thread.id, semesterId: thread.semester_id || "" });
       if (run && run.status === "applied" && run.id && !this._appliedRuns[run.id]) {
         this._appliedRuns[run.id] = true;
+        if (!run.result || run.result.saved !== false) timetableChange.publish(this._snapshot, { runId: run.id, threadId: thread.id });
         this.triggerEvent("applied", { runId: run.id, threadId: thread.id, semesterId: thread.semester_id || this._semesterId || "" });
       }
-    },
-    toggleDetails() {
-      const expanded = !this.data.detailsExpanded;
-      this.setData({ detailsExpanded: expanded, scrollTarget: expanded ? "preview-details" : "" });
-    },
-    changeDetailPage(event) {
-      const page = this.data.detailPage + Number(event.currentTarget.dataset.direction);
-      if (!Number.isInteger(page) || page < 0 || page >= this.data.detailPages) return;
-      this.setData({ detailPage: page, changes: this._changeRows.slice(page * 20, (page + 1) * 20), scrollTarget: "" });
-      this.setData({ scrollTarget: "preview-details" });
     },
     toggleMessage(event) {
       const id = event.currentTarget.dataset.id;
@@ -157,6 +146,20 @@ Component({
       const expanded = !this.data.replyExpanded;
       this.setData({ replyExpanded: expanded, replyText: expanded ? this.data.reply : this.data.reply.slice(0, 200) + "…" });
     },
+    toggleUnapplied() {
+      const expanded = !this.data.unappliedExpanded;
+      this.setData({ unappliedExpanded: expanded, unappliedChanges: expanded ? this._unappliedChanges : this._unappliedChanges.slice(0, 5) });
+    },
+    toggleDiagnostics() {
+      const expanded = !this.data.diagnosticsExpanded;
+      this.setData({ diagnosticsExpanded: expanded, diagnosticRows: expanded ? this._diagnosticRows : this._diagnosticRows.slice(0, 5) });
+    },
+    preparePeriodTimes() {
+      if (this.data.busy || this.data.loading || this.data.uploading || this.data.processing || this.data.pending || this.data.needsReload) return;
+      // 只聚焦输入框，保留用户草稿，不自动填入或发送任何时间。
+      this.setData({ periodInputFocused: false }, () => this.setData({ periodInputFocused: true }));
+    },
+    onPeriodInputBlur() { this.setData({ periodInputFocused: false }); },
     async reload() {
       const snapshot = this.syncIdentity(); if (!snapshot.owner || !this._visible) return;
       this.stopPolling(); const epoch = ++this._epoch;
@@ -164,10 +167,10 @@ Component({
       try {
         if (this._pending && !await this.perform(this._pending, snapshot, epoch)) return;
         const threads = await agent.list(); if (!this.active(snapshot, epoch)) return;
-        const choices = threads.filter((thread) => !this._semesterId || thread.semester_id === this._semesterId);
+        const choices = threads.filter((thread) => this._semesterId ? thread.semester_id === this._semesterId : !thread.semester_id);
         let chosen = choices.find((thread) => this.data.thread && thread.id === this.data.thread.id) || choices[0] || null;
         // 初始化线程确认后可能刚关联学期；已有选择仍通过详情接口鉴权恢复。
-        if (!chosen && this.data.thread && this.data.thread.id) chosen = this.data.thread;
+        if (!chosen && this.data.thread && this.data.thread.id && (!this.data.thread.semester_id || this.data.thread.semester_id === this._semesterId)) chosen = this.data.thread;
         this.setData({ threads: choices, threadIndex: Math.max(0, choices.findIndex((thread) => chosen && thread.id === chosen.id)) });
         if (chosen) {
           const thread = await agent.get(chosen.id); if (!this.active(snapshot, epoch)) return;
@@ -190,7 +193,7 @@ Component({
         // 4xx 是明确拒绝；超时/网络/5xx 的结果未知，保留原请求重放。
         const rejected = error.statusCode >= 400 && error.statusCode < 500;
         if (rejected) { this._pending = null; this.setData({ pending: false }); agent.acknowledge(action); }
-        this.setData({ busy: false, needsReload: error.statusCode === 409, error: error.statusCode === 409 ? "对话或课表已更新。输入已保留，请重新读取并核对预览后再继续。" : `${error.message || "请求未完成。"}${rejected ? "" : " 结果尚未确认，请点击“重新读取”恢复，勿重复提交。"}` });
+        this.setData({ busy: false, needsReload: error.statusCode === 409, error: error.statusCode === 409 ? "对话或课表已更新。输入已保留，请重新读取最新结果后继续。" : `${error.message || "请求未完成。"}${rejected ? "" : " 结果尚未确认，请点击“重新读取”恢复，勿重复提交。"}` });
         this.remember(); return null;
       }
     },
@@ -218,7 +221,7 @@ Component({
       this._choosingImages = true;
       try {
         if (!agent.imageNotice()) {
-          const choice = await new Promise((resolve) => wx.showModal({ title: "识别课表截图", content: "图片和对话说明将通过服务器发送给 DeepSeek，用于整理你的课表。确认应用后删除图片，未确认的图片保留最多 7 天。请只选择需要识别的课表。", confirmText: "选择图片", success: resolve, fail: () => resolve({ confirm: false }) }));
+          const choice = await new Promise((resolve) => wx.showModal({ title: "识别课表截图", content: "图片和对话说明将通过服务器发送给 DeepSeek，用于整理你的课表。识别结果将直接保存，你可以随时修改。处理完成后删除图片，未完成的图片保留最多 7 天。", confirmText: "选择图片", success: resolve, fail: () => resolve({ confirm: false }) }));
           if (!choice.confirm || !this.active(snapshot, epoch)) return;
           agent.acceptImageNotice();
         }
@@ -248,13 +251,6 @@ Component({
     },
     removeImage(event) { if (this.data.busy || this.data.pending || this.data.uploading) return; this.setData({ images: this.data.images.filter((_, index) => index !== Number(event.currentTarget.dataset.index)) }); this.remember(); },
     previewImage(event) { const index = Number(event.currentTarget.dataset.index); if (this.data.images[index] && typeof wx.previewImage === "function") wx.previewImage({ current: this.data.images[index].path, urls: this.data.images.map((image) => image.path) }); },
-    async decide(event) {
-      if (this.data.busy || this.data.loading || this.data.uploading || this.data.needsReload || this._pending || !this.data.canConfirm) return;
-      const snapshot = this.syncIdentity(); if (!snapshot.owner) return;
-      const thread = this.data.thread; const decision = event.currentTarget.dataset.decision;
-      if (!["apply", "cancel"].includes(decision)) return;
-      return this.perform({ kind: "confirm", threadId: thread.id, runId: thread.run.id, data: { version: thread.version, decision } });
-    },
     retryRun() {
       if (this.data.busy || this.data.loading || this.data.uploading || this.data.needsReload || this._pending || !this.data.canRetry) return;
       const snapshot = this.syncIdentity(); if (!snapshot.owner) return;
@@ -276,7 +272,7 @@ Component({
     async newThread() {
       if (this.data.busy || this.data.loading || this.data.uploading || this._pending || !await this.allowDiscard()) return;
       const snapshot = this.syncIdentity(); if (!snapshot.owner) return;
-      const semesterId = this._semesterId || (this.data.thread && this.data.thread.semester_id);
+      const semesterId = this._semesterId;
       this.stopPolling(); this._epoch += 1; this.setData({ text: "", images: [] });
       return this.perform({ kind: "create", data: semesterId ? { semester_id: semesterId } : {} }, snapshot, this._epoch);
     },

@@ -6,14 +6,16 @@
 
 ## 功能
 
-- **课表管理**：配置学期、节次与周次，添加、修改和删除课程。
-- **AI 课表助手**：根据文字与课表图片生成调整方案，经用户确认后应用。
+- **课表管理**：配置学期、节次与周次，添加、修改和删除课程；删除也清理过去的课表安排。
+- **AI 课表助手**：一次理解文字与 1—3 张截图，直接保存 JSONB 课程；支持缺项、分周安排、自然语言修改和重叠课程。
 - **学习计时**：开始、暂停、继续和结束计时，由服务端保存状态与有效时长。
 - **课后复盘**：按参与情况填写学习内容与专注自评，查看待复盘和已复盘记录。
 - **AI 复盘处理**：当前链路为结构化总结、多空判断、规则校验与结算，支持失败重试。
 - **上课指数**：结合计时状态和复盘事件生成连续行情，展示分时及日、周、月 K 线。
 - **账户与资料**：微信登录、会话续期、头像与昵称管理；时区仅在「我的」统一设置，默认北京时间。
 - **微信转发**：全部页面支持从右上角菜单转发给好友或群聊，接收者打开小程序首页。
+
+课表与学习历史分别保存。删除或替换课表会清理对应课程和实际课次，已结束计时、复盘、参与记录及指数流水使用独立快照继续保留。某课次仍在计时或暂停中时，其删除、修改会被阻止，结束计时后可以重试；未计时的当前课次允许立即删除或替换，并在课表及计时页刷新后生效。正式库已于 2026-10-12 迁移至 `0019_independent_learning` 并重启单一后端；小程序源码仍需重新编译或发布。
 
 ## 技术与目录
 
@@ -27,11 +29,12 @@
 │   ├── services/                  # API 与客户端状态
 │   └── config/backend.example.js  # 后端地址示例
 ├── backend/
-│   ├── main.py                    # FastAPI 入口
+│   ├── main.py                    # API 入口及后台线程生命周期
+│   ├── worker_runtime.py          # 单进程后台任务管理
 │   ├── agents/                    # 模型角色、提示词与工作流
 │   ├── migrations/                # 数据库迁移
-│   ├── schedule_worker.py         # 课表任务进程
-│   ├── learning_worker.py         # 复盘任务与维护进程
+│   ├── schedule_worker.py         # 课表任务逻辑与人工 CLI
+│   ├── learning_worker.py         # 复盘、维护逻辑与人工 CLI
 │   ├── ecosystem.config.js        # PM2 进程配置
 │   ├── deploy/                    # Nginx 与 systemd 配置示例
 │   ├── .env.example              # 后端环境变量示例
@@ -39,7 +42,7 @@
 └── project.config.example.json    # 微信开发者工具项目示例
 ```
 
-API 接收请求并保存任务，课表 worker 处理导入与确认，学习 worker 执行复盘评估，维护 worker 推进行情并收尾过期计时。完整运行需要这些进程共同工作。
+后端只运行一个 `lifefund-backend` 进程。API 接收请求并保存任务，其 lifespan 同时启动课表、复盘评估和维护三个后台线程，处理课表识别保存、复盘评估、行情推进和过期计时收尾；线程在服务关闭时停止领取新任务并收尾。任务与恢复状态仍保存在 PostgreSQL。没有配置数据库时不启动后台线程。
 
 ## 本地运行
 
@@ -81,23 +84,15 @@ cp -n .env.example .env
 
 第一条命令应用业务表迁移，第二条初始化课表工作流的检查点表。服务启动不会自动替你执行这两步。
 
-### 3. 启动服务与后台任务
+### 3. 启动服务
 
-在四个终端中分别进入 `backend` 目录，各运行一条命令：
+在 `backend` 目录运行一个进程，后台任务随 API 启动：
 
 ```bash
-# 终端 1：HTTP API
 .venv/bin/python -m uvicorn main:app --host 127.0.0.1 --port 8003
-
-# 终端 2：课表助手
-.venv/bin/python -m schedule_worker
-
-# 终端 3：复盘评估
-.venv/bin/python -m learning_worker
-
-# 终端 4：行情与计时维护
-.venv/bin/python -m learning_worker --mode maintenance
 ```
+
+只运行一个 Uvicorn 实例，不使用 `--workers`、`--reload` 或 PM2 cluster。运行时持有本机部署目录的独占锁，同一目录的第二个 API 实例会启动失败；锁在后台线程全部退出或进程终止后释放，不创建锁文件。独立 CLI 仍供人工初始化和单轮诊断使用，例如 `python -m schedule_worker --setup`、`python -m schedule_worker --once`、`python -m learning_worker --once`；正式部署不另行启动 worker 常驻进程。
 
 本机访问 `http://127.0.0.1:8003/health` 应返回 `{"status":"ok"}`，接口文档位于 `http://127.0.0.1:8003/docs`。健康检查只确认 API 进程响应，不能代替数据库、微信登录或模型服务的功能验证。
 
@@ -116,13 +111,16 @@ cp -n miniprogram/config/backend.example.js miniprogram/config/backend.js
 
 ## 部署
 
-可以使用 [PM2 配置](backend/ecosystem.config.js) 统一管理 API 和后台进程。安装 PM2、完成环境配置及数据库初始化后，从项目根目录执行：
+可以使用 [PM2 配置](backend/ecosystem.config.js) 管理唯一的 `lifefund-backend`。安装 PM2、完成环境配置及数据库初始化后，从项目根目录执行：
 
 ```bash
-pm2 start backend/ecosystem.config.js
+pm2 startOrRestart backend/ecosystem.config.js --only lifefund-backend --update-env
+pm2 save
 ```
 
-[Nginx 示例](backend/deploy/nginx/lifefund-api.example.conf) 需要替换域名并配置自己的 HTTPS 证书。[systemd 示例](backend/deploy/systemd/lifefund-api.example.service) 使用通用安装路径，只管理 API；选择 systemd 时还需单独管理三个后台任务进程。API 只选择一种进程管理方式，避免重复占用端口。
+从旧多进程部署切换时，先停止并删除本项目的 `lifefund-schedule-worker`、`lifefund-learning-worker`、`lifefund-learning-maintenance`，再启动新版 `lifefund-backend` 并保存 PM2 列表；修改配置文件不会自动删除 PM2 中已有的进程。操作只针对 Lifefund，不使用 `pm2 delete all`。
+
+[Nginx 示例](backend/deploy/nginx/lifefund-api.example.conf) 需要替换域名并配置自己的 HTTPS 证书。[systemd 示例](backend/deploy/systemd/lifefund-api.example.service) 使用通用安装路径，同样只启动一个进程并由 API 管理后台线程。PM2 与 systemd 选择一种方式；后台任务不另建服务。两种配置均预留 210 秒停止时间，供进行中的任务与线程收尾；超过宽限被强制终止的任务依靠持久化状态和租约恢复。
 
 ## GitHub 发布与敏感信息
 

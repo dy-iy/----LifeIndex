@@ -29,7 +29,6 @@ class ClassIndexEvent(Base):
         UniqueConstraint("user_id", "source_key", name="uq_class_index_event_source"),
         UniqueConstraint("user_id", "lesson_id", "revision", name="uq_class_index_event_revision"),
         UniqueConstraint("previous_event_id", name="uq_class_index_event_successor"),
-        ForeignKeyConstraint(["user_id", "lesson_id"], ["lessons.user_id", "lessons.id"], name="fk_class_index_event_lesson", ondelete="CASCADE"),
         ForeignKeyConstraint(["user_id", "original_event_id"], ["class_index_events.user_id", "class_index_events.id"], name="fk_class_index_event_original"),
         ForeignKeyConstraint(["user_id", "previous_event_id"], ["class_index_events.user_id", "class_index_events.id"], name="fk_class_index_event_previous"),
         CheckConstraint("kind IN ('attendance', 'absence', 'excluded')", name="ck_class_index_event_kind"),

@@ -2,6 +2,7 @@ const { goToClassTab } = require("../../services/class-navigation");
 const art = require("../../services/art");
 const timer = require("../../services/timer");
 const session = require("../../services/session");
+const timetableChange = require("../../services/timetable-change");
 const { onShareAppMessage } = require("../../services/share");
 
 function formatDuration(value) {
@@ -28,6 +29,14 @@ Page({
       this.syncIdentity();
       if (this._visible) this.reload();
     });
+    this.unsubscribeTimetable = timetableChange.subscribe((change) => {
+      if (change.owner !== timer.identity().owner || this._disposed) return;
+      this._timetableRefreshPending = true;
+      this._loadId += 1;
+      this.setData({ loading: false, synced: false });
+      this.sync();
+      if (this._visible && !this.data.busy && !this.data.reviewOpen) this.reload();
+    });
     this._network = (event) => {
       if (event.isConnected && this._visible && !this.data.busy && !this.data.loading) this.reload();
     };
@@ -36,6 +45,10 @@ Page({
   onShow() {
     this._visible = true;
     this.syncIdentity();
+    // A hidden page and persisted lesson selection may predate a deletion.
+    // Reconcile before offering the idle start action again.
+    timer.invalidateLessons(); this._timetableRefreshPending = true;
+    this._loadId += 1; this.setData({ loading: false, synced: false });
     this.setData({ reviewVisible: this.data.reviewOpen });
     this.sync();
     clearInterval(this._interval);
@@ -57,6 +70,7 @@ Page({
   onUnload() {
     this.onHide(); this._disposed = true; this._loadId += 1;
     if (this.unsubscribe) this.unsubscribe();
+    if (this.unsubscribeTimetable) this.unsubscribeTimetable();
     if (typeof wx.offNetworkStatusChange === "function") wx.offNetworkStatusChange(this._network);
   },
   syncIdentity() {
@@ -65,9 +79,7 @@ Page({
       this.clearDialFeedback();
       this._dialActionUntil = 0;
       this._loadId += 1;
-      this._lessons = [];
       this._reviewTarget = null;
-      this._lastRecordId = null;
       this._expiryReadId = null;
       this.setData(initialData());
     }
@@ -82,19 +94,18 @@ Page({
     this.syncIdentity();
     const state = timer.getState();
     const now = timer.serverNow();
-    const lessons = this._lessons || [];
+    const lessons = state.lessonsReady ? state.lessons : [];
     const currentCourse = timer.currentLesson(lessons, now);
     const recent = state.recent.filter((record) => timer.inTimingWindow(record, now));
     const reviewTarget = recent.find((record) => record.id === this._reviewTarget);
     if (!reviewTarget) this._reviewTarget = null;
-    const completed = currentCourse && recent.find((record) => record.lesson_id === currentCourse.id);
-    // Cached history and unsynced records must obey the same window as the timetable.
-    const record = [state.active, state.pendingFinish && state.pendingFinish.record, reviewTarget, completed,
-      !currentCourse && (recent.find((item) => item.id === this._lastRecordId)
-        || recent.find((item) => ["timeout", "repair"].includes(item.finish_reason)))]
+    const completed = currentCourse && recent.find((record) => timer.matchesLesson(record, currentCourse));
+    // Finished sessions are independent history. They never supply a missing
+    // current course or replace a modified lesson with their old snapshot.
+    const record = [state.active, state.pendingFinish && state.pendingFinish.record,
+      timer.matchesLesson(reviewTarget, currentCourse) && reviewTarget, completed]
       .find((item) => timer.inTimingWindow(item, now)) || null;
-    if (record) this._lastRecordId = record.id;
-    const course = record || currentCourse;
+    const course = record && ["running", "paused"].includes(record.phase) ? record : currentCourse;
     const phase = record ? record.phase : "idle";
     const duration = record ? timer.elapsed(record) : { elapsedSeconds: 0, effectiveSeconds: 0 };
     const planned = course ? Number(course.planned_seconds || course.duration_minutes * 60 || (Date.parse(course.ends_at) - Date.parse(course.starts_at)) / 1000) : 0;
@@ -149,17 +160,18 @@ Page({
       if (pendingFinish) {
         await timer.retryPendingFinish();
         if (!current()) return;
-        this.setData({ synced: true, loading: false, error: timer.getState().error || "" }); this.sync();
+        this.setData({ synced: Boolean(timer.getState().lessonsReady), loading: false, error: timer.getState().error || "" }); this.sync();
         if (timer.getState().reviewHandoff === pendingFinish.sessionId && this.openFinishedReview(snapshot, pendingFinish.sessionId)) return;
       }
       await timer.reload();
       if (!current()) return;
-      this.setData({ synced: true, error: timer.getState().error || "" }); this.sync();
+      const state = timer.getState();
+      if (state.lessonsReady) this._timetableRefreshPending = false;
+      this.setData({ synced: Boolean(state.lessonsReady), error: state.error || "" }); this.sync();
     } catch (error) {
       if (current()) { this.setData({ error: error.message || "计时暂未同步，请重试。", synced: false }); this.sync(); }
     }
     if (current()) {
-      this._lessons = timer.getState().lessons || [];
       this.sync();
       this.setData({ loading: false });
     }
@@ -175,12 +187,20 @@ Page({
       if (this.active(snapshot)) this.sync();
       await work;
       if (this.active(snapshot)) {
-        this.setData({ synced: true, error: timer.getState().error || "" }); this.sync();
+        this.setData({ synced: Boolean(timer.getState().lessonsReady), error: timer.getState().error || "" }); this.sync();
         if (reviewSessionId && timer.getState().reviewHandoff === reviewSessionId) this.openFinishedReview(snapshot, reviewSessionId);
       }
     } catch (error) {
-      if (this.active(snapshot)) { this.setData({ error: error.message || "操作暂未完成，请重试。" }); this.sync(); }
-    } finally { if (this.active(snapshot)) this.setData({ busy: false }); }
+      if (this.active(snapshot)) {
+        if ([404, 409].includes(error.statusCode)) { timer.invalidateLessons(); this._timetableRefreshPending = true; this.setData({ synced: false }); }
+        this.setData({ error: error.message || "操作暂未完成，请重试。" }); this.sync();
+      }
+    } finally {
+      if (this.active(snapshot)) {
+        this.setData({ busy: false });
+        if (this._timetableRefreshPending && this._visible && !this.data.reviewOpen) this.reload();
+      }
+    }
   },
   animateDialTap() {
     if (this._disposed) return;

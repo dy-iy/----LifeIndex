@@ -1,5 +1,6 @@
 const backend = require("./backend");
 const session = require("./session");
+const timetableChange = require("./timetable-change");
 
 const STORAGE_PREFIX = "lifefund.timer.v1:";
 const GRACE_MS = 10 * 60 * 1000;
@@ -13,7 +14,7 @@ let writeFlight = null;
 let readFlight = null;
 
 function emptyState() {
-  return { active: null, recent: [], lessons: [], selectedLesson: null, pendingFinish: null, finishConflicts: [], finishNotice: "", reviewId: null, reviewHandoff: null, reviewHandoffAt: null, error: "", writes: {}, serverTime: null, receivedAt: null };
+  return { active: null, recent: [], lessons: [], lessonsReady: false, selectedLesson: null, pendingFinish: null, finishConflicts: [], finishNotice: "", reviewId: null, reviewHandoff: null, reviewHandoffAt: null, error: "", writes: {}, serverTime: null, receivedAt: null };
 }
 function copy(value) { return value == null ? value : JSON.parse(JSON.stringify(value)); }
 function cacheKey(value = owner) { return `${STORAGE_PREFIX}${encodeURIComponent(value)}`; }
@@ -36,7 +37,8 @@ function loadCache() {
     const next = emptyState();
     next.active = validRecord(saved.active) && saved.active.phase !== "finished" ? copy(saved.active) : null;
     next.recent = Array.isArray(saved.recent) ? saved.recent.filter((item) => validRecord(item) && item.phase === "finished").slice(0, 20).map(copy) : [];
-    next.selectedLesson = saved.selectedLesson && typeof saved.selectedLesson.id === "string" ? copy(saved.selectedLesson) : null;
+    // Timetable selections are never authoritative after reopening the app.
+    // Only session history and unsent finish intents survive this cache load.
     next.reviewId = typeof saved.reviewId === "string" ? saved.reviewId : null;
     next.reviewHandoff = typeof saved.reviewHandoff === "string" ? saved.reviewHandoff : null;
     next.reviewHandoffAt = typeof saved.reviewHandoffAt === "string" ? saved.reviewHandoffAt : null;
@@ -66,11 +68,20 @@ function identity() {
     owner = current.owner; generation = current.generation; revision += 1;
     writeFlight = null; readFlight = null;
     if (changedOwner || !owner) state = owner ? loadCache() : emptyState();
+    else state = Object.assign({}, state, { lessons: [], lessonsReady: false, selectedLesson: null });
     if (!owner) unreadableCache = false;
   }
   return current;
 }
 session.subscribe(identity);
+function invalidateLessons() {
+  const snapshot = identity();
+  revision += 1; readFlight = null;
+  const next = Object.assign({}, state, { lessons: [], lessonsReady: false, selectedLesson: null });
+  if (snapshot.owner && !unreadableCache) commit(next); else state = next;
+  return getState();
+}
+timetableChange.subscribe((change) => { if (change.owner === identity().owner) invalidateLessons(); });
 function isCurrent(snapshot) {
   const current = identity();
   return !!snapshot && snapshot.owner === current.owner && snapshot.generation === current.generation;
@@ -112,7 +123,7 @@ function currentLesson(lessons, now = serverNow()) {
   // Actual class time takes priority over adjacent classes' grace periods.
   const distance = (lesson) => Math.max(Date.parse(lesson.starts_at) - now, now - Date.parse(lesson.ends_at), 0);
   const ongoing = (lesson) => Date.parse(lesson.starts_at) <= now && now < Date.parse(lesson.ends_at);
-  return lessons.filter((lesson) => inTimingWindow(lesson, now)).sort((a, b) =>
+  return (Array.isArray(lessons) ? lessons : []).filter((lesson) => inTimingWindow(lesson, now)).sort((a, b) =>
     Number(ongoing(b)) - Number(ongoing(a)) || distance(a) - distance(b)
     || Date.parse(b.starts_at) - Date.parse(a.starts_at) || a.id.localeCompare(b.id))[0] || null;
 }
@@ -122,7 +133,13 @@ function requireTimingWindow(course) {
 function canResume(record, now = serverNow()) {
   return Boolean(record && ["paused", "finished"].includes(record.phase)
     && record.source !== "manual" && record.reported_seconds == null
+    && ((record.phase === "paused" && state.active && state.active.id === record.id) || matchesLesson(record, currentLesson(state.lessonsReady ? state.lessons : [], now)))
     && record.can_resume !== false && inTimingWindow(record, now));
+}
+function matchesLesson(record, lesson) {
+  return Boolean(record && lesson && record.lesson_id === lesson.id
+    && Date.parse(record.starts_at) === Date.parse(lesson.starts_at) && Date.parse(record.ends_at) === Date.parse(lesson.ends_at)
+    && record.name === lesson.name && (record.location || "") === (lesson.location || ""));
 }
 function finishOpensReview(operation, record) {
   const course = operation && operation.record || record;
@@ -133,14 +150,16 @@ function finishOpensReview(operation, record) {
 }
 function getState() {
   identity();
-  return copy({ active: state.active, recent: state.recent, lessons: state.lessons, selectedLesson: state.selectedLesson,
+  return copy({ active: state.active, recent: state.recent, lessons: state.lessons, lessonsReady: state.lessonsReady, selectedLesson: state.selectedLesson,
     pendingFinish: state.pendingFinish, finishNotice: state.finishNotice, finishConflicts: state.finishConflicts,
     reviewId: state.reviewId, reviewHandoff: state.reviewHandoff, error: state.error, serverNow: serverNow() });
 }
 function selectLesson(lesson) {
   requireOwner();
   if (lesson && typeof lesson.id !== "string") throw new Error("课程信息无效，请从课表重新选择。");
-  commit(Object.assign({}, state, { selectedLesson: copy(lesson), error: "" }), true);
+  const current = lesson && state.lessonsReady && state.lessons.find((item) => item.id === lesson.id);
+  if (lesson && !current) throw new Error("课程已变化，请同步最新课表后再选择。");
+  commit(Object.assign({}, state, { selectedLesson: copy(current || null), error: "" }), true);
   return getState();
 }
 function selectReview(recordId) {
@@ -195,17 +214,19 @@ function reload() {
   const snapshot = identity();
   if (!snapshot.owner) return Promise.resolve(getState());
   if (unreadableCache) state = loadCache();
-  if (readFlight && isCurrent(readFlight.snapshot)) return readFlight.promise;
+  if (readFlight && isCurrent(readFlight.snapshot) && readFlight.revision === revision) return readFlight.promise;
   const startedRevision = revision;
-  const flight = { snapshot };
+  const flight = { snapshot, revision: startedRevision };
   flight.promise = (async () => {
     try {
       requireCurrent(snapshot);
       const result = await backend.request({ path: "/api/sessions" });
       if (!isCurrent(snapshot) || revision !== startedRevision || writeFlight) return getState();
-      if (!result || !Array.isArray(result.recent)) throw new Error("计时响应无效，请刷新后重试。");
+      if (!result || !Array.isArray(result.recent) || !Array.isArray(result.lessons)) throw new Error("计时响应无效，请刷新后重试。");
       const next = Object.assign({}, state, {
         lessons: result.lessons,
+        lessonsReady: true,
+        selectedLesson: state.selectedLesson ? result.lessons.find((lesson) => lesson.id === state.selectedLesson.id) || null : null,
         active: result.active ? anchor(result.active, result.server_now) : null,
         recent: result.recent.map((item) => anchor(item, result.server_now)).filter((item) => item.phase === "finished").slice(0, 20),
         error: unreadableCache ? state.error : "",
@@ -224,7 +245,7 @@ function reload() {
       if (unreadableCache) state = next; else commit(next, !!state.pendingFinish && !next.pendingFinish);
       return getState();
     } catch (error) {
-      if (isCurrent(snapshot)) state.error = error.message || "计时记录读取失败，请重试。";
+      if (isCurrent(snapshot) && revision === startedRevision) state.error = error.message || "计时记录读取失败，请重试。";
       throw error;
     } finally { if (readFlight === flight) readFlight = null; }
   })();
@@ -299,6 +320,7 @@ function start(lessonId) {
       applyRecord(result);
     }
     if (state.active) throw new Error("已有正在进行的计时，请先结束当前计时。");
+    if (!state.lessonsReady || !state.lessons.some((lesson) => lesson.id === lessonId && inTimingWindow(lesson))) throw new Error("当前课程已变化，请同步最新课表后开始计时。");
     return regularWrite(snapshot, "/api/sessions", { lesson_id: lessonId });
   });
 }
@@ -422,4 +444,4 @@ function elapsed(record, now = Date.now()) {
 }
 function preparationSeconds(record, now = Date.now()) { return clockValues(record, now).preparationSeconds; }
 
-module.exports = { identity, isCurrent, getState, selectLesson, selectReview, reload, start, pause, resume, finish, retryPendingFinish, elapsed, preparationSeconds, autoFinishAt, serverNow, inTimingWindow, currentLesson, canResume };
+module.exports = { identity, isCurrent, getState, selectLesson, selectReview, invalidateLessons, reload, start, pause, resume, finish, retryPendingFinish, elapsed, preparationSeconds, autoFinishAt, serverNow, inTimingWindow, currentLesson, matchesLesson, canResume };

@@ -104,14 +104,22 @@ def durations(segments, now, starts_at, ends_at):
     return int(elapsed), min(int(effective), int((ends_at - starts_at).total_seconds()))
 
 
-def resume_available(item, review, now):
+def current_lesson_matches(db, item):
+    lesson = db.scalar(select(Lesson).where(Lesson.id == item.lesson_id, Lesson.user_id == item.user_id,
+                                           Lesson.is_deleted.is_(False), Lesson.status == "scheduled"))
+    return lesson is not None and all(getattr(lesson, field) == getattr(item, field)
+                                     for field in ("name", "location", "timezone", "starts_at", "ends_at"))
+
+
+def resume_available(item, review, now, db=None):
     return (item.phase in ("paused", "finished") and not item.voided
             and item.reported_seconds is None and item.finish_reason != "untimed"
             and item.starts_at - TIMING_GRACE <= now < item.ends_at + TIMING_GRACE
-            and (review is None or review.status == "draft"))
+            and (review is None or review.status == "draft")
+            and (db is None or current_lesson_matches(db, item)))
 
 
-def session_result(item, segments, now, review=None, *, include_segments=True):
+def session_result(item, segments, now, review=None, *, include_segments=True, db=None):
     elapsed, effective = durations(segments, now, item.starts_at, item.ends_at)
     preparation = int(sum(max(0, (min(end, item.starts_at) - max(start, item.starts_at - TIMING_GRACE)).total_seconds())
                           for start, end in merged_intervals(segments, now)))
@@ -130,7 +138,7 @@ def session_result(item, segments, now, review=None, *, include_segments=True):
         elapsed_seconds=elapsed, effective_seconds=effective, server_now=now.astimezone(timezone.utc),
         preparation_seconds=preparation, auto_finish_at=(item.ends_at + TIMING_GRACE).astimezone(timezone.utc),
         finish_reason=item.finish_reason,
-        can_resume=resume_available(item, review, now),
+        can_resume=resume_available(item, review, now, db),
         started_at=item.started_at.astimezone(timezone.utc),
         finished_at=item.finished_at.astimezone(timezone.utc) if item.finished_at else None,
         is_makeup=item.is_makeup,
@@ -241,8 +249,8 @@ def list_sessions(user: CurrentUser, db: Db):
         ).order_by(StudySegment.start_at, StudySegment.id)).all():
             segments[row.session_id].append(row)
     result = {"server_now": now,
-            "active": session_result(active, segments[active.id], now, reviews.get(active.id)) if active is not None else None,
-            "recent": [session_result(item, segments[item.id], now, reviews.get(item.id)) for item in recent],
+            "active": session_result(active, segments[active.id], now, reviews.get(active.id), db=db) if active is not None else None,
+            "recent": [session_result(item, segments[item.id], now, reviews.get(item.id), db=db) for item in recent],
             "lessons": [lesson_result(item) for item in db.scalars(select(Lesson).where(
                 Lesson.user_id == user.id, Lesson.is_deleted.is_(False), Lesson.status == "scheduled",
                 Lesson.starts_at <= now + TIMING_GRACE, Lesson.ends_at > now - TIMING_GRACE,
@@ -259,7 +267,7 @@ def get_session(session_id: uuid.UUID, user: CurrentUser, db: Db):
         raise HTTPException(404, "该补记已撤回，请查看课程的课后记录。")
     now = utcnow()
     close_expired_sessions(db, user.id, now)
-    result = session_result(item, session_segments(db, user.id, item.id), now, db.get(Review, item.id))
+    result = session_result(item, session_segments(db, user.id, item.id), now, db.get(Review, item.id), db=db)
     db.commit()
     return result
 
@@ -283,6 +291,8 @@ def start_session(body: StartInput, request: Request, user: CurrentUser, db: Db,
                             location=lesson.location, timezone=lesson.timezone,
                             starts_at=lesson.starts_at, ends_at=lesson.ends_at,
                             phase="running", version=1, started_at=now, is_makeup=False)
+        from timetable_lifecycle import snapshot_lesson
+        item.lesson_snapshot = snapshot_lesson(lesson)
         # Starting early still locks the occurrence, including stale AI previews.
         lesson.version += 1
         db.add(item)
@@ -291,7 +301,7 @@ def start_session(body: StartInput, request: Request, user: CurrentUser, db: Db,
         db.add(segment)
         db.flush()
         timer_action(db, user, item, now, "start")
-        return session_result(item, [segment], now)
+        return session_result(item, [segment], now, db=db)
     return mutate(db, user, request, key, body, 201, action)
 
 
@@ -313,6 +323,8 @@ def transition(db, user, session_id, body, operation):
     now = max([now, item.started_at, item.finished_at or item.started_at]
               + [row.end_at or row.start_at for row in segments])
     if operation == "resume":
+        if not current_lesson_matches(db, item):
+            raise HTTPException(409, "该课程已删除或修改，原计时仅保留为历史记录，不能继续计时。")
         if not resume_available(item, review, now):
             raise HTTPException(409, "该记录已提交复盘、属于人工补记或已超出计时时段，不能继续计时。")
         close_expired_sessions(db, user.id, now)
@@ -338,7 +350,7 @@ def transition(db, user, session_id, body, operation):
     item.version += 1
     db.flush()
     timer_action(db, user, item, now, operation)
-    return session_result(item, segments, now, review)
+    return session_result(item, segments, now, review, db=db)
 
 
 def validate_requested_finish(requested, earliest, now, cutoff):
@@ -352,7 +364,7 @@ def finish_record(db, item, body, now):
     segments = session_segments(db, item.user_id, item.id)
     review = db.get(Review, item.id)
     if item.finish_reason == "untimed":
-        return session_result(item, segments, now, review)
+        return session_result(item, segments, now, review, db=db)
     cutoff = item.ends_at + TIMING_GRACE
     requested = body.requested_finish_at
     use_requested = requested is not None and (body.deferred or now >= cutoff)
@@ -372,7 +384,7 @@ def finish_record(db, item, body, now):
             db.flush()
         activate_review_tracking(db, item, segments)
         timer_action(db, db.get(User, item.user_id), item, now, "finish")
-        return session_result(item, segments, now, review)
+        return session_result(item, segments, now, review, db=db)
     check_version(item, body.version)
     if use_requested:
         validate_requested_finish(requested, last_event(item, segments), now, cutoff)
@@ -391,7 +403,7 @@ def finish_record(db, item, body, now):
     db.flush()
     activate_review_tracking(db, item, segments)
     timer_action(db, db.get(User, item.user_id), item, now, "finish")
-    return session_result(item, segments, now, review)
+    return session_result(item, segments, now, review, db=db)
 
 
 @router.post("/api/sessions/{session_id}/pause", response_model=StudyResponse)

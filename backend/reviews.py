@@ -108,10 +108,10 @@ class ReviewListResponse(BaseModel):
     next_cursor: str | None
 
 
-def result(item, review, segments, now, job=None):
+def result(item, review, segments, now, job=None, *, db=None):
     return ReviewResponse(
         question_version=review.question_version if review else QUESTION_VERSION,
-        session=session_result(item, segments, now, review), version=review.version if review else 0,
+        session=session_result(item, segments, now, review, db=db), version=review.version if review else 0,
         answers=review.answers if review else [""], status=review.status if review else "draft",
         updated_at=review.updated_at if review else None, submitted_at=review.submitted_at if review else None,
         can_submit=not item.voided and (review is None or review.status == "draft") and item.ends_at <= now <= item.ends_at + timedelta(days=CORRECTION_WINDOW_DAYS),
@@ -199,7 +199,7 @@ def list_reviews(user: CurrentUser, db: Db, request: Request, status: Literal["a
     for item, review in page:
         job = (linked.get(review.outcome_evaluation_id) or jobs.get((item.id, review.version, item.version))) if review else None
         if compact:
-            summary = session_result(item, segments[item.id], now, review, include_segments=False)
+            summary = session_result(item, segments[item.id], now, review, include_segments=False, db=db)
             items.append(ReviewSummary(
                 session=ReviewSessionSummary(**summary), version=review.version if review else 0,
                 status=review.status if review else "draft", question_version=review.question_version if review else QUESTION_VERSION,
@@ -208,7 +208,7 @@ def list_reviews(user: CurrentUser, db: Db, request: Request, status: Literal["a
                                     "review_version": job.review_version} if job else None,
             ).model_dump(mode="json"))
         else:
-            items.append(result(item, review, segments[item.id], now, job))
+            items.append(result(item, review, segments[item.id], now, job, db=db))
     next_cursor = f"{last.finished_at.isoformat()}|{last.id}" if last else None
     db.commit()
     return {"items": items, "next_cursor": next_cursor}
@@ -221,7 +221,7 @@ def get_review(session_id: uuid.UUID, user: CurrentUser, db: Db, request: Reques
     from evaluation_api import latest_job, response
     job = latest_job(db, user.id, item, review)
     now = utcnow()
-    return {**result(item, review, session_segments(db, user.id, session_id), now, job),
+    return {**result(item, review, session_segments(db, user.id, session_id), now, job, db=db),
             "evaluation": response(item, review, job, now)}
 
 
@@ -256,7 +256,7 @@ def write_review(db, user, session_id, body, submit):
         from learning_lifecycle import reopen_lesson
         enqueue_evaluation(db, user.id, review, item, now)
         reopen_lesson(db, user.id, item.lesson_id, now)
-    return result(item, review, session_segments(db, user.id, session_id), now)
+    return result(item, review, session_segments(db, user.id, session_id), now, db=db)
 
 
 @router.put("/api/reviews/{session_id}", response_model=ReviewResponse)
@@ -286,5 +286,5 @@ def save_reflection(session_id: uuid.UUID, body: ReflectionInput, request: Reque
             raise HTTPException(409, "补充心得已更新，请刷新后核对。")
         review.note, review.note_version = body.note, review.note_version + 1
         db.flush()
-        return result(item, review, session_segments(db, user.id, session_id), utcnow())
+        return result(item, review, session_segments(db, user.id, session_id), utcnow(), db=db)
     return mutate(db, user, request, key, body, 200, action)

@@ -331,11 +331,10 @@ class Worker:
             job.status, job.error = "invalid_answer", review_v5.INVALID_MESSAGE
         else:
             from lesson_outcomes import apply_decision, eligible_lesson
-            from models import Lesson, LessonOutcome
-            lesson, outcome = db.get(Lesson, study.lesson_id), db.get(LessonOutcome, study.lesson_id)
+            from models import LessonOutcome
+            from timetable_lifecycle import learning_lesson
+            lesson, outcome = learning_lesson(db, job.user_id, study.lesson_id), db.get(LessonOutcome, study.lesson_id)
             eligible_lesson(lesson, outcome, study, now)
-            if lesson.is_deleted:
-                raise ModelError("课程已删除，不能按旧输入结算。")
             from evaluation_api import require_window
             # Timely submissions may finish after the editing deadline, just as
             # learning scores do. Never backdate the actual settlement itself.

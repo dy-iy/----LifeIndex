@@ -1,8 +1,4 @@
-"""Deterministic overlap diagnostics shared by manual edits and agent planning.
-
-The detector only describes conflicts; neither a model reply nor a diagnostic
-can grant permission to ignore one. Inputs are already owner-scoped snapshots.
-"""
+"""Non-blocking overlap diagnostics over owner-scoped timetable snapshots."""
 from collections.abc import Iterable, Mapping
 from datetime import datetime
 

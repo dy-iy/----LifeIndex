@@ -1,5 +1,6 @@
 const backend = require("./backend");
 const session = require("./session");
+const timetableChange = require("./timetable-change");
 const { localDate } = require("../config/timezone");
 let owner = null;
 let draft = null;
@@ -23,11 +24,12 @@ async function write(path, method, data) {
   if (!keys[operation] || keys[operation].fingerprint !== fingerprint) keys[operation] = { fingerprint, key: makeKey() };
   const key = keys[operation].key;
   const result = await backend.request({ path, method, data, header: { "Idempotency-Key": key } });
+  timetableChange.publish(snapshot, { path, method });
   // 页面可能已在写入期间离开。保留可重放标识，直到可见页面消费成功结果并清掉草稿。
   return result;
 }
 function acknowledge(kind, id, data) {
-  const paths = { semester: "/api/timetables/semesters", course: "/api/timetables/courses", lesson: "/api/lessons" };
+  const paths = { semester: "/api/timetables/semesters", course: "/api/timetables/courses", structured: "/api/timetables/structured/courses", lesson: "/api/lessons" };
   const path = `${paths[kind]}${id ? `/${id}` : ""}`;
   const method = id ? "PATCH" : "POST";
   const operation = `${method}:${path}`;
@@ -39,6 +41,10 @@ function acknowledgeLessonDelete(id, version) { delete keys[`DELETE:/api/lessons
 function query(values) { return Object.keys(values).map((key) => `${key}=${encodeURIComponent(values[key])}`).join("&"); }
 function semesters() { return backend.request({ path: "/api/timetables/semesters" }); }
 function courses(id) { return backend.request({ path: `/api/timetables/courses?${query({ semester_id: id })}` }); }
+function structured(scope) { return backend.request({ path: `/api/timetables/structured?${query(scope)}` }); }
+function saveStructuredCourse(id, data) { return write(`/api/timetables/structured/courses${id ? `/${encodeURIComponent(id)}` : ""}`, id ? "PATCH" : "POST", data); }
+function bindStructuredDocument(id, data) { return write(`/api/timetables/structured/documents/${encodeURIComponent(id)}/bind`, "POST", data); }
+function acknowledgeBind(id) { delete keys[`POST:/api/timetables/structured/documents/${encodeURIComponent(id)}/bind`]; }
 function lessons(id, from, to) { return backend.request({ path: `/api/lessons?${query({ semester_id: id, date_from: from, date_to: to })}` }); }
 function saveSemester(id, data) { return write(`/api/timetables/semesters${id ? `/${id}` : ""}`, id ? "PATCH" : "POST", data); }
 function saveCourse(id, data) { return write(`/api/timetables/courses${id ? `/${id}` : ""}`, id ? "PATCH" : "POST", data); }
@@ -54,11 +60,19 @@ function today(now = Date.now()) {
 function errorMessage(error) {
   if (error.statusCode === 409) {
     const detail = error.data && error.data.detail;
-    const text = typeof detail === "string" ? detail : JSON.stringify(detail || "");
-    if (/overlap|conflict.*time|重叠|时间冲突/i.test(text)) return /[\u3400-\u9fff]/.test(text) ? text : "这段时间已有课程，请调整时段后再保存。";
-    if (/[\u3400-\u9fff]/.test(text) && !/已被其他操作更新/.test(text)) return `${text} 输入仍保留。`;
-    return "资料已发生变化。输入仍保留，可读取最新版本后再保存；若有时间冲突，请调整时段。";
+    if (typeof detail === "string" && detail.trim()) return detail;
+    return "资料已发生变化。输入仍保留，可读取最新版本后再保存。";
+  }
+  const detail = error.data && error.data.detail;
+  if (error.statusCode === 422 && Array.isArray(detail)) {
+    const messages = [...new Set(detail.map((item) => item && typeof item.msg === "string" ? item.msg.replace(/^Value error,\s*/i, "").trim() : "")
+      .filter((message) => /[\u3400-\u9fff]/.test(message)))];
+    if (messages.length) return messages.join("\n");
   }
   return error.message || "网络暂不可用，请稍后重试。";
 }
-module.exports = { identity, isCurrent, saveDraft, getDraft, semesters, courses, lessons, saveSemester, saveCourse, deleteCourse, deleteLesson, saveLesson, acknowledge, acknowledgeDelete, acknowledgeLessonDelete, addDays, monday, today, errorMessage };
+function isVersionConflict(error) {
+  const detail = error.data && error.data.detail;
+  return error.statusCode === 409 && /版本|version|已被其他操作更新|stale/i.test(typeof detail === "string" ? detail : error.message || "");
+}
+module.exports = { identity, isCurrent, saveDraft, getDraft, semesters, courses, structured, saveStructuredCourse, bindStructuredDocument, acknowledgeBind, lessons, saveSemester, saveCourse, deleteCourse, deleteLesson, saveLesson, acknowledge, acknowledgeDelete, acknowledgeLessonDelete, addDays, monday, today, errorMessage, isVersionConflict };

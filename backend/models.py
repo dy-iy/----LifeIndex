@@ -129,6 +129,9 @@ class CourseTemplate(Base):
     start_time: Mapped[str] = mapped_column(String(5))
     end_time: Mapped[str] = mapped_column(String(5))
     location: Mapped[str] = mapped_column(String(200), default="", server_default="")
+    weeks: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    source_course_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("timetable_courses.id", ondelete="SET NULL", name="fk_course_templates_structured"), nullable=True)
+    source_schedule_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
     version: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
     is_deleted: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
 
@@ -182,7 +185,6 @@ class StudySession(Base):
     __table_args__ = (
         UniqueConstraint("user_id", "id", name="uq_study_sessions_owner"),
         UniqueConstraint("lesson_id", name="uq_study_sessions_lesson"),
-        ForeignKeyConstraint(["user_id", "lesson_id"], ["lessons.user_id", "lessons.id"], ondelete="CASCADE", name="fk_study_sessions_lesson"),
         CheckConstraint("phase IN ('running', 'paused', 'finished')", name="ck_study_sessions_phase"),
         CheckConstraint("version > 0", name="ck_study_sessions_version"),
         CheckConstraint("ends_at > starts_at", name="ck_study_sessions_plan"),
@@ -198,6 +200,7 @@ class StudySession(Base):
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"))
     lesson_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True))
+    lesson_snapshot: Mapped[dict] = mapped_column(JSONB, default=dict, server_default="{}")
     name: Mapped[str] = mapped_column(String(100))
     location: Mapped[str] = mapped_column(String(200))
     timezone: Mapped[str] = mapped_column(String(64))
@@ -217,8 +220,6 @@ class StudySession(Base):
 class LessonOutcome(Base):
     __tablename__ = "lesson_outcomes"
     __table_args__ = (
-        ForeignKeyConstraint(["user_id", "lesson_id"], ["lessons.user_id", "lessons.id"],
-                             ondelete="CASCADE", name="fk_lesson_outcomes_owner"),
         CheckConstraint("decision IN ('pending', 'makeup', 'absent', 'leave', 'cancelled')", name="ck_lesson_outcomes_decision"),
         CheckConstraint("version > 0", name="ck_lesson_outcomes_version"),
         CheckConstraint("input_version >= 0", name="ck_lesson_outcomes_input_version"),
@@ -226,6 +227,7 @@ class LessonOutcome(Base):
         Index("ix_lesson_outcomes_owner", "user_id", "decision"),
     )
     lesson_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    lesson_snapshot: Mapped[dict] = mapped_column(JSONB, default=dict, server_default="{}")
     user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"))
     decision: Mapped[str] = mapped_column(String(12), default="pending", server_default="pending")
     reason: Mapped[str] = mapped_column(String(1000), default="", server_default="")
@@ -265,6 +267,46 @@ class ScheduleThread(Base):
     semester_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
     title: Mapped[str] = mapped_column(String(100), default="课表对话")
     version: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class TimetableDocument(Base):
+    __tablename__ = "timetable_documents"
+    __table_args__ = (
+        UniqueConstraint("user_id", "id", name="uq_timetable_documents_owner"),
+        UniqueConstraint("user_id", "semester_id", name="uq_timetable_documents_semester"),
+        UniqueConstraint("user_id", "thread_id", name="uq_timetable_documents_thread"),
+        ForeignKeyConstraint(["user_id", "semester_id"], ["semesters.user_id", "semesters.id"], ondelete="CASCADE", name="fk_timetable_documents_semester"),
+        ForeignKeyConstraint(["user_id", "thread_id"], ["schedule_threads.user_id", "schedule_threads.id"], ondelete="CASCADE", name="fk_timetable_documents_thread"),
+        CheckConstraint("(semester_id IS NULL) <> (thread_id IS NULL)", name="ck_timetable_documents_scope"),
+        CheckConstraint("version > 0", name="ck_timetable_documents_version"),
+    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"))
+    semester_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    thread_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    data: Mapped[dict] = mapped_column(JSONB, default=dict, server_default="{}")
+    version: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class TimetableCourse(Base):
+    __tablename__ = "timetable_courses"
+    __table_args__ = (
+        UniqueConstraint("user_id", "id", name="uq_timetable_courses_owner"),
+        ForeignKeyConstraint(["user_id", "document_id"], ["timetable_documents.user_id", "timetable_documents.id"], ondelete="CASCADE", name="fk_timetable_courses_document"),
+        CheckConstraint("version > 0", name="ck_timetable_courses_version"),
+        CheckConstraint("jsonb_typeof(data) = 'object'", name="ck_timetable_courses_data"),
+        Index("ix_timetable_courses_document", "user_id", "document_id"),
+    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"))
+    document_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True))
+    data: Mapped[dict] = mapped_column(JSONB, default=dict, server_default="{}")
+    version: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
+    is_deleted: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 

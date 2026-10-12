@@ -151,11 +151,11 @@ function layoutLanes(cards) {
     });
     group.forEach((card) => {
       card.lanes = laneEnds.length;
+      card.hasOverlap = group.some((other) => other !== card && other._start < card._end && other._end > card._start);
       card.leftPercent = round(card.lane * 100 / card.lanes);
       card.widthPercent = round(100 / card.lanes);
-      delete card._start;
-      delete card._end;
     });
+    group.forEach((card) => { delete card._start; delete card._end; });
     group = [];
   }
   cards.forEach((card) => {

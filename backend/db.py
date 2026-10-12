@@ -36,6 +36,7 @@ def get_db(request: Request):
         if request.method == "GET" and (request.url.path.startswith("/api/indices/class")
                 or request.url.path == "/api/learning/incomplete"
                 or request.url.path.startswith("/api/timetable-agent/threads")
+                or request.url.path == "/api/timetables/structured"
                 or request.url.path.startswith("/api/reviews/")):
             # Start the snapshot before authentication issues its first SELECT.
             session.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY"))

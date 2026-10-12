@@ -40,6 +40,7 @@ view, text { box-sizing: border-box; }
 .lesson-location { display: -webkit-box; margin-top: 9rpx; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; font-size: 17rpx; line-height: 1.45; word-break: break-all; }
 .adjusted-tag { display: inline-block; margin-top: 8rpx; padding: 1rpx 5rpx; color: #996b46; background: #fffaf0; border-radius: 4rpx; font-size: 15rpx; line-height: 1.5; }
 .adjusted-dot { position: absolute; right: 4rpx; top: 4rpx; width: 7rpx; height: 7rpx; border-radius: 50%; background: #b77a50; }
+.overlap-tag { display: inline-block; margin-top: 4rpx; padding: 0 3rpx; color: #a75a49; background: #fff4e9; border-radius: 3rpx; font-size: 15rpx; line-height: 1.4; }
 .color-1 .lesson-inner { background: #eee4f3; color: #655174; }
 .color-1 .lesson-accent { background: #ac94c3; }
 .color-2 .lesson-inner { background: #f6ead6; color: #755c3f; }
