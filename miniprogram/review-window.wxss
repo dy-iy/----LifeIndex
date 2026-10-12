@@ -1,7 +1,52 @@
-.review-modal-mask { position: fixed; inset: 0; z-index: 300; display: flex; align-items: center; justify-content: center; padding: calc(24rpx + env(safe-area-inset-top)) 28rpx calc(24rpx + env(safe-area-inset-bottom)); box-sizing: border-box; }
-.review-modal-backdrop { position: absolute; inset: 0; background: rgba(30, 45, 39, .45); }
-.review-modal { position: relative; width: 100%; max-width: 660rpx; height: 760rpx; max-height: 75vh; display: flex; flex-direction: column; overflow: visible; border-radius: 30rpx; background: #faf7f2; box-shadow: 0 20rpx 80rpx rgba(30, 45, 39, .2); }
-.review-modal-header { display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; padding: 24rpx 28rpx; border-bottom: 1rpx solid #e4dfd5; }
-.review-modal-title { font-family: "Songti SC", serif; font-size: 32rpx; color: #293f3b; }
-.review-modal-header .review-modal-close { flex: 0 0 auto; width: auto; min-width: 0; margin: 0 0 0 auto; padding: 10rpx 0 10rpx 24rpx; background: transparent; color: #7a837f; font-size: 24rpx; line-height: 1.4; text-align: right; white-space: nowrap; }
-.review-modal-panel { display: block; flex: 1; height: 0; min-height: 0; width: 100%; }
+/* 计时页与复盘列表共用纸感弹窗。原生导航已占据顶部，按可用页面高度留白。 */
+.review-modal-mask {
+  position: fixed; inset: 0; z-index: 300;
+  display: flex; align-items: center; justify-content: center;
+  padding: 108rpx 24rpx 32rpx;
+  padding-bottom: calc(32rpx + env(safe-area-inset-bottom));
+  box-sizing: border-box;
+}
+.review-modal-backdrop { position: absolute; inset: 0; background: rgba(36, 33, 32, .48); -webkit-backdrop-filter: blur(5px); backdrop-filter: blur(5px); }
+.review-modal { position: relative; width: 100%; max-width: 702rpx; height: 1046rpx; max-height: calc(100vh - 140rpx - env(safe-area-inset-bottom)); overflow: visible; }
+.review-modal-nessie { position: absolute; z-index: 0; top: -94rpx; right: 103rpx; display: block; width: 184rpx; height: 184rpx; pointer-events: none; }
+.review-modal-underlay { position: absolute; z-index: 1; top: 4rpx; right: -2rpx; bottom: -2rpx; left: 2rpx; border-radius: 28rpx 20rpx 29rpx 23rpx; background: #e9dfcc; transform: rotate(-.35deg); }
+.review-modal-panel {
+  position: relative; z-index: 2; display: block; width: 100%; height: 100%; min-height: 0;
+  overflow: hidden; border-radius: 26rpx 23rpx 31rpx 24rpx;
+  background-color: #fbf7ee;
+  background-image: radial-gradient(rgba(124, 94, 60, .07) .6px, transparent .9px), linear-gradient(108deg, rgba(255, 255, 255, .38), rgba(246, 236, 216, .2));
+  background-size: 5rpx 5rpx, 100% 100%;
+  box-shadow: 0 18rpx 60rpx rgba(29, 22, 33, .18), 0 2rpx 4rpx rgba(255, 255, 255, .7) inset;
+}
+
+/* 短窗口和横屏保留可滚动正文，不让装饰与固定区挤占整个弹窗。 */
+@media (max-height: 480px) {
+  .review-modal-mask { padding: 40px 16px 12px; padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
+  .review-modal { height: 100%; max-height: 100%; max-width: 560px; }
+  .review-modal-nessie { top: -38px; right: 80px; width: 76px; height: 76px; }
+}
+
+/* Alpha mask source: assets/art/review-paper-notch.svg.
+   四块遮罩保留纸张，接缝重叠 1px，避免缩放时露出细线。 */
+@supports ((-webkit-mask-image: linear-gradient(#fff, #fff)) or (mask-image: linear-gradient(#fff, #fff))) {
+  .review-modal { filter: drop-shadow(0 18rpx 30rpx rgba(29, 22, 33, .18)); }
+  .review-modal-panel { box-shadow: 0 2rpx 4rpx rgba(255, 255, 255, .7) inset; }
+  .review-modal-underlay, .review-modal-panel {
+    -webkit-mask-image: linear-gradient(#fff, #fff), linear-gradient(#fff, #fff), linear-gradient(#fff, #fff), url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxODYiIGhlaWdodD0iNTYiIHZpZXdCb3g9IjAgMCAxODYgNTYiIHByZXNlcnZlQXNwZWN0UmF0aW89Im5vbmUiPgogIDwhLS0gT3BhcXVlIHBhcGVyIGJlbG93IGFuIGlycmVndWxhciwgdG9ybiBVLXNoYXBlZCBvcGVuaW5nLiAtLT4KICA8cGF0aCBmaWxsPSIjZmZmIiBkPSJNMCAwTDUgMSA4IDAgMTMgMiAxOCA1IDIxIDUgMjUgMTEgMjcgMTEgMzAgMTcgMzQgMTcgMzcgMjMgNDIgMjUgNDUgMzEgNTEgMzMgNTQgMzcgNjIgNDAgNjUgNDQgNzMgNDUgNzcgNDggODUgNDggOTAgNTEgOTggNTAgMTA1IDUyIDExMSA0OCAxMTkgNDcgMTIzIDQzIDEzMCA0MiAxMzQgMzggMTQwIDM2IDE0NCAzMSAxNDkgMzAgMTUzIDI0IDE1OCAyMiAxNjAgMTYgMTY1IDE0IDE2OCA5IDE3MyA4IDE3NyAzIDE4MiAyIDE4NiAwVjU2SDBaIi8+Cjwvc3ZnPgo=");
+    mask-image: linear-gradient(#fff, #fff), linear-gradient(#fff, #fff), linear-gradient(#fff, #fff), url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxODYiIGhlaWdodD0iNTYiIHZpZXdCb3g9IjAgMCAxODYgNTYiIHByZXNlcnZlQXNwZWN0UmF0aW89Im5vbmUiPgogIDwhLS0gT3BhcXVlIHBhcGVyIGJlbG93IGFuIGlycmVndWxhciwgdG9ybiBVLXNoYXBlZCBvcGVuaW5nLiAtLT4KICA8cGF0aCBmaWxsPSIjZmZmIiBkPSJNMCAwTDUgMSA4IDAgMTMgMiAxOCA1IDIxIDUgMjUgMTEgMjcgMTEgMzAgMTcgMzQgMTcgMzcgMjMgNDIgMjUgNDUgMzEgNTEgMzMgNTQgMzcgNjIgNDAgNjUgNDQgNzMgNDUgNzcgNDggODUgNDggOTAgNTEgOTggNTAgMTA1IDUyIDExMSA0OCAxMTkgNDcgMTIzIDQzIDEzMCA0MiAxMzQgMzggMTQwIDM2IDE0NCAzMSAxNDkgMzAgMTUzIDI0IDE1OCAyMiAxNjAgMTYgMTY1IDE0IDE2OCA5IDE3MyA4IDE3NyAzIDE4MiAyIDE4NiAwVjU2SDBaIi8+Cjwvc3ZnPgo=");
+    -webkit-mask-size: 100% calc(100% - 56rpx + 1px), calc(100% - 288rpx + 1px) 56rpx, calc(102rpx + 1px) 56rpx, 186rpx 56rpx;
+    mask-size: 100% calc(100% - 56rpx + 1px), calc(100% - 288rpx + 1px) 56rpx, calc(102rpx + 1px) 56rpx, 186rpx 56rpx;
+    -webkit-mask-position: left bottom, left top, right top, right 102rpx top;
+    mask-position: left bottom, left top, right top, right 102rpx top;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+  }
+}
+@media (max-height: 480px) {
+  .review-modal-underlay, .review-modal-panel {
+    -webkit-mask-size: 100% calc(100% - 23px), calc(100% - 156px) 24px, 80px 24px, 78px 24px;
+    mask-size: 100% calc(100% - 23px), calc(100% - 156px) 24px, 80px 24px, 78px 24px;
+    -webkit-mask-position: left bottom, left top, right top, right 79px top;
+    mask-position: left bottom, left top, right top, right 79px top;
+  }
+}

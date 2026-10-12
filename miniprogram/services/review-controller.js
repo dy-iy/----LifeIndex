@@ -15,9 +15,10 @@ const TEXT_STEPS = {
   absence: { title: "未到课原因", placeholder: "比如：身体不适、睡过头、临时有事……", incomplete: "请填写未到课原因" },
 };
 
-const PARTICIPATION_OPTIONS = [{ value: "followed", label: "基本跟上" }, { value: "partial", label: "只听了一部分" },
-  { value: "not_learning", label: "到了，但基本没听" }, { value: "not_attended", label: "未到课" }, { value: "low_content", label: "水课" }];
-const UNTIMED_REASONS = [{ value: "forgotten", label: "忘记计时" }, { value: "not_attended", label: "没去上课" }];
+// 沿用后端参与情况枚举；参考弹窗的插画只负责展示，不改变保存内容。
+const PARTICIPATION_OPTIONS = [{ value: "followed", label: "基本跟上", icon: "book" }, { value: "partial", label: "只听了一部分", icon: "waves" },
+  { value: "not_learning", label: "到了，但基本没听", icon: "cloud" }, { value: "not_attended", label: "未到课", icon: "chair" }, { value: "low_content", label: "水课", icon: "water" }];
+const UNTIMED_REASONS = [{ value: "forgotten", label: "忘记计时", icon: "waves" }, { value: "not_attended", label: "没去上课", icon: "chair" }];
 const untimedReasonLabel = (value) => (UNTIMED_REASONS.find((item) => item.value === value) || {}).label || "未选择";
 
 function reviewSteps(participation, untimed = false, reason = "unspecified") {
@@ -403,7 +404,7 @@ module.exports = function createReviewController() { return {
   chooseUntimedReason(event) {
     if (!this.validWizardEvent(event) || !this.data.untimed || this.data.wizardPage !== "untimed_reason"
       || this.data.readonly || this.data.draftReadFailed) return;
-    const reason = event.currentTarget.dataset.value;
+    const reason = event.detail && typeof event.detail.value === "string" ? event.detail.value : event.currentTarget.dataset.value;
     if (!UNTIMED_REASONS.some((item) => item.value === reason)) return;
     const context = { untimed_reason: reason, finish_without_score: false };
     if (reason === "not_attended") Object.assign(context, { participation: "not_attended", focus: "unspecified" });
@@ -415,7 +416,7 @@ module.exports = function createReviewController() { return {
     if (!this.active(this._snapshot) || !this.data.record || this.data.readonly || this.data.draftReadFailed
       || owner !== this.data.owner || recordId && recordId !== this.data.record.id
       || this.data.wizard && this.data.wizardPage !== "participation") return;
-    const choice = event.currentTarget.dataset.value;
+    const choice = event.detail && typeof event.detail.value === "string" ? event.detail.value : event.currentTarget.dataset.value;
     if (this.data.untimed && (this.data.untimedReason !== "forgotten" || choice === "not_attended")) return;
     if (!["unspecified", ...this.data.participationOptions.map((o) => o.value)].includes(choice)) return;
     const context = { participation: choice, finish_without_score: false };

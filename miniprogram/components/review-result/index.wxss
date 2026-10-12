@@ -1,0 +1,213 @@
+:host { display: block; min-width: 0; }
+
+.rr-content {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  padding: 27rpx 0 24rpx;
+  color: #253047;
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+
+/* 第一块：带装订孔、胶带和折角的笔记纸。 */
+.rr-note {
+  position: relative;
+  box-sizing: border-box;
+  padding: 27rpx 27rpx 30rpx 61rpx;
+  border: 2rpx solid #fffdf6;
+  border-radius: 15rpx 12rpx 26rpx 14rpx;
+  background-color: #fffbf1;
+  background-image:
+    radial-gradient(rgba(160, 129, 80, .075) .6px, transparent .9px),
+    linear-gradient(118deg, rgba(255, 255, 255, .55), rgba(245, 231, 207, .16));
+  background-size: 6rpx 6rpx, 100% 100%;
+  box-shadow: 0 7rpx 14rpx rgba(103, 82, 45, .10), 0 2rpx 4rpx rgba(103, 82, 45, .06);
+}
+
+.rr-binding {
+  position: absolute;
+  top: 25rpx;
+  bottom: 21rpx;
+  left: 8rpx;
+  width: 19rpx;
+  background-image: radial-gradient(circle at 9rpx 12rpx, #ded2bc 1rpx, #efe5d3 8rpx, transparent 9rpx);
+  background-size: 19rpx 47rpx;
+  pointer-events: none;
+}
+
+.rr-tape {
+  position: absolute;
+  z-index: 1;
+  top: -10rpx;
+  left: 29rpx;
+  width: 78rpx;
+  height: 28rpx;
+  background-color: rgba(191, 156, 233, .55);
+  background-image: repeating-linear-gradient(45deg, transparent 0, transparent 4rpx, rgba(255, 255, 255, .15) 4rpx, rgba(255, 255, 255, .15) 6rpx);
+  transform: rotate(-24deg);
+  pointer-events: none;
+}
+
+.rr-heading {
+  position: relative;
+  display: inline-block;
+  margin-bottom: 17rpx;
+  padding: 0 4rpx 10rpx;
+}
+
+.rr-heading-text {
+  font-family: "Kaiti SC", "STKaiti", "KaiTi", "Songti SC", "Noto Serif CJK SC", serif;
+  font-size: 44rpx;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 3rpx;
+}
+
+.rr-heading-stroke,
+.rr-reflection-stroke,
+.rr-metric-stroke {
+  height: 6rpx;
+  border-radius: 50% 16% 44% 11%;
+  background: rgba(180, 126, 237, .58);
+  transform: rotate(-2deg);
+  pointer-events: none;
+}
+
+.rr-heading-stroke {
+  position: absolute;
+  right: -7rpx;
+  bottom: 1rpx;
+  left: -2rpx;
+  box-shadow: 8rpx 5rpx 0 -1rpx rgba(180, 126, 237, .23);
+}
+
+.rr-row {
+  display: flex;
+  align-items: center;
+  padding: 15rpx 0;
+  border-top: 2rpx dashed #e6d5f3;
+}
+
+.rr-label-wrap {
+  position: relative;
+  flex: 0 0 140rpx;
+  margin-right: 14rpx;
+}
+
+.rr-label-wrap::before {
+  position: absolute;
+  top: 7rpx;
+  right: 9rpx;
+  bottom: 0;
+  left: -5rpx;
+  border-radius: 43% 25% 45% 17%;
+  background: rgba(214, 188, 241, .34);
+  transform: rotate(-3deg);
+  content: "";
+}
+
+.rr-label {
+  position: relative;
+  color: #6c7c5c;
+  font-family: "Kaiti SC", "STKaiti", "KaiTi", "Songti SC", "Noto Serif CJK SC", serif;
+  font-size: 28rpx;
+  font-weight: 700;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+.rr-attendance {
+  flex: 1;
+  min-width: 0;
+  font-size: 31rpx;
+  font-weight: 600;
+  line-height: 1.45;
+  word-break: break-all;
+}
+
+.rr-focus {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  align-items: center;
+  min-width: 0;
+}
+
+.rr-stars { display: flex; flex-shrink: 0; margin-right: 15rpx; }
+.rr-star { margin-right: 3rpx; color: #e4dccb; font-size: 34rpx; line-height: 1.3; }
+.rr-star--filled { color: #e9a52b; text-shadow: 0 1rpx 0 rgba(171, 110, 24, .10); }
+.rr-focus-text { color: #718260; font-size: 27rpx; font-weight: 600; line-height: 1.5; word-break: break-all; }
+
+.rr-reflection { padding: 14rpx 9rpx 0 0; border-top: 2rpx dashed #e6d5f3; }
+.rr-reflection-text { display: block; font-family: "Kaiti SC", "STKaiti", "KaiTi", "Songti SC", "Noto Serif CJK SC", serif; font-size: 32rpx; font-weight: 600; line-height: 1.65; white-space: pre-wrap; word-break: break-all; }
+.rr-legacy-answer { padding: 15rpx 0; border-top: 2rpx dashed #e6d5f3; }
+.rr-legacy-answer:last-of-type { padding-bottom: 0; }
+.rr-legacy-label { display: block; margin-bottom: 8rpx; color: #6c7c5c; font-size: 26rpx; font-weight: 600; line-height: 1.5; }
+.rr-reflection-stroke { width: 67%; margin-top: 1rpx; box-shadow: 10rpx 5rpx 0 -2rpx rgba(180, 126, 237, .28); }
+.rr-fold { position: absolute; right: 0; bottom: 0; width: 37rpx; height: 37rpx; border-radius: 0 0 24rpx 0; background: linear-gradient(135deg, transparent 44%, #e8dcc4 48%, #fff8e9 54%, #f1e4cc 87%); pointer-events: none; }
+
+/* 第二块：结果票券。凹口底色与原有小水怪弹窗纸张 #fbf7ee 相同。 */
+.rr-ticket {
+  position: relative;
+  box-sizing: border-box;
+  min-height: 350rpx;
+  margin-top: 25rpx;
+  padding: 23rpx 29rpx 39rpx;
+  border: 3rpx solid #fffaf0;
+  border-radius: 22rpx 18rpx 22rpx 19rpx;
+  background-color: #fff0de;
+  background-image:
+    radial-gradient(rgba(202, 125, 68, .08) .7px, transparent 1px),
+    linear-gradient(105deg, rgba(255, 255, 255, .14), rgba(255, 255, 255, .48) 48%, rgba(255, 226, 192, .14));
+  background-size: 7rpx 7rpx, 100% 100%;
+  box-shadow: 0 6rpx 12rpx rgba(114, 83, 43, .12), 0 0 0 1rpx #f1dec7;
+  color: #c94d40;
+}
+
+.rr-ticket--fall { color: #4e7b65; background-color: #eef3e8; }
+.rr-ticket--flat { color: #8b6a9e; background-color: #f5edf8; }
+.rr-metric--rise { color: #c94d40; }
+.rr-metric--fall { color: #4e7b65; }
+.rr-metric--flat { color: #8b6a9e; }
+
+.rr-perforation { position: absolute; top: 16rpx; bottom: 16rpx; width: 0; border-left: 4rpx dashed rgba(209, 167, 119, .25); pointer-events: none; }
+.rr-perforation--left { left: 49rpx; }
+.rr-perforation--right { right: 49rpx; }
+.rr-notch { position: absolute; z-index: 2; top: 53%; box-sizing: border-box; width: 21rpx; height: 46rpx; background: #fbf7ee; transform: translateY(-50%); pointer-events: none; }
+.rr-notch--left { left: -4rpx; border-radius: 0 100% 100% 0; border-right: 2rpx solid #f1dec7; }
+.rr-notch--right { right: -4rpx; border-radius: 100% 0 0 100%; border-left: 2rpx solid #f1dec7; }
+
+.rr-ticket-title { position: relative; display: block; color: #748265; font-size: 28rpx; font-weight: 700; line-height: 1.5; text-align: center; }
+.rr-result-row { position: relative; display: flex; align-items: center; min-height: 224rpx; margin-top: 19rpx; }
+.rr-stamp-column { position: relative; display: flex; flex: 0 0 46%; justify-content: center; align-items: center; min-width: 0; min-height: 224rpx; }
+
+.rr-stamp {
+  position: relative;
+  display: flex;
+  box-sizing: border-box;
+  justify-content: center;
+  align-items: center;
+  width: 236rpx;
+  max-width: 100%;
+  min-height: 159rpx;
+  padding: 17rpx 9rpx;
+  border: 7rpx solid currentColor;
+  border-radius: 18rpx 13rpx 20rpx 12rpx;
+  opacity: .93;
+  transform: rotate(-13deg);
+}
+
+.rr-stamp::after { position: absolute; top: 5rpx; right: 5rpx; bottom: 5rpx; left: 5rpx; border: 2rpx dashed currentColor; border-radius: 9rpx; opacity: .58; content: ""; }
+.rr-stamp-text { position: relative; font-family: "Kaiti SC", "STKaiti", "KaiTi", "Songti SC", "Noto Serif CJK SC", serif; font-size: 85rpx; font-weight: 900; line-height: 1.12; text-align: center; word-break: break-all; }
+
+.rr-flourish { position: absolute; right: 2rpx; bottom: -8rpx; width: 151rpx; height: 37rpx; border-bottom: 6rpx solid currentColor; border-radius: 0 0 60% 55%; opacity: .30; transform: rotate(-18deg); pointer-events: none; }
+.rr-flourish::after { position: absolute; right: -1rpx; bottom: -3rpx; width: 20rpx; height: 20rpx; border-top: 6rpx solid currentColor; border-right: 6rpx solid currentColor; transform: rotate(-25deg); content: ""; }
+
+.rr-metric { display: flex; box-sizing: border-box; flex: 1; flex-direction: column; align-items: center; min-width: 0; padding-left: 9rpx; text-align: center; }
+.rr-metric-label { color: #748265; font-size: 27rpx; font-weight: 600; line-height: 1.5; }
+.rr-percent { display: block; max-width: 100%; margin-top: 5rpx; font-family: Georgia, "Times New Roman", serif; font-size: 74rpx; font-weight: 700; line-height: 1.16; letter-spacing: -4rpx; white-space: nowrap; }
+.rr-percent--compact { font-size: 58rpx; letter-spacing: -2rpx; }
+.rr-percent--small { font-size: 44rpx; letter-spacing: -1rpx; white-space: normal; overflow-wrap: anywhere; word-break: break-all; }
+.rr-metric-stroke { width: 88%; height: 7rpx; margin-top: 4rpx; background: currentColor; opacity: .25; transform: rotate(-3deg); }
+.rr-points { display: block; max-width: 100%; margin-top: 17rpx; font-size: 34rpx; font-weight: 600; line-height: 1.4; overflow-wrap: anywhere; word-break: break-all; }
+.rr-result-note { position: relative; display: block; margin: 28rpx 14rpx 0; color: #748265; font-size: 23rpx; line-height: 1.6; text-align: center; overflow-wrap: anywhere; }

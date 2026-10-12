@@ -2,10 +2,11 @@ const { goToClassTab } = require("../../services/class-navigation");
 const session = require("../../services/session");
 const timer = require("../../services/timer");
 const reviews = require("../../services/reviews");
+const { buildTimeline, todayKey } = require("../../services/review-timeline");
 const RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
 
 function initialData() {
-  return { owner: null, loggedIn: false, filter: "pending", records: [], nextCursor: null,
+  return { owner: null, loggedIn: false, filter: "pending", records: [], groups: [], nextCursor: null,
     loading: false, loadingMore: false, loaded: false, error: "",
     reviewOpen: false, reviewVisible: false, reviewSessionId: "" };
 }
@@ -14,16 +15,6 @@ function atLeastAsRecent(candidate, previous) {
     && ((candidate.evaluation_summary && candidate.evaluation_summary.version) || 0)
       >= ((previous.evaluation_summary && previous.evaluation_summary.version) || 0);
 }
-function displayRecord(remote) {
-  const record = remote.session;
-  const seconds = Math.max(0, Math.floor(Number(record.effective_seconds) || 0));
-  const evaluation = remote.evaluation_summary && remote.evaluation_summary.status;
-  return { id: record.id, name: record.name, date: record.local_date,
-    time: `${record.start_time}–${record.end_time}`, duration: `${Math.floor(seconds / 60)} 分 ${seconds % 60} 秒`,
-    statusLabel: remote.voided ? (evaluation === "succeeded" ? "已处理" : "已更正参与情况") : remote.status === "draft" ? (remote.version ? "草稿" : "待复盘")
-      : ({ queued: "正在评估", running: "正在评估", needs_input: "可补充", hold: "评分暂缓", failed: "评估失败", succeeded: "已结算", invalid_answer: "待修改" }[evaluation] || "已复盘") };
-}
-
 Page({
   data: initialData(),
   onLoad() {
@@ -76,27 +67,29 @@ Page({
       const listed = records.get(id);
       if (atLeastAsRecent(item, listed)) records.set(id, item);
     });
-    const cutoff = timer.serverNow() - RETENTION_MS;
+    const now = timer.serverNow();
+    const cutoff = now - RETENTION_MS;
     const items = [...records.values()].filter((item) => {
       const invalid = item.evaluation_summary && item.evaluation_summary.status === "invalid_answer";
       return Date.parse(item.session.ends_at) >= cutoff && (filter === "pending"
         ? (item.status === "draft" || invalid) && !item.voided : item.status === "pending_evaluation" && !invalid);
     });
-    items.sort((a, b) => {
-      const date = (item) => item.session.finished_at || `${item.session.local_date}T${item.session.end_time}`;
-      return date(b).localeCompare(date(a));
-    });
-    this.setData({ records: items.map(displayRecord), nextCursor: list ? list.next_cursor : null, loaded: Boolean(list) });
+    const timeline = buildTimeline(items, filter, todayKey(now));
+    this.setData(Object.assign(timeline, { nextCursor: list ? list.next_cursor : null, loaded: Boolean(list) }));
   },
   selectFilter(event) {
     const filter = event.currentTarget.dataset.filter;
     if (!["pending", "submitted"].includes(filter) || filter === this.data.filter || this.data.reviewOpen) return;
     this._loadId += 1;
-    this.setData({ filter, records: [], nextCursor: null, loaded: false, loading: false, loadingMore: false, error: "" });
+    this.setData({ filter, records: [], groups: [], nextCursor: null, loaded: false, loading: false, loadingMore: false, error: "" });
     this.showList();
     return this.reload();
   },
   reload() { return this.fetchRecords(false); },
+  async onPullDownRefresh() {
+    try { await this.reload(); }
+    finally { wx.stopPullDownRefresh(); }
+  },
   loadMore() { return this.fetchRecords(true); },
   onReachBottom() { if (this.data.nextCursor && !this.data.reviewOpen) return this.loadMore(); },
   async fetchRecords(append) {

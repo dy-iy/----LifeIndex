@@ -1,26 +1,137 @@
-@import "../../class-theme.wxss";
 @import "../../review-window.wxss";
 
-.review-list-page { display: flex; flex-direction: column; }
-.review-list-retention { margin-top: auto; padding-top: 48rpx; text-align: center; color: #969b92; font-size: 22rpx; line-height: 1.6; }
-.review-list-intro { margin-top: 24rpx; color: #7a837f; font-size: 25rpx; line-height: 1.7; }
-.review-list-tabs { display: flex; gap: 8rpx; margin: 34rpx 0 28rpx; padding: 7rpx; background: #eceee6; border-radius: 20rpx; }
-.review-list-tab { flex: 1; margin: 0; padding: 19rpx 12rpx; border-radius: 15rpx; background: transparent; color: #7a837f; font-size: 28rpx; line-height: 1.4; }
-.review-list-tab.selected { background: #fffdf9; color: #293f3b; box-shadow: 0 3rpx 10rpx rgba(41, 63, 59, .06); }
-.review-records { display: flex; flex-direction: column; align-items: stretch; width: 100%; gap: 20rpx; }
-/* Override the native button width so cards fill the same column as the tabs. */
-.review-records .review-record { display: block; width: 100%; max-width: none; margin: 0; padding: 28rpx; text-align: left; background: #fffdf9; border: 1rpx solid #e5e3db; border-radius: 22rpx; line-height: 1.5; font-weight: 400; }
-.review-record-top { display: flex; align-items: flex-start; gap: 20rpx; }
-.review-record-name { flex: 1; min-width: 0; color: #293f3b; font-size: 31rpx; font-weight: 500; overflow-wrap: break-word; }
-.review-record-status { flex-shrink: 0; padding: 5rpx 13rpx; background: #eff2e9; border-radius: 30rpx; color: #738269; font-size: 20rpx; }
-.review-record-date { margin-top: 14rpx; color: #7a837f; font-size: 23rpx; }
-.review-record-bottom { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12rpx; margin-top: 25rpx; padding-top: 20rpx; border-top: 1rpx solid #efede6; font-size: 23rpx; }
-.review-record-duration { color: #8a9187; }
-.review-record-action { color: #47665a; }
-.review-record-arrow { margin-left: 10rpx; font-size: 30rpx; line-height: 1; }
-.review-list-empty { padding: 75rpx 24rpx; text-align: center; }
-.review-list-empty .secondary-button { margin-top: 32rpx; }
-.review-list-status { padding: 10rpx 0 24rpx; color: #7a837f; font-size: 24rpx; text-align: center; }
-.review-list-error { display: flex; align-items: center; justify-content: space-between; gap: 18rpx; margin-bottom: 24rpx; color: #b4533a; font-size: 24rpx; line-height: 1.6; }
-.review-list-retry { flex-shrink: 0; margin: 0; padding: 12rpx 18rpx; line-height: 1.5; font-size: 24rpx; color: #47665a; background: transparent; }
-.review-list-more { margin: 22rpx auto 0; padding: 16rpx 24rpx; line-height: 1.5; color: #738269; background: transparent; font-size: 24rpx; }
+/* 沿用项目原生导航与课堂底栏，纸感布局只作用于复盘列表。 */
+page { background: #f8f5ed; }
+.review-page {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  overflow-x: hidden;
+  color: #252134;
+  background: #f8f5ed;
+  padding-bottom: 144rpx;
+  padding-bottom: calc(144rpx + constant(safe-area-inset-bottom));
+  padding-bottom: calc(144rpx + env(safe-area-inset-bottom));
+}
+
+.paper-grain {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  pointer-events: none;
+  opacity: 0.24;
+  background-image: radial-gradient(rgba(133, 109, 76, 0.20) 0.65rpx, transparent 0.8rpx), radial-gradient(rgba(150, 125, 84, 0.11) 0.7rpx, transparent 1rpx);
+  background-size: 11rpx 13rpx, 19rpx 17rpx;
+  background-position: 0 0, 5rpx 7rpx;
+}
+
+.hero, .status-tabs, .month-list, .state-panel, .skeleton-list { position: relative; }
+.hero { display: flex; align-items: flex-start; min-height: 250rpx; padding: 26rpx 34rpx 10rpx 42rpx; }
+.hero-copy { flex: 1; min-width: 0; padding-top: 13rpx; }
+.eyebrow-line { display: flex; align-items: center; color: #9565e8; }
+.eyebrow { font-size: 23rpx; letter-spacing: 2.3rpx; font-weight: 700; font-style: italic; border-bottom: 3rpx solid #a884ee; padding-bottom: 6rpx; transform: rotate(-2deg); }
+.eyebrow-star { margin-left: 14rpx; font-size: 48rpx; line-height: 1; }
+.heading-wrap { position: relative; display: inline-block; margin-top: 15rpx; padding-bottom: 12rpx; }
+.heading { display: block; white-space: nowrap; font-family: 'STKaiti', 'KaiTi', 'Songti SC', 'Noto Serif CJK SC', serif; font-weight: 900; font-size: 81rpx; line-height: 1.22; letter-spacing: -4rpx; color: #14121b; }
+.heading-underline { position: absolute; left: 0; right: 0; bottom: 0; height: 5rpx; background: #a87af0; transform: rotate(-2deg); border-radius: 60% 20% 45% 25%; }
+.heading-underline::after { content: ''; position: absolute; left: 14rpx; right: 24rpx; top: 8rpx; height: 2rpx; background: #c8a7f3; }
+.hero-nessie { display: block; flex-shrink: 0; width: 220rpx; height: 238rpx; margin: 0 -6rpx 0 14rpx; }
+
+.status-tabs { display: flex; align-items: center; margin: 0 36rpx; padding: 0 22rpx 22rpx; border-bottom: 1rpx solid #d9d3c8; }
+.status-tab { position: relative; width: 176rpx; padding: 12rpx 0; margin: 0 46rpx 0 0; background: transparent; color: #55514e; font-size: 34rpx; line-height: 1.4; font-weight: 650; border-radius: 0; overflow: visible; }
+.status-tab::after { border: 0; }
+.status-tab.is-active { color: #452194; font-weight: 800; }
+.tab-underline { position: absolute; left: 9rpx; right: 9rpx; bottom: -9rpx; height: 8rpx; background: #9a63eb; opacity: 0.9; border-radius: 50% 12% 45% 18%; transform: rotate(-5deg); }
+.tab-underline::after { content: ''; position: absolute; left: -5rpx; right: 13rpx; top: 10rpx; height: 3rpx; background: #c29af5; }
+.tab-pressed { opacity: 0.72; }
+
+.month-list { padding: 22rpx 36rpx 0; }
+.month-section + .month-section { margin-top: 32rpx; }
+.month-label { position: relative; display: inline-block; margin-bottom: 27rpx; padding: 4rpx 18rpx 5rpx; color: #69616f; font-size: 27rpx; line-height: 1.4; letter-spacing: 1rpx; }
+.month-label::before { content: ''; position: absolute; top: 0; right: -9rpx; bottom: 0; left: -4rpx; background: #e8def8; opacity: 0.78; border-radius: 23% 7% 20% 8%; transform: rotate(-1deg); }
+.month-label text { position: relative; }
+.timeline { position: relative; }
+.timeline::before { content: ''; position: absolute; top: 16rpx; bottom: 0; left: 17rpx; width: 3rpx; background: #9b76ef; }
+.timeline-day { position: relative; padding-bottom: 30rpx; }
+.timeline-node { position: absolute; top: 4rpx; left: 0; z-index: 2; width: 37rpx; height: 37rpx; padding: 4rpx; border-width: 3rpx; border-style: solid; border-radius: 50%; background: #f8f5ed; }
+.timeline-node-core { width: 100%; height: 100%; border-radius: 50%; }
+.day-content { margin-left: 64rpx; min-width: 0; }
+.date-line { display: flex; align-items: center; min-height: 44rpx; margin: 0 0 16rpx 0; }
+.date-wrap { position: relative; padding-bottom: 7rpx; }
+.date-text { color: #221745; font-size: 31rpx; line-height: 1.2; font-weight: 800; }
+.date-underline { position: absolute; bottom: 0; left: 0; right: -8rpx; height: 4rpx; opacity: 0.55; border-radius: 20% 70% 30% 80%; transform: rotate(-2deg); }
+.today-label { padding: 2rpx 14rpx 4rpx; margin: 0 0 7rpx 20rpx; font-size: 26rpx; line-height: 1.25; font-weight: 700; color: #6032bf; background: #eadbfc; border-radius: 9rpx 3rpx 10rpx 4rpx; transform: rotate(-2deg); }
+
+.featured-wrap { position: relative; padding: 7rpx 0 15rpx; margin-bottom: 8rpx; }
+.ticket-backing { position: absolute; z-index: 0; top: 5rpx; left: -6rpx; right: 4rpx; bottom: 7rpx; background: #efd3a4; opacity: 0.8; border-radius: 7rpx; transform: rotate(2deg); box-shadow: 0 8rpx 15rpx rgba(130, 104, 68, 0.08); }
+.paperclip { position: absolute; z-index: 4; top: -8rpx; left: 20rpx; width: 20rpx; height: 51rpx; border: 4rpx solid #807377; border-radius: 17rpx; transform: rotate(-22deg); box-shadow: inset 2rpx 0 0 #d1b994, 2rpx 1rpx 0 #d1b994; }
+.ticket { position: relative; z-index: 1; overflow: hidden; border-radius: 9rpx 5rpx 10rpx 5rpx; background: #fcf8ed; box-shadow: 0 9rpx 14rpx rgba(71, 46, 19, 0.12); }
+.ticket::before, .ticket::after { content: ''; position: absolute; z-index: 3; top: 0; bottom: 0; width: 14rpx; pointer-events: none; background-image: radial-gradient(circle, #f8f5ed 5rpx, transparent 6rpx); background-size: 14rpx 26rpx; background-repeat: repeat-y; }
+.ticket::before { left: -8rpx; }
+.ticket::after { right: -8rpx; }
+.ticket-top { position: relative; overflow: hidden; padding: 26rpx 28rpx 26rpx 34rpx; background-color: #8050de; background-image: linear-gradient(128deg, rgba(244, 236, 255, 0.08), transparent 50%), repeating-linear-gradient(135deg, transparent 0, transparent 7rpx, rgba(255, 255, 255, 0.025) 8rpx, transparent 9rpx); color: #fff; }
+.ticket-heading-row { position: relative; z-index: 2; display: flex; align-items: flex-start; }
+.ticket-title { flex: 1; min-width: 0; padding-right: 12rpx; font-size: 49rpx; line-height: 1.22; font-weight: 750; word-break: break-word; }
+.pending-badge { flex-shrink: 0; margin-top: 5rpx; padding: 5rpx 16rpx; border-radius: 100rpx; background: #ffe8b7; color: #87551d; font-size: 21rpx; line-height: 1.4; white-space: nowrap; }
+.ticket-time { position: relative; z-index: 2; display: block; margin-top: 10rpx; font-size: 27rpx; line-height: 1.4; letter-spacing: 1rpx; color: #f5edff; }
+.ticket-stroke { position: absolute; width: 176rpx; height: 8rpx; right: 130rpx; bottom: 28rpx; background: rgba(255, 255, 255, 0.2); transform: rotate(-20deg); border-radius: 80%; }
+.ticket-bottom { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 18rpx 14rpx; padding: 22rpx 27rpx 23rpx 34rpx; background: #fcf8ed; border-top: 2rpx dashed rgba(122, 92, 55, 0.15); }
+.duration-block { min-width: 146rpx; }
+.duration-label { display: flex; align-items: center; color: #514553; font-size: 24rpx; line-height: 1.3; }
+.duration-label .clock-icon { color: #6a3ac7; margin-right: 10rpx; }
+.duration-number { display: block; margin-top: 4rpx; font-family: Georgia, 'Times New Roman', serif; font-size: 60rpx; line-height: 1.12; font-weight: 700; letter-spacing: -2rpx; color: #2c124f; font-variant-numeric: tabular-nums; }
+.review-button { display: flex; justify-content: center; align-items: center; flex: 1; min-width: 226rpx; max-width: 249rpx; min-height: 72rpx; margin: 0 0 0 auto; padding: 9rpx 17rpx; border-radius: 100rpx; background: #7546dd; color: #fff; font-size: 26rpx; line-height: 1.5; white-space: nowrap; box-shadow: 0 4rpx 0 #6035bf; }
+.review-button::after { border: 1rpx solid rgba(255, 255, 255, 0.2); }
+.button-arrow { margin-left: 12rpx; font-size: 35rpx; line-height: 1; }
+.review-button-pressed { background: #6638c7; transform: translateY(2rpx); box-shadow: 0 2rpx 0 #6035bf; }
+
+.lesson-row { position: relative; display: flex; align-items: center; min-height: 132rpx; padding: 4rpx 0 22rpx; border-bottom: 1rpx dashed #d7cec1; }
+.lesson-row + .lesson-row { padding-top: 22rpx; }
+.lesson-copy { flex: 1; min-width: 0; }
+.lesson-title { display: block; padding-right: 6rpx; color: #252134; font-size: 29rpx; line-height: 1.4; font-weight: 700; word-break: break-word; }
+.lesson-meta { display: flex; align-items: center; margin-top: 7rpx; color: #77726d; font-size: 24rpx; line-height: 1.45; font-variant-numeric: tabular-nums; }
+.lesson-meta .clock-icon, .lesson-meta .bars-icon { margin-right: 11rpx; flex-shrink: 0; }
+.course-illustration { flex-shrink: 0; width: 93rpx; height: 104rpx; margin-left: 14rpx; }
+.row-chevron { flex-shrink: 0; width: 16rpx; height: 16rpx; margin: 0 5rpx 0 14rpx; border-top: 3rpx solid #8b817a; border-right: 3rpx solid #8b817a; transform: rotate(45deg); }
+.lesson-row-pressed { opacity: 0.7; }
+.review-summary { display: block; overflow: hidden; margin-top: 11rpx; padding-left: 10rpx; border-left: 3rpx solid #cbb4f1; color: #71627b; font-size: 23rpx; line-height: 1.5; white-space: nowrap; text-overflow: ellipsis; }
+.clock-icon { position: relative; box-sizing: border-box; flex-shrink: 0; display: inline-block; width: 23rpx; height: 23rpx; border: 2rpx solid currentColor; border-radius: 50%; }
+.clock-icon::before { content: ''; position: absolute; width: 2rpx; height: 7rpx; top: 3rpx; left: 9rpx; background: currentColor; }
+.clock-icon::after { content: ''; position: absolute; width: 6rpx; height: 2rpx; top: 9rpx; left: 9rpx; background: currentColor; }
+.bars-icon { display: flex; align-items: flex-end; width: 23rpx; height: 24rpx; }
+.bars-icon view { width: 5rpx; margin-right: 3rpx; border-radius: 2rpx; background: #85807b; }
+.bars-icon view:nth-child(1) { height: 9rpx; }
+.bars-icon view:nth-child(2) { height: 16rpx; }
+.bars-icon view:nth-child(3) { height: 23rpx; }
+
+.state-panel { display: flex; flex-direction: column; align-items: center; padding: 68rpx 36rpx 100rpx; }
+.state-label { color: #81758c; font-size: 28rpx; line-height: 1.6; text-align: center; }
+.state-title { margin-bottom: 12rpx; color: #452194; font-size: 32rpx; line-height: 1.5; text-align: center; }
+.empty-nessie { width: 170rpx; height: 180rpx; margin-bottom: 24rpx; opacity: 0.85; }
+.retry-button { margin-top: 28rpx; padding: 12rpx 34rpx; font-size: 27rpx; line-height: 1.5; border-radius: 60rpx; background: #7546dd; color: #fff; }
+.retry-button::after { border: 0; }
+.skeleton-list { margin: 45rpx 38rpx; }
+.skeleton-row { display: flex; margin-bottom: 35rpx; }
+.skeleton-dot { width: 28rpx; height: 28rpx; border-radius: 50%; background: #e4d7f5; margin-right: 29rpx; }
+.skeleton-block { flex: 1; height: 136rpx; border-radius: 9rpx; background: #ece5dc; }
+.skeleton-block--large { height: 246rpx; background: #e7dcf4; }
+
+.lesson-status { display: inline-block; margin-top: 9rpx; padding: 3rpx 12rpx; border-radius: 12rpx; color: #71627b; background: #eee5f5; font-size: 21rpx; line-height: 1.5; }
+.lesson-status-attention { color: #945521; background: #f9e8cc; }
+.review-list-status { position: relative; padding: 24rpx 36rpx 0; text-align: center; color: #81758c; font-size: 24rpx; }
+.review-list-error { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 18rpx; margin: 26rpx 36rpx 0; padding: 18rpx 22rpx; border-radius: 16rpx; background: #f8e8dc; color: #945521; font-size: 24rpx; line-height: 1.6; }
+.review-list-retry { flex-shrink: 0; margin: 0; padding: 12rpx 0 12rpx 12rpx; color: #6032bf; background: transparent; font-size: 24rpx; line-height: 1.5; }
+.review-list-more { position: relative; margin: 12rpx auto 0; padding: 16rpx 28rpx; border-radius: 40rpx; color: #6032bf; background: #eee5f5; font-size: 24rpx; line-height: 1.5; }
+.review-list-retention { position: relative; margin-top: auto; padding: 42rpx 36rpx 0; text-align: center; color: #918794; font-size: 22rpx; line-height: 1.6; }
+
+/* 窄屏时让长课名获得空间；rpx 已负责大部分等比缩放。 */
+@media (max-width: 350px) {
+  .hero { padding-left: 32rpx; padding-right: 28rpx; }
+  .heading { font-size: 77rpx; }
+  .hero-nessie { width: 210rpx; margin-left: 6rpx; }
+  .course-illustration { width: 74rpx; margin-left: 8rpx; }
+  .row-chevron { margin-left: 10rpx; }
+}

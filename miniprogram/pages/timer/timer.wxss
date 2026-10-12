@@ -83,9 +83,8 @@
 .timer-error .text-button { color: #ae654c; padding-bottom: 0; }
 .pending-note { margin-top: 24rpx; padding: 24rpx; background: #fbf1da; border: 1rpx solid #e8d7b2; border-radius: 18rpx; color: #8a7147; font-size: 25rpx; line-height: 1.7; }
 .pending-note text { display: block; font-size: 22rpx; margin-top: 10rpx; }
-.timer-empty { text-align: center; padding: 36rpx 20rpx; }
-.empty-dial { width: 360rpx; height: 360rpx; opacity: .8; margin-bottom: 20rpx; }
-.timer-empty .primary-button { margin-top: 35rpx; }
+.timer-login { text-align: center; padding: 20rpx 30rpx 0; }
+.timer-login .primary-button { width: 360rpx; max-width: 100%; margin: 28rpx auto 0; }
 
 .timer-dial-state { margin-top: 24rpx; text-align: center; color: #386c50; font-size: 28rpx; line-height: 1.5; }
 .timer-finalize { margin: 0 auto 20rpx; text-align: center; }

@@ -1,6 +1,7 @@
 {
-  "backgroundColor": "#faf7f2",
-  "navigationBarBackgroundColor": "#faf7f2",
+  "backgroundColor": "#f8f5ed",
+  "navigationBarBackgroundColor": "#f8f5ed",
+  "enablePullDownRefresh": true,
   "usingComponents": {
     "class-tab-bar": "/components/class-tab-bar/index",
     "review-panel": "/components/review-panel/index"

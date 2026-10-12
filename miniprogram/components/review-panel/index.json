@@ -1,1 +1,6 @@
-{ "component": true }
+{
+  "component": true,
+  "usingComponents": {
+    "review-result": "/components/review-result/index"
+  }
+}

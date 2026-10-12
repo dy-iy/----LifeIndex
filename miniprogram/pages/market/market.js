@@ -105,7 +105,8 @@ Page({
   rememberView() { saveClassPageState(0, { tab: this.data.tab }); },
   refreshQuoteHeader() { this.setView({}); },
   applyQuote(quote) {
-    const patch = { quote, priceLabel: index.number(quote.price), quoteDirection: index.sign(quote.change_points),
+    if (!quote || index.number(quote.price) === "—") throw new Error("行情报价数据不完整，请稍后刷新。");
+    const patch = { quote, error: "", priceLabel: index.number(quote.price), quoteDirection: index.sign(quote.change_points),
       pointsLabel: index.signed(quote.change_points), percentLabel: index.signed(quote.change_percent, "%"),
       businessDate: quote.business_date,
       marketStateLabel: quote.catching_up ? "行情补算中" : ({ timer: "计时中 · 行情偏多", idle: "空闲中 · 行情偏空", dormant: "首次计时后开启连续行情" }[quote.market_state] || ""),
@@ -142,10 +143,13 @@ Page({
       && !(refresh && (this.data.chartTouching || this.data.chartPinching));
     this.setView({ chartLoading: !refresh, chartError: "" });
     try {
+      const last = this._candles && this._candles[this._candles.length - 1];
+      const result = tab === 0
+        ? await index.intraday(refresh && this._intraday && this._intraday.cursor)
+        : await index.candles(periods[tab], older ? this.data.nextBefore : null, refresh && last ? last.date : null);
+      if (!current()) return;
+      this.applyQuote(result.quote);
       if (tab === 0) {
-        const result = await index.intraday(refresh && this._intraday && this._intraday.cursor);
-        if (!current()) return;
-        this.applyQuote(result.quote);
         delete result.quote;
         if (result.replace_from && this._intraday && this._intraday.date === result.date) {
           const boundary = Date.parse(result.replace_from);
@@ -163,10 +167,6 @@ Page({
         this._chartScrollPx = chart.scrollRpx * scale || 0;
         this.applyChart(chart, { nextBefore: null }, refresh && !newDay);
       } else {
-        const last = this._candles && this._candles[this._candles.length - 1];
-        const result = await index.candles(periods[tab], older ? this.data.nextBefore : null, refresh && last ? last.date : null);
-        if (!current()) return;
-        this.applyQuote(result.quote);
         const keepHistory = refresh && this._candles && this._candles.length;
         const byDate = new Map((older || refresh ? this._candles || [] : []).map((candle) => [candle.date, candle]));
         result.items.forEach((candle) => byDate.set(candle.date, candle));

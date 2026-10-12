@@ -1,0 +1,62 @@
+<view wx:if="{{review}}" class="rr-content">
+  <view class="rr-note">
+    <view class="rr-binding" aria-hidden="true"></view>
+    <view class="rr-tape" aria-hidden="true"></view>
+    <view class="rr-heading">
+      <text class="rr-heading-text">我的复盘</text>
+      <view class="rr-heading-stroke" aria-hidden="true"></view>
+    </view>
+
+    <block wx:if="{{modern}}">
+      <view wx:if="{{untimedReasonText}}" class="rr-row">
+        <view class="rr-label-wrap"><text class="rr-label">未计时原因</text></view>
+        <text class="rr-attendance">{{untimedReasonText}}</text>
+      </view>
+      <view wx:if="{{attendanceText}}" class="rr-row">
+        <view class="rr-label-wrap"><text class="rr-label">课堂情况</text></view>
+        <text class="rr-attendance">{{attendanceText}}</text>
+      </view>
+      <view wx:if="{{focusScore > 0}}" class="rr-row">
+        <view class="rr-label-wrap"><text class="rr-label">专注自评</text></view>
+        <view class="rr-focus" aria-label="{{focusScore + ' 星，' + focusText}}">
+          <view class="rr-stars" aria-hidden="true">
+            <text wx:for="{{stars}}" wx:key="*this" class="rr-star {{item <= focusScore ? 'rr-star--filled' : ''}}">★</text>
+          </view>
+          <text class="rr-focus-text">{{focusText}}</text>
+        </view>
+      </view>
+      <view class="rr-reflection">
+        <text class="rr-reflection-text" selectable>{{answers[0] || '本次未填写文字说明'}}</text>
+        <view class="rr-reflection-stroke" aria-hidden="true"></view>
+      </view>
+    </block>
+    <block wx:else>
+      <view wx:for="{{questions}}" wx:key="number" class="rr-legacy-answer">
+        <text class="rr-legacy-label">{{item.title}}</text>
+        <text class="rr-reflection-text" selectable>{{answers[index] || '（未填写）'}}</text>
+      </view>
+    </block>
+    <view class="rr-fold" aria-hidden="true"></view>
+  </view>
+
+  <view class="rr-ticket rr-ticket--{{review.tone}}" role="status" aria-label="{{review.headline + '，本次涨跌幅 ' + review.percentLabel + '，变动 ' + review.changeLabel + ' 点'}}">
+    <view class="rr-perforation rr-perforation--left" aria-hidden="true"></view>
+    <view class="rr-perforation rr-perforation--right" aria-hidden="true"></view>
+    <view class="rr-notch rr-notch--left" aria-hidden="true"></view>
+    <view class="rr-notch rr-notch--right" aria-hidden="true"></view>
+    <text class="rr-ticket-title">本次复盘结果</text>
+    <view class="rr-result-row">
+      <view class="rr-stamp-column">
+        <view class="rr-stamp"><text class="rr-stamp-text">{{review.headline}}</text></view>
+        <view wx:if="{{review.tone === 'rise'}}" class="rr-flourish" aria-hidden="true"></view>
+      </view>
+      <view class="rr-metric rr-metric--{{review.direction}}">
+        <text class="rr-metric-label">本次涨跌幅</text>
+        <text class="rr-percent {{review.percentLabel.length > 6 ? 'rr-percent--compact' : ''}} {{review.percentLabel.length > 8 ? 'rr-percent--small' : ''}}">{{review.percentLabel}}</text>
+        <view class="rr-metric-stroke" aria-hidden="true"></view>
+        <text class="rr-points">{{review.changeLabel}} 点</text>
+      </view>
+    </view>
+    <text wx:if="{{review.note}}" class="rr-result-note">{{review.note}}</text>
+  </view>
+</view>

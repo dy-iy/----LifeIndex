@@ -200,7 +200,8 @@ Page({
     if (this._disposed) return;
     this.animateDialTap();
     this.sync();
-    if (this.data.busy || (this.data.loading && this.data.phase === "idle") || this.data.reviewOpen || !this.data.loggedIn || !this.data.dialEnabled) return;
+    if (!this.data.loggedIn) return this.goLogin();
+    if (this.data.busy || (this.data.loading && this.data.phase === "idle") || this.data.reviewOpen || !this.data.dialEnabled) return;
     if (!this.data.pendingFinish && this._reviewTarget) return this.openFinishedReview(timer.identity(), this._reviewTarget);
     if (!this.data.pendingFinish && !this.data.canContinue && this.data.phase === "finished" && this.data.record) return this.openFinishedReview(timer.identity(), this.data.record.id);
     // A fast response must not turn a double tap into an immediate stop or restart.

@@ -1,29 +1,114 @@
 <page-meta page-style="{{reviewOpen ? 'overflow: hidden;' : ''}}"/>
-<view class="page class-page review-list-page">
-  <view class="page-title">课后复盘</view>
-  <view class="review-list-intro">留一点时间，回看这节课。</view>
-  <view class="review-list-tabs" role="tablist">
-    <button class="review-list-tab {{filter === 'pending' ? 'selected' : ''}}" role="tab" aria-selected="{{filter === 'pending'}}" data-filter="pending" bindtap="selectFilter">未复盘</button>
-    <button class="review-list-tab {{filter === 'submitted' ? 'selected' : ''}}" role="tab" aria-selected="{{filter === 'submitted'}}" data-filter="submitted" bindtap="selectFilter">已复盘</button>
+<view class="review-page">
+  <view class="paper-grain" aria-hidden="true"></view>
+  <view class="hero">
+    <view class="hero-copy">
+      <view class="eyebrow-line">
+        <text class="eyebrow">CLASS REVIEW</text>
+        <text class="eyebrow-star" aria-hidden="true">✧</text>
+      </view>
+      <view class="heading-wrap">
+        <text class="heading">课堂回顾</text>
+        <view class="heading-underline" aria-hidden="true"></view>
+      </view>
+    </view>
+    <image class="hero-nessie" src="/assets/review/nessie.png" mode="aspectFit" aria-hidden="true"/>
   </view>
-  <view wx:if="{{!loggedIn}}" class="review-list-empty">
-    <view class="empty-title">登录后查看复盘记录</view>
-    <view class="empty-copy">课程复盘记录会显示在这里。</view>
-    <button class="secondary-button" bindtap="goLogin">前往登录</button>
+
+  <view class="status-tabs" role="tablist">
+    <button class="status-tab {{filter === 'pending' ? 'is-active' : ''}}" role="tab" aria-selected="{{filter === 'pending'}}" data-filter="pending" bindtap="selectFilter" hover-class="tab-pressed">
+      <text>待复盘</text>
+      <view wx:if="{{filter === 'pending'}}" class="tab-underline" aria-hidden="true"></view>
+    </button>
+    <button class="status-tab {{filter === 'submitted' ? 'is-active' : ''}}" role="tab" aria-selected="{{filter === 'submitted'}}" data-filter="submitted" bindtap="selectFilter" hover-class="tab-pressed">
+      <text>已复盘</text>
+      <view wx:if="{{filter === 'submitted'}}" class="tab-underline" aria-hidden="true"></view>
+    </button>
+  </view>
+
+  <view wx:if="{{!loggedIn}}" class="state-panel">
+    <text class="state-title">登录后查看复盘记录</text>
+    <text class="state-label">留一点时间，回看每一节课。</text>
+    <button class="retry-button" bindtap="goLogin">前往登录</button>
   </view>
   <block wx:else>
-    <view wx:if="{{error}}" class="review-list-error"><text>{{error}}</text><button class="review-list-retry" bindtap="reload" disabled="{{loading || loadingMore}}">重试</button></view>
-    <view wx:if="{{loading}}" class="review-list-status">{{records.length ? '正在更新记录…' : '正在读取记录…'}}</view>
-    <view wx:if="{{records.length}}" class="review-records">
-      <button wx:for="{{records}}" wx:key="id" class="review-record" data-id="{{item.id}}" data-owner="{{owner}}" bindtap="openReview" aria-label="{{item.name}}，{{item.date}}，{{filter === 'pending' ? '填写复盘' : '查看复盘'}}">
-        <view class="review-record-top"><view class="review-record-name">{{item.name}}</view><text class="review-record-status">{{item.statusLabel}}</text></view>
-        <view class="review-record-date">{{item.date}} · {{item.time}}</view>
-        <view class="review-record-bottom"><text class="review-record-duration">有效计时 {{item.duration}}</text><text class="review-record-action">{{filter === 'pending' ? '填写复盘' : '查看复盘'}} <text class="review-record-arrow">›</text></text></view>
-      </button>
+    <view wx:if="{{error}}" class="review-list-error" role="alert">
+      <text>{{error}}</text>
+      <button class="review-list-retry" bindtap="reload" disabled="{{loading || loadingMore}}">重新加载</button>
     </view>
-    <view wx:elif="{{loaded && !loading && !error}}" class="review-list-empty">
-      <view class="empty-title">{{filter === 'pending' ? '暂无未复盘记录' : '暂无已复盘记录'}}</view>
-      <view class="empty-copy">{{filter === 'pending' ? '待复盘的课程会显示在这里。' : '提交复盘后，可以在这里回看。'}}</view>
+    <view wx:if="{{loading && !records.length}}" class="skeleton-list" aria-label="正在加载">
+      <view class="skeleton-row"><view class="skeleton-dot"></view><view class="skeleton-block skeleton-block--large"></view></view>
+      <view class="skeleton-row"><view class="skeleton-dot"></view><view class="skeleton-block"></view></view>
+      <view class="skeleton-row"><view class="skeleton-dot"></view><view class="skeleton-block"></view></view>
+    </view>
+    <view wx:elif="{{loaded && !records.length && !error}}" class="state-panel">
+      <image class="empty-nessie" src="/assets/review/nessie.png" mode="aspectFit" aria-hidden="true"/>
+      <text class="state-title">{{filter === 'pending' ? '暂无待复盘课程' : '暂无已复盘记录'}}</text>
+      <text class="state-label">{{filter === 'pending' ? '待复盘的课程会显示在这里。' : '提交复盘后，可以在这里回看。'}}</text>
+    </view>
+    <view wx:if="{{loading && records.length}}" class="review-list-status">正在更新记录…</view>
+
+    <view wx:if="{{records.length}}" class="month-list">
+      <view wx:for="{{groups}}" wx:key="id" wx:for-item="month" class="month-section">
+        <view class="month-label"><text>{{month.label}}</text></view>
+        <view class="timeline">
+          <view wx:for="{{month.days}}" wx:key="id" wx:for-item="day" class="timeline-day">
+            <view class="timeline-node" style="border-color: {{day.accent}};" aria-hidden="true">
+              <view class="timeline-node-core" style="background-color: {{day.accent}};"></view>
+            </view>
+            <view class="day-content">
+              <view class="date-line">
+                <view class="date-wrap">
+                  <text class="date-text">{{day.dateLabel}}</text>
+                  <view class="date-underline" style="background-color: {{day.accent}};" aria-hidden="true"></view>
+                </view>
+                <view wx:if="{{day.isToday}}" class="today-label">今天</view>
+              </view>
+
+              <block wx:for="{{day.lessons}}" wx:key="id" wx:for-item="lesson">
+                <view wx:if="{{lesson.featured}}" class="featured-wrap" data-id="{{lesson.id}}" data-owner="{{owner}}" bindtap="openReview" aria-role="button" aria-label="{{lesson.courseName}}，{{day.dateLabel}}，{{lesson.statusText}}">
+                  <view class="ticket-backing" aria-hidden="true"></view>
+                  <view class="paperclip" aria-hidden="true"></view>
+                  <view class="ticket">
+                    <view class="ticket-top">
+                      <view class="ticket-heading-row">
+                        <text class="ticket-title">{{lesson.courseName}}</text>
+                        <text class="pending-badge">{{lesson.statusText}}</text>
+                      </view>
+                      <text class="ticket-time">{{lesson.timeRange}}</text>
+                      <view class="ticket-stroke" aria-hidden="true"></view>
+                    </view>
+                    <view class="ticket-bottom">
+                      <view class="duration-block">
+                        <view class="duration-label"><view class="clock-icon" aria-hidden="true"></view><text>{{lesson.durationLabel}}</text></view>
+                        <text class="duration-number">{{lesson.durationText}}</text>
+                      </view>
+                      <button class="review-button" data-id="{{lesson.id}}" data-owner="{{owner}}" catchtap="openReview" hover-class="review-button-pressed">
+                        <text>{{lesson.actionText}}</text><text class="button-arrow" aria-hidden="true">→</text>
+                      </button>
+                    </view>
+                  </view>
+                </view>
+
+                <view wx:else class="lesson-row" data-id="{{lesson.id}}" data-owner="{{owner}}" bindtap="openReview" hover-class="lesson-row-pressed" aria-role="button" aria-label="{{lesson.courseName}}，{{day.dateLabel}}，{{lesson.statusText}}，{{filter === 'pending' ? '填写复盘' : '查看复盘'}}">
+                  <view class="lesson-copy">
+                    <text class="lesson-title">{{lesson.courseName}}</text>
+                    <view class="lesson-meta"><view class="clock-icon" aria-hidden="true"></view><text>{{lesson.timeRange}}</text></view>
+                    <view class="lesson-meta">
+                      <view class="bars-icon" aria-hidden="true"><view></view><view></view><view></view></view>
+                      <text>{{lesson.durationLabel}} {{lesson.durationText}}</text>
+                    </view>
+                    <text class="lesson-status {{lesson.needsAttention ? 'lesson-status-attention' : ''}}">{{lesson.statusText}}</text>
+                    <text wx:if="{{lesson.reviewSummary}}" class="review-summary">{{lesson.reviewSummary}}</text>
+                  </view>
+                  <image class="course-illustration" src="{{lesson.illustration}}" mode="aspectFit" lazy-load="{{true}}" aria-hidden="true"/>
+                  <view class="row-chevron" aria-hidden="true"></view>
+                </view>
+              </block>
+            </view>
+          </view>
+        </view>
+      </view>
     </view>
     <button wx:if="{{nextCursor}}" class="review-list-more" bindtap="loadMore" loading="{{loadingMore}}" disabled="{{loading || loadingMore}}">{{loadingMore ? '正在加载…' : '加载更多记录'}}</button>
   </block>
@@ -33,7 +118,8 @@
 <view wx:if="{{reviewOpen}}" class="review-modal-mask">
   <view class="review-modal-backdrop" catchtouchmove="stopReviewTouch"></view>
   <view class="review-modal" role="dialog" aria-label="课后复盘">
-    <view class="review-modal-header" catchtouchmove="stopReviewTouch"><view class="review-modal-title">课后复盘</view><button class="review-modal-close" bindtap="requestCloseReview" aria-label="关闭复盘窗口">关闭 ✕</button></view>
+    <image class="review-modal-nessie" src="/assets/review/nessie.png" mode="aspectFit" aria-hidden="true"/>
+    <view class="review-modal-underlay" aria-hidden="true"></view>
     <review-panel id="review-panel" class="review-modal-panel" session-id="{{reviewSessionId}}" visible="{{reviewVisible}}" bind:close="closeReview"/>
   </view>
 </view>

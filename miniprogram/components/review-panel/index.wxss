@@ -2,27 +2,13 @@
 
 .review-heading { position: relative; display: flex; align-items: center; min-height: 90rpx; margin: 4rpx 0 16rpx; }
 .review-art { position: absolute; width: 100rpx; height: 100rpx; right: 3rpx; top: -5rpx; }
-.review-course { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 10rpx 18rpx; margin-top: 16rpx; padding: 22rpx; border: 1rpx solid #e7d8c6; border-radius: 20rpx; background: #f6ebdc; }
-.review-course-name { font-size: 30rpx; overflow-wrap: anywhere; }
-.review-course-meta { color: #889078; font-size: 22rpx; line-height: 1.7; }
-.recorded-answers { margin-top: 20rpx; padding: 24rpx 22rpx; border: 1rpx solid #e3dfd7; border-radius: 20rpx; background: #fffdf9; }
-.recorded-choice { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8rpx 18rpx; margin-top: 14rpx; font-size: 24rpx; line-height: 1.7; }
-.recorded-label { color: #87917b; font-size: 23rpx; }
-.recorded-focus { display: flex; flex-wrap: wrap; align-items: center; gap: 4rpx; color: #a7ac9b; }
-.recorded-focus .lit { color: #d49a32; }
-.recorded-focus-label { margin-left: 8rpx; color: #637955; font-size: 22rpx; }
-.recorded-text, .recorded-answer { margin-top: 20rpx; }
-.recorded-answer .answer-text { margin-top: 8rpx; }
-.review-result { margin-top: 24rpx; padding: 32rpx 24rpx 46rpx; border: 1rpx solid #e3dfd7; border-radius: 24rpx; background: #fffdf9; text-align: center; }
-.result-heading { color: #819073; font-size: 24rpx; }
-.result-headline { margin: 32rpx 0 36rpx; font-size: 108rpx; font-weight: 600; line-height: 1.2; letter-spacing: 12rpx; text-indent: 12rpx; }
-.result-label { color: #87917b; font-size: 23rpx; }
-.result-percent { margin-top: 12rpx; font-size: 62rpx; line-height: 1.3; overflow-wrap: anywhere; }
-.result-points { margin-top: 10rpx; font-size: 27rpx; }
-.result-note { margin: -12rpx 0 26rpx; color: #87917b; font-size: 23rpx; line-height: 1.7; }
-.review-result .rise { color: #b65042; }
-.review-result .fall { color: #47785d; }
-.review-result .flat { color: #718171; }
+.review-course { position: relative; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10rpx 15rpx; min-height: 79rpx; padding: 18rpx 20rpx; border-radius: 9rpx 13rpx 10rpx 12rpx; background-color: #f8e9c9; background-image: linear-gradient(105deg, rgba(255, 251, 233, .68), rgba(249, 227, 185, .16)); box-shadow: 0 4rpx 7rpx rgba(121, 95, 56, .08); }
+.review-course-name { flex: 1 1 160rpx; min-width: 0; color: #162840; font-size: 35rpx; font-weight: 700; line-height: 1.3; overflow-wrap: anywhere; }
+.review-course-meta { display: flex; align-items: center; max-width: 100%; color: #748064; font-size: 23rpx; font-weight: 600; line-height: 1.4; }
+.review-course-tape { position: absolute; top: -3rpx; left: -10rpx; width: 57rpx; height: 18rpx; background: rgba(183, 145, 241, .48); transform: rotate(-29deg); }
+.review-course-clock { position: relative; box-sizing: border-box; flex-shrink: 0; width: 25rpx; height: 25rpx; margin-right: 8rpx; border: 3rpx solid currentColor; border-radius: 50%; }
+.review-course-clock::before { position: absolute; top: 3rpx; left: 9rpx; width: 2rpx; height: 8rpx; border-radius: 2rpx; background: currentColor; content: ""; }
+.review-course-clock::after { position: absolute; top: 10rpx; left: 9rpx; width: 7rpx; height: 2rpx; border-radius: 2rpx; background: currentColor; content: ""; }
 .review-status { display: flex; align-items: center; justify-content: space-between; gap: 20rpx; margin: 20rpx 0; font-size: 22rpx; line-height: 1.7; color: #819073; }
 .guide-link { display: block; color: #ba6949; margin-top: 7rpx; }
 .review-status .guide-link { margin: 0; flex-shrink: 0; }
@@ -35,8 +21,8 @@
 .question { display: flex; margin-top: 18rpx; padding: 20rpx 20rpx 14rpx; border: 1rpx solid #e3dfd7; border-radius: 24rpx; background: #fffdf9; }
 .question-number { width: 56rpx; flex-shrink: 0; color: #bd744f; font-size: 30rpx; padding-top: 3rpx; }
 .question-content { flex: 1; min-width: 0; }
-.question-title { font-size: 28rpx; font-family: "Songti SC", serif; margin-bottom: 14rpx; }
-.answer-input { box-sizing: border-box; width: 100%; min-height: 100rpx; padding: 16rpx 20rpx; font-size: 25rpx; line-height: 1.7; background: #f5f8fb; border: 1rpx solid #dbe4ea; border-radius: 4rpx 20rpx 20rpx; color: #234b3b; }
+.question-title { color: #142239; font-size: 28rpx; font-family: "Songti SC", "STSong", "Noto Serif CJK SC", serif; margin-bottom: 14rpx; }
+.answer-input { box-sizing: border-box; width: 100%; min-height: 100rpx; padding: 20rpx; font-size: 27rpx; line-height: 1.8; background: #fffcf5; border: 1rpx solid #d8c9ec; border-radius: 12rpx; color: #152039; }
 .answer-placeholder { color: #a8ac98; }
 .answer-count { text-align: right; font-size: 18rpx; color: #a1aa92; padding: 9rpx 2rpx 0; }
 .cloud-answer { margin-top: 16rpx; padding: 16rpx; background: #f6ebdc; border-radius: 12rpx; font-size: 24rpx; line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; }
@@ -47,10 +33,10 @@
 .disclosure-button::after { border: 0; }
 .disclosure-button text { margin-left: 18rpx; font-size: 30rpx; }
 .review-details { padding: 8rpx 4rpx 20rpx; }
-.evaluation-card { margin-top: 24rpx; border: 1rpx solid #d6dfd3; border-radius: 24rpx; background: #f5f8f0; padding: 24rpx 22rpx; }
+.evaluation-card { margin-top: 24rpx; border: 1rpx solid #ddd0ed; border-radius: 24rpx; background: #f5effb; padding: 24rpx 22rpx; }
 .evaluation-heading { display: flex; align-items: center; justify-content: space-between; gap: 20rpx; }
 .evaluation-heading .guide-link { margin-top: 0; font-size: 23rpx; }
-.evaluation-status { color: #5e7758; font-size: 32rpx; }
+.evaluation-status { color: #6035a1; font-size: 32rpx; }
 .evaluation-note { color: #7d8972; font-size: 23rpx; line-height: 1.8; margin: 12rpx 0; overflow-wrap: anywhere; }
 .clarification { margin-top: 22rpx; padding-top: 22rpx; border-top: 1rpx solid #d6deca; }
 .clarification .primary-button { margin-top: 16rpx; }
@@ -68,36 +54,94 @@
 .manager-label.neutral { color: #7b826c; }
 
 :host { display: block; }
-.review-panel-layout-window { display: flex; flex-direction: column; height: 100%; min-height: 0; }
-.review-panel-layout-window .review-panel-body { flex: 1; height: 0; min-height: 0; border-radius: 0 0 30rpx 30rpx; overflow: hidden; }
-.review-panel-embedded { padding: 0 24rpx 28rpx; }
-.review-panel-embedded .review-course { margin-top: 0; }
-.review-wizard .review-course { margin-top: 18rpx; padding: 16rpx 18rpx; }
-.wizard-question { min-height: 210rpx; margin-top: 24rpx; padding: 24rpx 22rpx; border: 1rpx solid #e3dfd7; border-radius: 20rpx; background: #fffdf9; }
-.wizard-question .question-title { margin-bottom: 20rpx; }
-.wizard-question .focus-stars { justify-content: center; margin-top: 24rpx; }
-.wizard-question .wizard-text-input { height: 220rpx; min-height: 220rpx; background: #faf8f2; border-color: #e3dfd7; border-radius: 14rpx; }
-.wizard-text-placeholder { color: #a2a2a2; }
-.wizard-navigation { display: flex; flex-shrink: 0; align-items: center; justify-content: space-between; gap: 18rpx; padding: 18rpx 24rpx 24rpx; }
-.wizard-navigation .primary-button { flex: 0 0 180rpx; min-width: 0; margin: 0 0 0 auto; padding: 20rpx 0; font-size: 26rpx; line-height: 1.5; }
-.wizard-navigation .wizard-previous { flex: 0 0 180rpx; margin: 0; padding: 20rpx 0; border: 1rpx solid #d8deca; border-radius: 999rpx; background: #fffdf9; color: #637955; font-size: 26rpx; line-height: 1.5; }
+.review-panel-layout-window { display: flex; flex-direction: column; height: 100%; min-height: 0; color: #152039; }
+.review-panel-layout-window .review-panel-body { flex: 1; height: 0; min-height: 0; overflow: hidden; }
+.review-panel-embedded { padding: 10rpx 32rpx 20rpx; }
+.review-wizard { padding-bottom: 12rpx; }
+.wizard-question { margin-top: 0; }
+.wizard-question .wizard-question-title { display: flex; align-items: center; min-height: 85rpx; padding: 17rpx 0 13rpx; margin-bottom: 0; color: #142239; font-size: 35rpx; font-weight: 700; line-height: 1.35; }
+.wizard-question .focus-stars { justify-content: center; margin: 64rpx 0 24rpx; }
+.wizard-question .wizard-text-input { height: 330rpx; min-height: 220rpx; margin-top: 12rpx; border-radius: 14rpx; }
+.wizard-text-placeholder { color: #a099aa; }
+.wizard-focus-label { text-align: center; color: #7546dd; font-size: 28rpx; }
+.wizard-navigation { display: flex; flex-shrink: 0; align-items: center; justify-content: flex-end; gap: 18rpx; min-height: 132rpx; padding: 18rpx 32rpx 24rpx; }
+.review-panel-layout .primary-button { background-color: #7546dd; background-image: repeating-linear-gradient(139deg, rgba(255, 255, 255, .045) 0, rgba(255, 255, 255, .045) 2rpx, transparent 2rpx, transparent 12rpx); color: #fff; box-shadow: 0 4rpx 0 #6135bf, 0 8rpx 18rpx rgba(98, 58, 159, .15); }
+.review-panel-layout .primary-button[disabled] { background-color: #c4b2e2; color: #fff; box-shadow: 0 3rpx 0 #b3a1ce; }
+.wizard-navigation .primary-button { display: flex; align-items: center; justify-content: center; flex: 0 0 241rpx; width: 241rpx; min-height: 44px; height: 82rpx; margin: 0 0 0 auto; padding: 0 18rpx; border-radius: 80rpx; font-family: "Songti SC", "STSong", "Noto Serif CJK SC", serif; font-size: 32rpx; line-height: 1.2; }
+.wizard-next-arrow { margin-left: 18rpx; font-family: Arial, sans-serif; font-size: 39rpx; line-height: 1; }
+.wizard-navigation .wizard-previous { flex: 0 1 180rpx; min-height: 44px; margin: 0; padding: 20rpx 0; border: 1rpx solid #d8c9ec; border-radius: 999rpx; background: #fffdf7; color: #775799; font-size: 26rpx; line-height: 1.5; }
 .wizard-previous::after { border: 0; }
-.wizard-pagination { position: absolute; top: calc(100% + 20rpx); left: 0; right: 0; display: flex; align-items: center; justify-content: center; gap: 14rpx; height: 20rpx; }
-.wizard-page-dot { width: 12rpx; height: 12rpx; flex-shrink: 0; border: 1rpx solid rgba(255, 255, 255, .85); border-radius: 50%; background: rgba(255, 255, 255, .35); }
-.wizard-page-dot.active { background: #fffdf9; }
 .review-tabs { display: flex; gap: 14rpx; margin: 18rpx 0; }
 .review-tabs button { flex: 1; margin: 0; font-size: 26rpx; background: #fffdf9; color: #637955; border-radius: 18rpx; }
 .review-tabs .selected, .review-choices .selected { background: #e1ebd8; color: #31543d; border-color: #81996d; }
 .participation-card { margin-top: 20rpx; padding: 22rpx; border: 1rpx solid #e3dfd7; border-radius: 20rpx; background: #fffdf9; }
 .review-choices { display: flex; flex-wrap: wrap; justify-content: center; gap: 12rpx; margin: 16rpx 0; }
 .review-choices .choice { margin: 0; padding: 10rpx 18rpx; font-size: 23rpx; line-height: 1.7; border: 1rpx solid #d8deca; border-radius: 14rpx; background: #fffdf9; color: #637955; }
-.review-choices .choice.selected { background: #e1ebd8; color: #31543d; border-color: #81996d; }
+.review-choices .choice.selected { background: #eee2ff; color: #6035a1; border-color: #a67ade; }
 .review-choices .choice[disabled] { opacity: .7; }
-.review-branch { margin-left: 20rpx; border-left: 4rpx solid #c9d7ba; }
+.review-branch { margin-left: 20rpx; border-left: 4rpx solid #c9acef; }
 .focus-stars { display: flex; flex-wrap: nowrap; align-items: center; gap: 8rpx; margin: 12rpx 0 6rpx; }
 .focus-stars .focus-star { flex: 0 1 76rpx; min-width: 0; height: 84rpx; margin: 0; padding: 0; border: 0; border-radius: 12rpx; background: transparent; color: #a7ac9b; font-size: 64rpx; line-height: 84rpx; text-align: center; }
 .focus-star::after { border: 0; }
-.focus-star.lit, .focus-star.lit[disabled] { color: #d49a32; }
+.focus-star.lit, .focus-star.lit[disabled] { color: #8548e6; }
 .focus-star[disabled] { background: transparent; color: #a7ac9b; opacity: 1; }
-.answer-text { display: block; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 26rpx; line-height: 1.9; color: #38503d; }
+.answer-text { display: block; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 26rpx; line-height: 1.9; color: #263149; }
 .evaluation-card .primary-button { margin-top: 18rpx; }
+
+/* 参考弹窗中的标题、纸条单选与图标。后续步骤复用相同纸张和按钮。 */
+.review-sheet-header { display: flex; flex-shrink: 0; align-items: center; justify-content: space-between; min-height: 124rpx; padding: 8rpx 29rpx 5rpx 33rpx; }
+.review-sheet-title-wrap { position: relative; padding-bottom: 7rpx; }
+.review-sheet-title { display: block; color: #101317; font-family: "Kaiti SC", "STKaiti", "KaiTi", "Songti SC", "STSong", "Noto Serif CJK SC", serif; font-size: 64rpx; font-weight: 900; line-height: 1.12; letter-spacing: -2rpx; white-space: nowrap; }
+.review-sheet-title-stroke { position: absolute; right: -2rpx; bottom: 1rpx; left: -1rpx; height: 6rpx; border-radius: 45% 12% 40% 5%; background: #9b66f2; transform: rotate(-1.4deg); }
+.review-sheet-title-stroke::after { position: absolute; right: 6rpx; bottom: -5rpx; left: 0; height: 2rpx; background: #c9a8fa; content: ""; }
+.review-sheet-title-sparks { position: absolute; top: 0; right: -43rpx; width: 35rpx; height: 33rpx; }
+.review-sheet-title-sparks view { position: absolute; width: 6rpx; height: 21rpx; border-radius: 6rpx; background: #a56cf1; transform: rotate(24deg); }
+.review-sheet-title-sparks view + view { top: 13rpx; left: 20rpx; height: 18rpx; transform: rotate(56deg); }
+.review-sheet-header .review-sheet-close { display: flex; flex-shrink: 0; align-items: center; justify-content: flex-end; min-width: 44px; min-height: 44px; margin: 0 0 0 40rpx; padding: 0; border: 0; border-radius: 10rpx; background: transparent; color: #857f7b; font-size: 27rpx; line-height: 1.2; }
+.review-sheet-close-symbol { margin-left: 8rpx; font-family: Arial, sans-serif; font-size: 38rpx; font-weight: 300; }
+.review-sheet-close::after { border: 0; }
+.review-sheet-close-pressed { opacity: .58; }
+.review-sheet-header .review-sheet-close[disabled] { background: transparent; color: #aaa39b; }
+.review-question-sparks { position: relative; flex-shrink: 0; width: 32rpx; height: 29rpx; margin-left: 11rpx; }
+.review-question-sparks view { position: absolute; top: 0; left: 1rpx; width: 18rpx; height: 5rpx; border-radius: 5rpx; background: #aa74f2; transform: rotate(-31deg); }
+.review-question-sparks view + view { top: 20rpx; left: 8rpx; width: 18rpx; transform: rotate(10deg); }
+.review-option-list { display: block; }
+.review-option { box-sizing: border-box; position: relative; display: flex; align-items: center; min-height: 44px; height: 104rpx; margin-bottom: 12rpx; padding: 10rpx 24rpx 10rpx 15rpx; border-radius: 13rpx 9rpx 12rpx 11rpx; background-color: rgba(255, 253, 247, .92); box-shadow: 0 3rpx 6rpx rgba(117, 87, 41, .07), 0 1rpx 0 rgba(255, 255, 255, .9) inset; }
+.review-option:last-child { margin-bottom: 0; }
+.review-option-selected { background-color: #8247e5; background-image: repeating-linear-gradient(133deg, rgba(255, 255, 255, .045) 0, rgba(255, 255, 255, .045) 2rpx, transparent 2rpx, transparent 11rpx), linear-gradient(110deg, #8650e9, #7546dd); box-shadow: 0 4rpx 7rpx rgba(102, 55, 186, .16), 0 2rpx 0 rgba(255, 255, 255, .16) inset; }
+.review-option-pressed { opacity: .83; }
+.review-option-disabled { opacity: .8; }
+.review-option-image { display: block; flex-shrink: 0; width: 80rpx; height: 80rpx; margin-right: 20rpx; }
+.review-option-label { flex: 1; min-width: 0; color: #13213a; font-family: "Songti SC", "STSong", "Noto Serif CJK SC", serif; font-size: 32rpx; font-weight: 700; line-height: 1.35; }
+.review-option-selected .review-option-label { color: #fff; }
+.review-choice-mark { box-sizing: border-box; display: flex; flex-shrink: 0; align-items: center; justify-content: center; width: 38rpx; height: 38rpx; margin-left: 14rpx; border: 3rpx solid #aaa39b; border-radius: 50%; }
+.review-choice-checked { width: 44rpx; height: 44rpx; border-color: #fff; background: #fff; box-shadow: 0 3rpx 7rpx rgba(59, 25, 131, .16); }
+.review-choice-tick { box-sizing: border-box; width: 22rpx; height: 13rpx; margin-top: -5rpx; border-bottom: 4rpx solid #8548e6; border-left: 4rpx solid #8548e6; transform: rotate(-45deg); }
+.review-native-radio { position: absolute; bottom: 1px; left: 1px; width: 1px; height: 1px; overflow: hidden; opacity: 0; }
+
+@media (max-width: 350px) {
+  .review-sheet-header { padding-left: 27rpx; padding-right: 25rpx; }
+  .review-sheet-title { font-size: 61rpx; }
+  .review-sheet-title-sparks { right: -34rpx; transform: scale(.82); }
+  .review-panel-embedded { padding-left: 27rpx; padding-right: 27rpx; }
+  .wizard-navigation { padding-left: 27rpx; padding-right: 27rpx; }
+  .review-course { padding-left: 16rpx; padding-right: 16rpx; }
+  .review-course-name { font-size: 32rpx; }
+  .review-course-meta { font-size: 22rpx; }
+  .wizard-question .wizard-question-title { font-size: 34rpx; }
+  .review-option { padding-left: 12rpx; padding-right: 18rpx; }
+  .review-option-image { width: 74rpx; height: 74rpx; margin-right: 15rpx; }
+  .review-option-label { font-size: 31rpx; }
+}
+
+@media (max-height: 480px) {
+  .review-sheet-header { min-height: 56px; padding: 4px 18px; }
+  .review-sheet-title { font-size: 28px; }
+  .review-sheet-title-sparks { right: -26px; transform: scale(.6); }
+  .review-sheet-header .review-sheet-close { margin-left: 30px; font-size: 14px; }
+  .review-sheet-close-symbol { font-size: 22px; }
+  .wizard-navigation { min-height: 64px; padding: 8px 18px 12px; }
+  .wizard-navigation .primary-button { flex-basis: 124px; width: 124px; height: 44px; padding: 0 12px; font-size: 17px; }
+  .wizard-navigation .wizard-previous { flex-basis: 94px; padding: 10px 0; font-size: 14px; }
+  .wizard-next-arrow { margin-left: 10px; font-size: 24px; }
+}

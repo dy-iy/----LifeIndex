@@ -1,5 +1,13 @@
 <view class="review-panel-layout review-panel-layout-window">
-  <scroll-view class="review-panel-body" scroll-y enhanced show-scrollbar="{{false}}">
+  <view class="review-sheet-header">
+    <view class="review-sheet-title-wrap">
+      <text class="review-sheet-title">课后复盘</text>
+      <view class="review-sheet-title-stroke" aria-hidden="true"></view>
+      <view class="review-sheet-title-sparks" aria-hidden="true"><view></view><view></view></view>
+    </view>
+    <button class="review-sheet-close" bindtap="requestClose" disabled="{{busy}}" hover-class="review-sheet-close-pressed" aria-label="关闭复盘窗口"><text>关闭</text><text class="review-sheet-close-symbol" aria-hidden="true">×</text></button>
+  </view>
+  <scroll-view class="review-panel-body" scroll-y enhanced show-scrollbar="{{false}}" bounces="{{false}}">
 <view class="review-panel-embedded {{wizard ? 'review-wizard' : ''}}">
   
   <view wx:if="{{!loggedIn}}" class="review-empty">
@@ -13,27 +21,18 @@
     <view wx:if="{{loadingLabel}}" class="review-status">{{loadingLabel}}</view>
     <view wx:if="{{error}}" class="review-error"><text>{{error}}</text><text class="guide-link" bindtap="reload" role="button">重试</text></view>
     <block wx:if="{{record}}">
-      <view class="review-course"><view class="review-course-name">{{record.name}}</view><view class="review-course-meta">{{record.source === 'untimed' ? '未计时' : cloud.voided ? '原计时（已撤销）' : record.source === 'manual' ? '自报时长' : '有效计时'}} {{record.durationLabel}}</view></view>
-      <view wx:if="{{reviewResult}}" class="recorded-answers">
-        <view class="question-title">我的复盘</view>
-        <block wx:if="{{modern}}">
-          <view wx:if="{{untimedReason !== 'unspecified'}}" class="recorded-choice"><text class="recorded-label">未计时原因</text><text>{{untimedReasonLabel}}</text></view>
-          <view wx:if="{{participation !== 'unspecified'}}" class="recorded-choice"><text class="recorded-label">课堂情况</text><text>{{participationLabel}}</text></view>
-          <view wx:if="{{focusRating > 0}}" class="recorded-choice"><text class="recorded-label">专注自评</text><view class="recorded-focus" aria-label="{{focusRating + ' 星，' + focusLabel}}"><text wx:for="{{focusStars}}" wx:key="value" class="{{focusRating >= item.rating ? 'lit' : ''}}">{{focusRating >= item.rating ? '★' : '☆'}}</text><text class="recorded-focus-label">{{focusLabel}}</text></view></view>
-          <text class="answer-text recorded-text" selectable>{{answers[0] || '本次未填写文字说明'}}</text>
-        </block>
-        <block wx:else>
-          <view wx:for="{{questions}}" wx:key="number" class="recorded-answer"><view class="recorded-label">{{item.title}}</view><text class="answer-text" selectable>{{answers[index] || '（未填写）'}}</text></view>
-        </block>
+      <view class="review-course">
+        <view class="review-course-tape" aria-hidden="true"></view>
+        <view class="review-course-name">{{record.name}}</view>
+        <view class="review-course-meta"><view class="review-course-clock" aria-hidden="true"></view><text>{{record.source === 'untimed' ? '未计时' : cloud.voided ? '原计时（已撤销）' : record.source === 'manual' ? '自报时长' : '有效计时'}} {{record.durationLabel}}</text></view>
       </view>
-      <view wx:if="{{reviewResult}}" class="review-result" role="status" aria-label="{{reviewResult.headline + '，本次涨跌幅 ' + reviewResult.percentLabel + '，变动 ' + reviewResult.changeLabel + ' 点'}}">
-        <view class="result-heading">本次复盘结果</view>
-        <view class="result-headline serif {{reviewResult.tone}}">{{reviewResult.headline}}</view>
-        <view wx:if="{{reviewResult.note}}" class="result-note">{{reviewResult.note}}</view>
-        <view class="result-label">本次涨跌幅</view>
-        <view class="result-percent serif {{reviewResult.direction}}">{{reviewResult.percentLabel}}</view>
-        <view class="result-points {{reviewResult.direction}}">{{reviewResult.changeLabel}} 点</view>
-      </view>
+      <review-result wx:if="{{reviewResult}}"
+        review="{{reviewResult}}" modern="{{modern}}"
+        attendance-text="{{participation !== 'unspecified' ? participationLabel : ''}}"
+        untimed-reason-text="{{untimedReason !== 'unspecified' ? untimedReasonLabel : ''}}"
+        focus-score="{{focusRating}}" focus-text="{{focusLabel}}"
+        answers="{{answers}}" questions="{{questions}}"
+      />
       <block wx:elif="{{wizard}}">
         <view wx:if="{{draftError}}" class="review-error"><text>{{draftError}}</text><text class="guide-link" bindtap="retryDraft" role="button">{{draftReadFailed ? '重试读取' : '重试保存'}}</text></view>
         <view wx:if="{{evaluationError}}" class="review-error">{{evaluationError}}</view>
@@ -42,20 +41,36 @@
         <view wx:if="{{revision && !canRevise}}" class="review-error">已超过重新提交期限，仍可回看记录</view>
         <view class="wizard-question">
           <block wx:if="{{wizardPage === 'untimed_reason'}}">
-            <view class="question-title">未计时原因</view>
-            <view class="review-choices"><button wx:for="{{untimedReasonOptions}}" wx:key="value" class="choice {{untimedReason === item.value ? 'selected' : ''}}" disabled="{{readonly}}" data-value="{{item.value}}" data-record-id="{{record.id}}" data-owner="{{owner}}" bindtap="chooseUntimedReason">{{item.label}}</button></view>
+            <view class="question-title wizard-question-title">未计时原因<view class="review-question-sparks" aria-hidden="true"><view></view><view></view></view></view>
+            <radio-group class="review-option-list" data-record-id="{{record.id}}" data-owner="{{owner}}" bindchange="chooseUntimedReason" aria-label="未计时原因">
+              <label wx:for="{{untimedReasonOptions}}" wx:key="value" class="review-option {{untimedReason === item.value ? 'review-option-selected' : ''}} {{readonly ? 'review-option-disabled' : ''}}" hover-class="review-option-pressed">
+                <image class="review-option-image" src="/assets/review/modal/{{item.icon}}.png" mode="aspectFit" aria-hidden="true"/>
+                <text class="review-option-label">{{item.label}}</text>
+                <view class="review-choice-mark {{untimedReason === item.value ? 'review-choice-checked' : ''}}" aria-hidden="true"><view wx:if="{{untimedReason === item.value}}" class="review-choice-tick"></view></view>
+                <radio class="review-native-radio" value="{{item.value}}" checked="{{untimedReason === item.value}}" disabled="{{readonly}}" aria-label="{{item.label}}"/>
+              </label>
+            </radio-group>
           </block>
           <block wx:elif="{{wizardPage === 'participation'}}">
-            <view class="question-title">这节课是什么情况？</view>
-            <view class="review-choices"><button wx:for="{{wizardParticipationOptions}}" wx:key="value" class="choice {{participation === item.value ? 'selected' : ''}}" disabled="{{readonly}}" data-value="{{item.value}}" data-record-id="{{record.id}}" data-owner="{{owner}}" bindtap="chooseParticipation">{{item.label}}</button></view>
+            <view class="question-title wizard-question-title">这节课是什么情况？<view class="review-question-sparks" aria-hidden="true"><view></view><view></view></view></view>
+            <radio-group class="review-option-list" data-record-id="{{record.id}}" data-owner="{{owner}}" bindchange="chooseParticipation" aria-label="这节课是什么情况？">
+              <label wx:for="{{wizardParticipationOptions}}" wx:key="value" class="review-option {{participation === item.value ? 'review-option-selected' : ''}} {{readonly ? 'review-option-disabled' : ''}}" hover-class="review-option-pressed">
+                <image class="review-option-image" src="/assets/review/modal/{{item.icon}}.png" mode="aspectFit" aria-hidden="true"/>
+                <text class="review-option-label">{{item.label}}</text>
+                <view class="review-choice-mark {{participation === item.value ? 'review-choice-checked' : ''}}" aria-hidden="true"><view wx:if="{{participation === item.value}}" class="review-choice-tick"></view></view>
+                <radio class="review-native-radio" value="{{item.value}}" checked="{{participation === item.value}}" disabled="{{readonly}}" aria-label="{{item.label}}"/>
+              </label>
+            </radio-group>
           </block>
           <block wx:elif="{{wizardPage === 'focus'}}">
-            <view class="question-title">给自己的专注情况打星</view>
+            <view class="question-title wizard-question-title">给自己的专注情况打星</view>
             <view class="focus-stars" aria-label="专注情况，满分5星"><button wx:for="{{focusStars}}" wx:key="value" class="focus-star {{focusRating >= item.rating ? 'lit' : ''}}" disabled="{{readonly}}" aria-label="{{item.rating}}星，{{item.label}}{{focusRating === item.rating ? '，已选' : ''}}" data-value="{{item.value}}" data-record-id="{{record.id}}" data-owner="{{owner}}" bindtap="chooseFocus">{{focusRating >= item.rating ? '★' : '☆'}}</button></view>
+            <view wx:if="{{focusLabel}}" class="wizard-focus-label">{{focusLabel}}</view>
           </block>
           <block wx:else>
-            <view class="question-title">{{wizardTextTitle}}</view>
+            <view class="question-title wizard-question-title">{{wizardTextTitle}}</view>
             <textarea class="answer-input wizard-text-input" value="{{answers[0]}}" disabled="{{readonly}}" data-index="0" data-record-id="{{record.id}}" data-owner="{{owner}}" data-step="{{wizardPage}}" data-participation="{{participation}}" bindinput="answerWizardText" bindblur="rememberDraft" maxlength="8000" cursor-spacing="24" placeholder="{{wizardTextPlaceholder}}" placeholder-class="wizard-text-placeholder" aria-label="{{wizardTextTitle}}"/>
+            <view class="answer-count">{{answers[0].length}} / 8000</view>
           </block>
         </view>
       </block>
@@ -157,14 +172,11 @@
   </block>
 </view>
   </scroll-view>
-  <view wx:if="{{wizard}}" class="wizard-navigation">
+  <view wx:if="{{wizard}}" class="wizard-navigation" aria-label="第 {{wizardPageNumber}} 页，共 {{wizardPageNumbers.length}} 页">
     <button wx:if="{{wizardPageNumber > 1}}" class="wizard-previous" disabled="{{readonly || !!loadingLabel}}" data-record-id="{{record.id}}" data-owner="{{owner}}" bindtap="previousReviewPage">上一页</button>
     <button wx:if="{{evaluationPending}}" class="primary-button" disabled="{{busy}}" loading="{{busy}}" bindtap="retryEvaluationPending">重试提交</button>
     <button wx:elif="{{pending}}" class="primary-button" disabled="{{busy}}" loading="{{busy}}" bindtap="retryPending">重试提交</button>
-    <button wx:elif="{{wizardAnswered && wizardHasNext}}" class="primary-button" disabled="{{!!wizardDisabledReason}}" data-record-id="{{record.id}}" data-owner="{{owner}}" bindtap="nextReviewPage">下一页</button>
+    <button wx:elif="{{wizardPage === 'participation' || wizardPage === 'untimed_reason' || wizardPage === 'focus'}}" class="primary-button" disabled="{{!!wizardDisabledReason}}" data-record-id="{{record.id}}" data-owner="{{owner}}" bindtap="nextReviewPage"><text>下一页</text><text class="wizard-next-arrow" aria-hidden="true">→</text></button>
     <button wx:else class="primary-button" disabled="{{!!wizardDisabledReason}}" loading="{{busy}}" data-record-id="{{record.id}}" data-owner="{{owner}}" bindtap="submitWizard">提交</button>
-  </view>
-  <view wx:if="{{wizard}}" class="wizard-pagination" role="img" aria-label="第 {{wizardPageNumber}} 页，共 {{wizardPageNumbers.length}} 页">
-    <view wx:for="{{wizardPageNumbers}}" wx:key="*this" class="wizard-page-dot {{item === wizardPageNumber ? 'active' : ''}}"></view>
   </view>
 </view>
