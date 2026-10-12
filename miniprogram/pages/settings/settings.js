@@ -1,7 +1,9 @@
 const art = require("../../services/art");
 const auth = require("../../services/auth");
 const { avatarUrl } = require("../../services/backend");
+const { onShareAppMessage } = require("../../services/share");
 Page({
+  onShareAppMessage,
   data: { art, user: null, avatarSrc: "", canRetryAvatar: false, displayName: "", busy: "", error: "" },
   onShow() {
     if (typeof this.getTabBar === "function" && this.getTabBar()) this.getTabBar().setData({ selected: 1 });

@@ -3,14 +3,14 @@
 view, button, textarea { box-sizing: border-box; }
 button { font-weight: 500; }
 button::after { border: none; }
-.assistant-overlay { position: fixed; z-index: 1000; top: 0; left: 0; right: 0; display: flex; align-items: center; justify-content: center; padding: 24rpx 38rpx; color: #234b3b; font-size: 25rpx; }
+.assistant-overlay { position: fixed; z-index: 1000; top: 0; left: 0; right: 0; display: flex; align-items: center; justify-content: center; padding: 24rpx 38rpx; color: #183844; font-size: 25rpx; }
 .assistant-backdrop { position: absolute; inset: 0; background: rgba(27, 40, 31, .38); animation: veil-in .18s ease-out; }
-.assistant-dialog { position: relative; display: flex; flex-direction: column; width: 100%; max-width: 680rpx; height: 82vh; max-height: 100%; min-height: 0; overflow: hidden; border: 1rpx solid #e4e5d8; border-radius: 32rpx; background: #fffdf9; box-shadow: 0 22rpx 80rpx rgba(24, 43, 31, .2); animation: dialog-in .2s ease-out; }
-.assistant-header { background: linear-gradient(110deg, #f4f8fb, #e7f0f6); display: flex; flex-shrink: 0; align-items: center; justify-content: space-between; padding: 28rpx 28rpx 22rpx; }
-.eyebrow { color: #84917b; font-size: 17rpx; letter-spacing: 3rpx; margin-bottom: 9rpx; }
+.assistant-dialog { position: relative; display: flex; flex-direction: column; width: 100%; max-width: 680rpx; height: 82vh; max-height: 100%; min-height: 0; overflow: hidden; border: 1rpx solid #e9dfd0; border-radius: 20rpx; background: #fffcf6; box-shadow: 0 22rpx 80rpx rgba(24, 43, 31, .2); animation: dialog-in .2s ease-out; }
+.assistant-header { background: linear-gradient(110deg, #fffcf6, #f2e6f7); display: flex; flex-shrink: 0; align-items: center; justify-content: space-between; padding: 28rpx 28rpx 22rpx; }
+.eyebrow { color: #9884a4; font-size: 17rpx; letter-spacing: 3rpx; margin-bottom: 9rpx; }
 .assistant-title { font-family: "Songti SC", "STSong", serif; font-size: 39rpx; line-height: 1.25; }
-.assistant-dialog .assistant-close { display: flex; align-items: center; justify-content: center; width: 62rpx; height: 62rpx; margin: 0 0 0 20rpx; padding: 0; flex-shrink: 0; color: #74826b; background: #f0e8df; border-radius: 50%; font-size: 40rpx; line-height: 1; }
-.conversation-toolbar { display: flex; flex-shrink: 0; align-items: center; justify-content: space-between; margin: 0 28rpx; border-top: 1rpx solid #daddcf; border-bottom: 1rpx solid #daddcf; gap: 16rpx; }
+.assistant-dialog .assistant-close { display: flex; align-items: center; justify-content: center; width: 62rpx; height: 62rpx; margin: 0 0 0 20rpx; padding: 0; flex-shrink: 0; color: #795b93; background: #f2e9f5; border-radius: 50%; font-size: 40rpx; line-height: 1; }
+.conversation-toolbar { display: flex; flex-shrink: 0; align-items: center; justify-content: space-between; margin: 0 28rpx; border-top: 1rpx solid #e8dfd3; border-bottom: 1rpx solid #e8dfd3; gap: 16rpx; }
 .conversation-toolbar picker { flex: 1; min-width: 0; }
 .conversation-title { min-width: 0; padding: 18rpx 0; font-size: 24rpx; }
 .conversation-toolbar button { margin: 0; flex-shrink: 0; padding-right: 0; }
@@ -18,23 +18,23 @@ button::after { border: none; }
 .assistant-scroll { height: 100%; }
 .conversation-content { padding: 22rpx 28rpx 0; }
 .small { font-size: 21rpx; line-height: 1.7; }
-.muted { color: #8a927e; }
+.muted { color: #879087; }
 .loading { padding: 8rpx 0 20rpx; }
-.welcome-card { padding: 24rpx; background: #f7f0e7; border: 1rpx solid #e6d9c8; border-radius: 20rpx; }
+.welcome-card { padding: 24rpx; background: #faf4e9; border: 1rpx solid #e9dfd0; border-radius: 20rpx; }
 .empty-title { font-family: "Songti SC", "STSong", serif; font-size: 29rpx; line-height: 1.5; margin-bottom: 10rpx; }
-.empty-copy { color: #7d8974; font-size: 23rpx; line-height: 1.8; }
-.example { color: #60755a; font-size: 23rpx; line-height: 1.8; margin: 18rpx 0 12rpx; padding-left: 17rpx; border-left: 3rpx solid #bac7aa; }
+.empty-copy { color: #879087; font-size: 23rpx; line-height: 1.8; }
+.example { color: #795b93; font-size: 23rpx; line-height: 1.8; margin: 18rpx 0 12rpx; padding-left: 17rpx; border-left: 3rpx solid #c8a7df; }
 .refresh-row { display: flex; justify-content: flex-end; padding: 7rpx 0; }
 .refresh-row button { margin: 0; padding-right: 0; font-size: 20rpx; }
 .error { color: #b4533a; font-size: 23rpx; line-height: 1.8; }
 .error-panel { padding: 0 0 20rpx; }
 .message { padding: 22rpx; margin-bottom: 20rpx; border-radius: 20rpx; }
-.message-user { background: #e5eff7; margin-left: 28rpx; border-bottom-right-radius: 4rpx; }
-.message-assistant { background: #fffdf9; margin-right: 18rpx; border: 1rpx solid #dedfd0; border-bottom-left-radius: 4rpx; }
-.message-role { display: block; color: #84917b; font-size: 20rpx; margin-bottom: 10rpx; }
+.message-user { background: #f0e3f7; margin-left: 28rpx; border-bottom-right-radius: 4rpx; }
+.message-assistant { background: #fffcf6; margin-right: 18rpx; border: 1rpx solid #e8dfd3; border-bottom-left-radius: 4rpx; }
+.message-role { display: block; color: #9884a4; font-size: 20rpx; margin-bottom: 10rpx; }
 .message-content, .change-value { display: block; white-space: pre-wrap; overflow-wrap: break-word; font-size: 24rpx; line-height: 1.8; }
-.image-count { display: block; color: #84917b; font-size: 20rpx; padding-top: 10rpx; }
-.run-status { display: flex; align-items: center; gap: 12rpx; margin: 20rpx 0; color: #637c57; font-size: 23rpx; line-height: 1.8; }
+.image-count { display: block; color: #9884a4; font-size: 20rpx; padding-top: 10rpx; }
+.run-status { display: flex; align-items: center; gap: 12rpx; margin: 20rpx 0; color: #795b93; font-size: 23rpx; line-height: 1.8; }
 .working { color: #9b704c; }
 .working-dot { flex-shrink: 0; width: 9rpx; height: 9rpx; border-radius: 50%; background: #bc825b; }
 .run-error { display: block; margin-bottom: 20rpx; }
@@ -49,20 +49,20 @@ button::after { border: none; }
 .preview-card .primary-button { margin-top: 20rpx; }
 .assistant-dialog .cancel-button { width: 100%; }
 .retry-button { margin-top: 20rpx; }
-.composer { flex-shrink: 0; padding: 20rpx 28rpx 22rpx; border-top: 1rpx solid #dce0d0; background: #fffdf9; }
-.message-input { display: block; width: 100%; height: 120rpx; padding: 18rpx 20rpx; background: #fffdf9; border: 1rpx solid #d5dbca; border-radius: 17rpx; color: #234b3b; font-size: 24rpx; line-height: 1.7; }
+.composer { flex-shrink: 0; padding: 20rpx 28rpx 22rpx; border-top: 1rpx solid #e8dfd3; background: #fffcf6; }
+.message-input { display: block; width: 100%; height: 120rpx; padding: 18rpx 20rpx; background: #fffcf6; border: 1rpx solid #e7ddcf; border-radius: 17rpx; color: #183844; font-size: 24rpx; line-height: 1.7; }
 .composer-tools { display: flex; align-items: center; justify-content: space-between; gap: 8rpx; margin: 3rpx 0 9rpx; }
 .composer-tools .small { font-size: 18rpx; }
 .composer-tools .image-button { padding-left: 0; margin: 0; }
 .attachments { display: flex; gap: 14rpx; margin-top: 16rpx; }
 .attachment { position: relative; width: 88rpx; height: 74rpx; }
 .attachment image { width: 88rpx; height: 74rpx; border-radius: 10rpx; }
-.assistant-dialog .remove-image { position: absolute; top: -10rpx; right: -10rpx; width: 32rpx; height: 32rpx; margin: 0; padding: 0; border-radius: 50%; background: #fffdf9; color: #9b6c57; font-size: 25rpx; line-height: 30rpx; }
-.assistant-dialog .primary-button, .assistant-dialog .secondary-button { width: 100%; margin: 0; padding: 22rpx 24rpx; font-size: 25rpx; line-height: 1.3; border-radius: 100rpx; }
-.assistant-dialog .primary-button { background: #234b3b; color: #fffaf0; }
-.assistant-dialog .secondary-button { border: 1rpx solid #c7d6df; background: #f3f7fa; color: #234b3b; }
-.assistant-dialog .text-button { width: auto; background: transparent; color: #6f806b; font-size: 22rpx; padding: 13rpx; line-height: 1.5; }
-.assistant-dialog button[disabled] { color: #93998b; background: #e5e6da; }
+.assistant-dialog .remove-image { position: absolute; top: -10rpx; right: -10rpx; width: 32rpx; height: 32rpx; margin: 0; padding: 0; border-radius: 50%; background: #fffcf6; color: #9b6c57; font-size: 25rpx; line-height: 30rpx; }
+.assistant-dialog .primary-button, .assistant-dialog .secondary-button { width: 100%; margin: 0; padding: 22rpx 24rpx; font-size: 25rpx; line-height: 1.3; border-radius: 16rpx; }
+.assistant-dialog .primary-button { background: #7954a0; color: #fffcf6; }
+.assistant-dialog .secondary-button { border: 1rpx solid #d9c2e8; background: #f7eef9; color: #7954a0; }
+.assistant-dialog .text-button { width: auto; background: transparent; color: #795b93; font-size: 22rpx; padding: 13rpx; line-height: 1.5; }
+.assistant-dialog button[disabled] { color: #aaa0ad; background: #eee7ed; }
 .assistant-dialog .text-button[disabled] { background: transparent; }
 .guest-dialog { height: 580rpx; }
 .confirmation-bar { flex-shrink: 0; padding: 14rpx 28rpx 18rpx; border-top: 1rpx solid #e0cdb2; background: #fbf2e6; }

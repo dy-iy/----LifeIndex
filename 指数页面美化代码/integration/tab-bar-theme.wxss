@@ -1,0 +1,35 @@
+/* 追加到既有 custom-tab-bar/index.wxss。
+ * 根节点同时保留此前的 tab-bar--timer 条件类，详见 README。
+ */
+.tab-bar--index { background: #fbf7ee; }
+.tab-bar--index::before { background: #ece4d8; }
+.tab-bar--index .tab-bar__item { position: relative; color: #8b9384; }
+.tab-bar--index .tab-bar__item--active { color: #173e43; }
+.tab-bar--index .tab-bar__item--active .tab-bar__icon-wrap { position: relative; background: transparent; }
+.tab-bar--index .tab-bar__item--active .tab-bar__icon-wrap::before {
+  position: absolute;
+  top: -1rpx;
+  right: -2rpx;
+  bottom: -2rpx;
+  left: -2rpx;
+  border: 3rpx solid rgba(189, 145, 227, .58);
+  border-top-width: 6rpx;
+  border-radius: 50% 45% 52% 44%;
+  transform: rotate(-13deg);
+  content: "";
+}
+.tab-bar--index .tab-bar__item--active::after {
+  position: absolute;
+  display: block;
+  top: auto;
+  right: auto;
+  bottom: 0;
+  left: 50%;
+  width: 8rpx;
+  height: 8rpx;
+  border: 0;
+  border-radius: 50%;
+  background: #b787df;
+  transform: translateX(-50%);
+  content: "";
+}

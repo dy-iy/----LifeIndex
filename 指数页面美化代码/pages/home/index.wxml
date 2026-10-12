@@ -1,0 +1,52 @@
+<view class="ip-page">
+  <!-- 装饰放在内容后方，数值和图表保留干净的阅读区域。 -->
+  <view class="ip-corner" aria-hidden="true">
+    <view class="ip-corner-sheet"></view>
+    <view class="ip-corner-fold"></view>
+    <view class="ip-corner-dot"></view>
+    <view class="ip-corner-loop"></view>
+  </view>
+  <view class="ip-gold-spark" aria-hidden="true"></view>
+
+  <view class="ip-content">
+    <market-quote
+      title="{{quote.title}}"
+      value-text="{{quote.valueText}}"
+      change-points-text="{{quote.changePointsText}}"
+      change-percent-text="{{quote.changePercentText}}"
+      direction="{{quote.direction}}"
+      updated-at="{{quote.updatedAt}}"
+      status-text="{{quote.statusText}}"
+      stats="{{stats}}"
+      refreshing="{{refreshing}}"
+      bind:refresh="onRefreshMarket"
+    />
+
+    <view class="ip-chart-section">
+      <market-chart-panel
+        period="{{period}}"
+        can-zoom-out="{{canZoomOut}}"
+        can-zoom-in="{{canZoomIn}}"
+        busy="{{chartBusy}}"
+        bind:periodchange="onPeriodChange"
+        bind:zoom="onChartZoom"
+      >
+        <view class="ip-chart-host">
+          <!-- 把原页面的图表节点（canvas 或已有图表组件）及绑定放到这里。 -->
+          <!-- 图表根节点使用容器宽高；原有坐标轴、绘制、长按逻辑一并保留。 -->
+        </view>
+      </market-chart-panel>
+    </view>
+
+    <view class="ip-footer-art" aria-hidden="true">
+      <view class="ip-footer-paper"></view>
+      <view class="ip-footer-curve"></view>
+      <view class="ip-footer-dot"></view>
+      <view class="ip-sprig">
+        <view class="ip-sprig-stem"></view>
+        <view class="ip-leaf ip-leaf--left"></view>
+        <view class="ip-leaf ip-leaf--right"></view>
+      </view>
+    </view>
+  </view>
+</view>

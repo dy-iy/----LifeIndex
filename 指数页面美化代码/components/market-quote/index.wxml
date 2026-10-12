@@ -1,0 +1,50 @@
+<view class="market-quote quote--{{safeDirection}}">
+  <view class="quote-title-wrap">
+    <text class="quote-title">{{title}}</text>
+    <view class="title-underline" aria-hidden="true"></view>
+  </view>
+
+  <view class="quote-reading">
+    <text class="quote-value {{valueFitClass}}">{{valueText}}</text>
+    <text class="quote-unit">点</text>
+  </view>
+
+  <view class="quote-change">
+    <view class="change-points-group">
+      <text class="change-points {{pointsFitClass}}">{{changePointsText}}</text>
+      <text class="change-unit">点</text>
+    </view>
+    <view class="change-percent-group">
+      <view class="percent-underline" aria-hidden="true"></view>
+      <text class="change-percent {{percentFitClass}}">{{changePercentText}}</text>
+    </view>
+  </view>
+
+  <view class="quote-meta">
+    <text class="quote-time">{{updatedAt}}</text>
+    <button
+      class="refresh-button {{refreshing ? 'refresh-button--disabled' : ''}}"
+      bindtap="handleRefresh"
+      disabled="{{refreshing}}"
+      aria-disabled="{{refreshing}}"
+      aria-label="刷新"
+      hover-class="refresh-button--pressed"
+    >刷新</button>
+  </view>
+  <view wx:if="{{statusText}}" class="quote-status">{{statusText}}</view>
+
+  <view class="stats-strip" wx:if="{{displayStats.length}}">
+    <view class="stats-paper" aria-hidden="true"></view>
+    <view class="stats-tape" aria-hidden="true"></view>
+    <view class="stats-content">
+      <view
+        wx:for="{{displayStats}}"
+        wx:key="key"
+        class="stat-item {{index > 0 ? 'stat-item--divided' : ''}}"
+      >
+        <text class="stat-label">{{item.label}}</text>
+        <text class="stat-value tone--{{item.tone}} {{item.fitClass}}">{{item.valueText}}</text>
+      </view>
+    </view>
+  </view>
+</view>

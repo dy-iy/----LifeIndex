@@ -1,6 +1,6 @@
 {
-  "backgroundColor": "#faf7f2",
-  "navigationBarBackgroundColor": "#faf7f2",
+  "backgroundColor": "#fbf7ee",
+  "navigationBarBackgroundColor": "#fbf7ee",
   "usingComponents": {
     "class-tab-bar": "/components/class-tab-bar/index",
     "timetable-assistant": "/components/timetable-assistant/index",

@@ -1,0 +1,62 @@
+/* Shared paper navigation: keep all selected tabs aligned with the index page. */
+.class-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 90;
+  background-color: #fbf7ee;
+  background-image: linear-gradient(125deg, rgba(255, 255, 255, .42), rgba(250, 239, 218, .12));
+  border-top: 1rpx solid #ece4d8;
+  box-shadow: 0 -4rpx 14rpx rgba(131, 108, 77, .035);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.class-nav-inner {
+  display: flex;
+  align-items: center;
+  height: 112rpx;
+  padding: 0 24rpx;
+}
+.class-nav-item {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  min-width: 0;
+  color: #8b9384;
+  font-size: 21rpx;
+  height: 100%;
+}
+.class-nav-icon {
+  position: relative;
+  z-index: 1;
+  width: 40rpx;
+  height: 40rpx;
+  margin-bottom: 8rpx;
+}
+.class-nav-active { color: #173e43; }
+.class-nav-active::before {
+  content: "";
+  position: absolute;
+  top: 6rpx;
+  left: 50%;
+  width: 100rpx;
+  height: 74rpx;
+  box-sizing: border-box;
+  border: 5rpx solid rgba(189, 145, 227, .45);
+  border-top-width: 8rpx;
+  border-radius: 50% 45% 52% 44%;
+  transform: translateX(-50%) rotate(-19deg);
+  pointer-events: none;
+}
+.class-nav-dot {
+  position: absolute;
+  width: 8rpx;
+  height: 8rpx;
+  background: #b787df;
+  border-radius: 50%;
+  bottom: 5rpx;
+  pointer-events: none;
+}

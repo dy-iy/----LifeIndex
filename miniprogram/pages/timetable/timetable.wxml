@@ -1,18 +1,18 @@
 <page-meta page-style="{{agentOpen || selectedLesson || editor === 'course' ? 'overflow: hidden;' : ''}}"/>
-<view class="page class-page {{semester ? 'has-semester' : ''}}">
+<view class="page class-page timetable-page timetable-surface {{semester ? 'has-semester' : ''}}">
   <view class="title-row"><view class="page-title">课表</view><image class="title-art" src="{{art.schedule}}" mode="aspectFit"/></view>
   <view wx:if="{{!semester}}" class="prototype-note"><view class="prototype-dot"></view><text>课表保存至个人账户，计时页将自动识别当前课程。</text></view>
-  <view wx:if="{{!loggedIn}}" class="empty-card"><view class="empty-title">让每一周有迹可循</view><view class="empty-copy">微信登录后，设置学期并保存自己的课程。</view><button class="primary-button" bindtap="goLogin">去「我的」登录</button></view>
+  <view wx:if="{{!loggedIn}}" class="empty-card"><view class="empty-title">让每一周有迹可循</view><view class="empty-copy">微信登录后，设置学期并保存自己的课程。</view><button size="mini" class="primary-button" bindtap="goLogin">去「我的」登录</button></view>
   <block wx:else>
     <view wx:if="{{message}}" class="saved-message">{{message}}</view>
-    <view wx:if="{{error}}" class="error-panel"><view class="error">{{error}}</view><button class="text-button" disabled="{{loading || saving}}" bindtap="reload">重新加载课表</button></view>
+    <view wx:if="{{error}}" class="error-panel"><view class="error">{{error}}</view><button size="mini" class="text-button" disabled="{{loading || saving}}" bindtap="reload">重新加载课表</button></view>
     <view wx:if="{{loading}}" class="loading-copy">正在读取个人课表…</view>
     <view wx:if="{{semester}}" class="semester-head">
       <picker class="{{(saving) ? 'picker-disabled' : ''}}" range="{{semesters}}" range-key="name" value="{{semesterIndex}}" disabled="{{saving}}" bindchange="selectSemester"><view class="picker-trigger semester-picker"><text class="picker-value">{{semester.name}}</text><view class="picker-chevron" aria-hidden="true"></view></view></picker>
       <view class="semester-actions"><text class="section-link" data-edit="{{true}}" bindtap="openSemester">设置</text><text class="section-link" bindtap="openSemester">＋ 新学期</text></view>
       <view class="small muted semester-meta">共 {{semester.total_weeks}} 周</view>
     </view>
-    <view wx:elif="{{!loading && !error && editor !== 'semester'}}" class="empty-card"><view class="empty-title">先安排这个学期</view><view class="empty-copy">选择真实的起止日期，再添加每周课程。</view><button class="primary-button" bindtap="openSemester">＋ 设置学期</button></view>
+    <view wx:elif="{{!loading && !error && editor !== 'semester'}}" class="empty-card"><view class="empty-title">先安排这个学期</view><view class="empty-copy">选择真实的起止日期，再添加每周课程。</view><button size="mini" class="primary-button" bindtap="openSemester">＋ 设置学期</button></view>
 
     <view wx:if="{{editor && editor !== 'course'}}" class="course-editor">
       <view class="row-between"><text class="section-title">{{editor === 'semester' ? (semesterForm.id ? '学期设置' : '新建学期') : '调整这一次课程'}}</text><text class="section-link" bindtap="closeEditor">收起</text></view>
@@ -40,44 +40,44 @@
         <text class="field-label">上课时间</text><view class="time-fields"><picker class="{{(saving) ? 'picker-disabled' : ''}}" mode="time" value="{{lessonForm.start_time}}" data-field="start_time" bindchange="inputField" disabled="{{saving}}"><view class="picker-trigger time-picker"><text class="picker-value">{{lessonForm.start_time}}</text><view class="picker-chevron" aria-hidden="true"></view></view></picker><text class="muted">—</text><picker class="{{(saving) ? 'picker-disabled' : ''}}" mode="time" value="{{lessonForm.end_time}}" data-field="end_time" bindchange="inputField" disabled="{{saving}}"><view class="picker-trigger time-picker"><text class="picker-value">{{lessonForm.end_time}}</text><view class="picker-chevron" aria-hidden="true"></view></view></picker></view>
         <text class="field-label">备注 <text class="muted">可选</text></text><input class="field-input" value="{{lessonForm.note}}" data-field="note" bindinput="inputField" maxlength="500" placeholder="例如：调至实验室上课" disabled="{{saving}}"/>
       </block>
-      <view wx:if="{{formError}}" class="error">{{formError}}</view><button wx:if="{{conflict}}" class="text-button" bindtap="rebaseVersion" disabled="{{saving}}">读取最新版本，保留输入</button>
-      <button wx:if="{{editor === 'semester'}}" class="primary-button editor-button" loading="{{saving}}" disabled="{{saving}}" bindtap="saveSemester">{{saving ? '正在保存…' : '保存学期'}}</button>
-      <button wx:else class="primary-button editor-button" loading="{{saving}}" disabled="{{saving}}" bindtap="saveLesson">{{saving ? '正在保存…' : '保存本次调整'}}</button>
+      <view wx:if="{{formError}}" class="error">{{formError}}</view><button size="mini" wx:if="{{conflict}}" class="text-button" bindtap="rebaseVersion" disabled="{{saving}}">读取最新版本，保留输入</button>
+      <button size="mini" wx:if="{{editor === 'semester'}}" class="primary-button editor-button" loading="{{saving}}" disabled="{{saving}}" bindtap="saveSemester">{{saving ? '正在保存…' : '保存学期'}}</button>
+      <button size="mini" wx:else class="primary-button editor-button" loading="{{saving}}" disabled="{{saving}}" bindtap="saveLesson">{{saving ? '正在保存…' : '保存本次调整'}}</button>
       <view class="rule-note">保存失败会保留输入。切换账户将清除本机草稿。</view>
     </view>
 
     <block wx:if="{{semester}}">
       <view class="section-head schedule-heading"><view><text class="eyebrow">WEEKLY PLANNER</text><text class="section-title">把一周安排好</text></view><view class="view-switch"><text class="{{viewMode === 'week' ? 'active' : ''}}" data-mode="week" bindtap="changeView">周课表</text><text class="{{viewMode === 'day' ? 'active' : ''}}" data-mode="day" bindtap="changeView">日程</text></view></view>
-      <view class="planner-toolbar"><view class="week-navigation"><button class="week-arrow" disabled="{{loading || saving || !canPreviousWeek}}" data-step="-1" bindtap="shiftWeek" aria-label="上一周">‹</button><picker class="{{(loading || saving) ? 'picker-disabled' : ''}}" range="{{weekOptions}}" range-key="label" value="{{weekIndex}}" disabled="{{loading || saving}}" bindchange="selectWeek"><view class="picker-trigger week-picker"><text class="picker-value">第 {{weekNumber || 1}} 周</text><view class="picker-chevron" aria-hidden="true"></view></view></picker><button class="week-arrow" disabled="{{loading || saving || !canNextWeek}}" data-step="1" bindtap="shiftWeek" aria-label="下一周">›</button></view><button class="today-button" disabled="{{loading || saving}}" bindtap="currentWeek">回到本周</button></view>
+      <view class="planner-toolbar"><view class="week-navigation"><button size="mini" class="week-arrow" disabled="{{loading || saving || !canPreviousWeek}}" data-step="-1" bindtap="shiftWeek" aria-label="上一周">‹</button><picker class="{{(loading || saving) ? 'picker-disabled' : ''}}" range="{{weekOptions}}" range-key="label" value="{{weekIndex}}" disabled="{{loading || saving}}" bindchange="selectWeek"><view class="picker-trigger week-picker"><text class="picker-value">第 {{weekNumber || 1}} 周</text><view class="picker-chevron" aria-hidden="true"></view></view></picker><button size="mini" class="week-arrow" disabled="{{loading || saving || !canNextWeek}}" data-step="1" bindtap="shiftWeek" aria-label="下一周">›</button></view><button size="mini" class="today-button" disabled="{{loading || saving}}" bindtap="currentWeek">回到本周</button></view>
       <view class="week-caption"><text>{{grid.weekStart}} — {{grid.weekEnd}}</text><text>{{loading ? '读取中…' : '本周 ' + grid.scheduledCount + ' 次课'}}</text></view>
       <week-timetable wx:if="{{viewMode === 'week' && grid}}" grid="{{grid}}" disabled="{{loading || saving}}" bind:selectslot="openGridSlot" bind:selectlesson="inspectLesson"/>
       <block wx:if="{{viewMode === 'day'}}">
       <picker class="{{(loading || saving) ? 'picker-disabled' : ''}}" mode="date" value="{{selectedDate}}" start="{{semester.start_date}}" end="{{semester.end_date}}" disabled="{{loading || saving}}" bindchange="changeDate"><view class="picker-trigger day-date-picker"><text class="picker-value">{{selectedDate}}</text><text class="picker-detail">选择日期</text><view class="picker-chevron" aria-hidden="true"></view></view></picker>
       <view class="week-strip"><view wx:for="{{weekDays}}" wx:key="date" class="week-day {{selectedDate === item.date ? 'selected' : ''}} {{item.disabled ? 'outside-term' : ''}}" data-date="{{item.date}}" data-disabled="{{item.disabled}}" bindtap="chooseDay" role="button" aria-label="{{item.date}} 周{{item.label}}"><text class="week-prefix">周{{item.label}}</text><text class="week-name">{{item.number}}</text><view class="week-dot {{item.hasCourse ? 'has-course' : ''}}"></view></view></view>
       <view wx:if="{{!loading && !visibleLessons.length}}" class="schedule-empty"><text class="empty-number serif">— : —</text><view class="empty-title">{{viewMode === 'week' ? '本周暂无课程' : '当天暂无课程'}}</view><view class="empty-copy">留一点空白，也可以安排新的课程。</view></view>
-      <view wx:for="{{visibleLessons}}" wx:key="id" class="course-ticket {{item.status !== 'scheduled' ? 'inactive-ticket' : ''}}"><view class="ticket-top"><text class="eyebrow">{{item.local_date}} · 第 {{item.actualWeek}} 周</text><text class="pill">{{item.statusLabel}}</text></view><view class="course-name">{{item.name}}</view><view class="course-time serif">{{item.start_time}}<text> — </text>{{item.end_time}}</view><view wx:if="{{item.location}}" class="small muted form-help">{{item.location}}</view><view wx:if="{{item.note}}" class="small muted">{{item.note}}</view><button wx:if="{{item.status === 'scheduled'}}" class="text-button ticket-timer" data-id="{{item.id}}" bindtap="openTimer">前往计时 →</button><view class="ticket-divider"></view><view class="row-between"><text class="small muted">{{item.duration_minutes}} 分钟{{item.is_override ? ' · 已单独调整' : ''}}</text><text wx:if="{{item.canAdjust}}" class="ticket-edit" data-id="{{item.id}}" bindtap="openLesson">调课 / 请假 / 停课 ↗</text><text wx:else class="small muted">已开始 · 保留记录</text></view></view>
+      <view wx:for="{{visibleLessons}}" wx:key="id" class="course-ticket {{item.status !== 'scheduled' ? 'inactive-ticket' : ''}}"><view class="ticket-top"><text class="eyebrow">{{item.local_date}} · 第 {{item.actualWeek}} 周</text><text class="pill">{{item.statusLabel}}</text></view><view class="course-name">{{item.name}}</view><view class="course-time serif">{{item.start_time}}<text> — </text>{{item.end_time}}</view><view wx:if="{{item.location}}" class="small muted form-help">{{item.location}}</view><view wx:if="{{item.note}}" class="small muted">{{item.note}}</view><button size="mini" wx:if="{{item.status === 'scheduled'}}" class="text-button ticket-timer" data-id="{{item.id}}" bindtap="openTimer">前往计时 →</button><view class="ticket-divider"></view><view class="row-between"><text class="small muted">{{item.duration_minutes}} 分钟{{item.is_override ? ' · 已单独调整' : ''}}</text><text wx:if="{{item.canAdjust}}" class="ticket-edit" data-id="{{item.id}}" bindtap="openLesson">调课 / 请假 / 停课 ↗</text><text wx:else class="small muted">已开始 · 保留记录</text></view></view>
       </block>
-      <view class="arrange-actions"><button class="primary-button" disabled="{{saving || loading}}" bindtap="openCourse">＋ 手动排课</button><button class="secondary-button" bindtap="openAgent">Agent自动导入</button></view>
+      <view class="arrange-actions"><button size="mini" class="primary-button" disabled="{{saving || loading}}" bindtap="openCourse">＋ 手动排课</button><button size="mini" class="secondary-button" bindtap="openAgent">Agent自动导入</button></view>
       <view class="section-head" bindtap="toggleCourses"><text class="section-title">每周课程 · {{courses.length}} 门</text><view class="course-list-toggle"><text>{{courseListOpen ? '收起' : '管理'}}</text><view class="picker-chevron {{courseListOpen ? 'picker-chevron--up' : ''}}" aria-hidden="true"></view></view></view>
       <block wx:if="{{courseListOpen}}"><view wx:if="{{!courses.length}}" class="small muted">尚未添加每周课程。</view><view wx:for="{{courses}}" wx:key="id" class="template-row"><view class="template-name">{{item.name}}</view><view class="small muted">周{{item.weekdayLabel}} · {{item.start_time}}–{{item.end_time}} · {{item.patternLabel}}</view><view class="small muted">第 {{item.start_week}}–{{item.end_week}} 周 {{item.location}}</view><view class="template-actions"><text class="section-link" data-id="{{item.id}}" bindtap="openCourse">编辑</text><text class="section-link danger" data-id="{{item.id}}" bindtap="deleteCourse">删除</text></view></view></block>
     </block>
   </block>
-  <view class="timer-entry"><button class="text-button" bindtap="openTimer">前往计时 →</button></view>
+  <view class="timer-entry"><button size="mini" class="text-button" bindtap="openTimer">前往计时 →</button></view>
 </view>
 <class-tab-bar selected="{{1}}" bind:select="switchClassTab"/>
-<view wx:if="{{loggedIn && editor === 'course'}}" class="course-editor-overlay" style="bottom: {{courseKeyboardHeight}}px;">
+<view wx:if="{{loggedIn && editor === 'course'}}" class="course-editor-overlay timetable-surface" style="bottom: {{courseKeyboardHeight}}px;">
   <view class="course-editor-backdrop" catchtap="closeEditor" catchtouchmove="noop"></view>
   <view class="course-dialog" role="dialog" aria-modal="true" aria-label="{{courseForm.id ? '编辑课程' : '添加课程'}}" catchtap="noop">
     <view class="course-dialog-header row-between" catchtouchmove="noop">
       <view><text class="eyebrow">安排一堂课</text><text class="course-dialog-title">{{courseForm.id ? '编辑课程' : '添加课程'}}</text></view>
-      <button class="detail-close" bindtap="closeEditor" disabled="{{saving}}" aria-label="关闭课程填写窗口">×</button>
+      <button size="mini" class="detail-close" bindtap="closeEditor" disabled="{{saving}}" aria-label="关闭课程填写窗口">×</button>
     </view>
     <view class="course-dialog-body">
       <scroll-view class="course-dialog-scroll" scroll-y="{{true}}" scroll-into-view="{{courseScrollTarget}}" enhanced="{{true}}" show-scrollbar="{{false}}">
         <view class="course-dialog-content">
         <view wx:if="{{courseForm.placementDate}}" class="placement-note">
           <view>已选 {{courseForm.placementDate}} · 周{{days[courseForm.weekdayIndex]}}</view>
-          <view class="placement-options"><button class="{{courseForm.start_week === courseForm.end_week ? 'chosen' : ''}}" data-repeat="{{false}}" bindtap="setPlacementRepeat" disabled="{{saving}}">仅这一周</button><button class="{{courseForm.start_week !== courseForm.end_week ? 'chosen' : ''}}" data-repeat="{{true}}" bindtap="setPlacementRepeat" disabled="{{saving}}">从本周起每周</button></view>
+          <view class="placement-options"><button size="mini" class="placement-button {{courseForm.start_week === courseForm.end_week ? 'chosen' : ''}}" data-repeat="{{false}}" bindtap="setPlacementRepeat" disabled="{{saving}}">仅这一周</button><button size="mini" class="placement-button {{courseForm.start_week !== courseForm.end_week ? 'chosen' : ''}}" data-repeat="{{true}}" bindtap="setPlacementRepeat" disabled="{{saving}}">从本周起每周</button></view>
           <text class="small muted">下方可继续调整周次、单双周和时间。</text>
         </view>
         <text class="field-label">课程名称</text><input id="course-field-name" adjust-position="{{false}}" bindfocus="onCourseFieldFocus" bindkeyboardheightchange="onCourseKeyboardHeightChange" class="field-input" value="{{courseForm.name}}" data-field="name" bindinput="inputField" maxlength="100" placeholder="例如：高等数学" disabled="{{saving}}"/>
@@ -95,18 +95,18 @@
     </view>
     <view class="course-dialog-footer" catchtouchmove="noop">
       <view wx:if="{{formError}}" class="error">{{formError}}</view>
-      <button wx:if="{{conflict}}" class="text-button" bindtap="rebaseVersion" disabled="{{saving}}">读取最新版本，保留输入</button>
+      <button size="mini" wx:if="{{conflict}}" class="text-button" bindtap="rebaseVersion" disabled="{{saving}}">读取最新版本，保留输入</button>
       <view class="course-dialog-actions">
-        <button class="secondary-button" bindtap="closeEditor" disabled="{{saving}}">取消</button>
-        <button class="primary-button" loading="{{saving}}" disabled="{{saving}}" bindtap="saveCourse">{{saving ? '正在保存…' : '保存课程'}}</button>
+        <button size="mini" class="secondary-button" bindtap="closeEditor" disabled="{{saving}}">取消</button>
+        <button size="mini" class="primary-button" loading="{{saving}}" disabled="{{saving}}" bindtap="saveCourse">{{saving ? '正在保存…' : '保存课程'}}</button>
       </view>
     </view>
   </view>
 </view>
-<view wx:if="{{selectedLesson}}" class="lesson-overlay" catchtouchmove="noop">
+<view wx:if="{{selectedLesson}}" class="lesson-overlay timetable-surface" catchtouchmove="noop">
   <view class="lesson-backdrop" bindtap="closeLessonDetails"></view>
   <view class="lesson-dialog" role="dialog" aria-label="课程详情">
-    <view class="row-between"><text class="eyebrow">COURSE DETAILS</text><button class="detail-close" bindtap="closeLessonDetails" aria-label="关闭课程详情">×</button></view>
+    <view class="row-between"><text class="eyebrow">COURSE DETAILS</text><button size="mini" class="detail-close" bindtap="closeLessonDetails" aria-label="关闭课程详情">×</button></view>
     <scroll-view scroll-y class="lesson-detail-body"><view class="detail-name">{{selectedLesson.name}}</view>
       <view class="detail-time serif">{{selectedLesson.start_time}} — {{selectedLesson.end_time}}</view>
       <view class="detail-date">{{selectedLesson.local_date}} · 第 {{selectedLesson.actualWeek}} 周</view>
@@ -116,13 +116,13 @@
       <view wx:if="{{selectedLesson.note}}" class="detail-info"><text class="muted">备注</text><text>{{selectedLesson.note}}</text></view>
       <view wx:if="{{error}}" class="error">{{error}}</view>
     </scroll-view>
-    <button wx:if="{{selectedLesson.status === 'scheduled'}}" class="primary-button detail-timer" bindtap="openTimer">前往计时（自动识别当前课程）→</button>
-    <button wx:if="{{selectedLesson.canAdjust}}" class="primary-button" bindtap="editSelectedLesson">调整这一次 · 调课 / 请假 / 停课</button>
+    <button size="mini" wx:if="{{selectedLesson.status === 'scheduled'}}" class="primary-button detail-timer" bindtap="openTimer">前往计时（自动识别当前课程）→</button>
+    <button size="mini" wx:if="{{selectedLesson.canAdjust}}" class="primary-button" bindtap="editSelectedLesson">调整这一次 · 调课 / 请假 / 停课</button>
     <view wx:else class="detail-history">已开始的课程不能调课；误录且没有学习记录的安排可以删除。</view>
-    <button wx:if="{{selectedLesson.canEditCourse}}" class="text-button" bindtap="editSelectedCourse">编辑这门课的每周安排 →</button>
+    <button size="mini" wx:if="{{selectedLesson.canEditCourse}}" class="text-button" bindtap="editSelectedCourse">编辑这门课的每周安排 →</button>
     <view class="lesson-delete-actions">
-      <button class="text-button danger" disabled="{{saving}}" data-id="{{selectedLesson.id}}" bindtap="deleteLesson">删除这一次</button>
-      <button wx:if="{{selectedLesson.canEditCourse}}" class="text-button danger" disabled="{{saving}}" data-id="{{selectedLesson.course_id}}" bindtap="deleteCourse">删除整门课</button>
+      <button size="mini" class="text-button danger" disabled="{{saving}}" data-id="{{selectedLesson.id}}" bindtap="deleteLesson">删除这一次</button>
+      <button size="mini" wx:if="{{selectedLesson.canEditCourse}}" class="text-button danger" disabled="{{saving}}" data-id="{{selectedLesson.course_id}}" bindtap="deleteCourse">删除整门课</button>
     </view>
   </view>
 </view>

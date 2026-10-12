@@ -2,6 +2,7 @@ const { goToClassTab } = require("../../services/class-navigation");
 const art = require("../../services/art");
 const timer = require("../../services/timer");
 const session = require("../../services/session");
+const { onShareAppMessage } = require("../../services/share");
 
 function formatDuration(value) {
   const seconds = Math.max(0, Math.floor(Number(value) || 0));
@@ -18,6 +19,7 @@ function initialData() {
     totalElapsed: "00:00", preparation: "00:00", graceRemaining: "00:00", cutoffReached: false, finishNotice: "" };
 }
 Page({
+  onShareAppMessage,
   data: initialData(),
   onLoad() {
     this._loadId = 0;

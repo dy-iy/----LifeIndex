@@ -1,1 +1,9 @@
-<view class="nav"><view class="nav-inner"><view wx:for="{{tabs}}" wx:key="path" class="nav-item {{selected === index ? 'active' : ''}}" data-path="{{item.path}}" bindtap="switchTab" role="button" aria-label="{{item.text}}"><image class="nav-icon" src="{{selected === index ? item.activeIcon : item.icon}}"/><text>{{item.text}}</text><view class="nav-dot" wx:if="{{selected === index}}"></view></view></view></view>
+<view class="class-nav">
+  <view class="class-nav-inner">
+    <view wx:for="{{tabs}}" wx:key="path" class="class-nav-item {{selected === index ? 'class-nav-active' : ''}}" data-path="{{item.path}}" bindtap="switchTab" role="button" aria-label="{{item.text}}">
+      <image class="class-nav-icon" src="{{selected === index ? item.activeIcon : item.icon}}" />
+      <text>{{item.text}}</text>
+      <view wx:if="{{selected === index}}" class="class-nav-dot"></view>
+    </view>
+  </view>
+</view>

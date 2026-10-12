@@ -4,6 +4,7 @@ const session = require("../../services/session");
 const timetable = require("../../services/timetable");
 const { buildWeekGrid } = require("../../services/timetable-grid");
 const { DEFAULT_TIMEZONE } = require("../../config/timezone");
+const { onShareAppMessage } = require("../../services/share");
 const DAYS = ["一", "二", "三", "四", "五", "六", "日"];
 const PATTERNS = ["每周", "单周", "双周"];
 const PATTERN_VALUES = ["all", "odd", "even"];
@@ -20,6 +21,7 @@ function fail(message) { throw new Error(message); }
 function validDate(value) { return /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(Date.parse(`${value}T00:00:00Z`)) && new Date(`${value}T00:00:00Z`).toISOString().slice(0, 10) === value; }
 function timeRange(start, end) { if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(start) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(end) || end <= start) fail("结束时间须晚于开始时间，且在同一天内。"); }
 Page({
+  onShareAppMessage,
   data: initialData(),
   onLoad() {
     this._snapshot = timetable.identity(); this._loadId = 0;

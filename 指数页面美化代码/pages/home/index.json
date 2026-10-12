@@ -1,0 +1,12 @@
+{
+  "navigationStyle": "default",
+  "navigationBarTitleText": "上课指数",
+  "navigationBarBackgroundColor": "#FBF7EE",
+  "navigationBarTextStyle": "black",
+  "backgroundColor": "#FBF7EE",
+  "enablePullDownRefresh": false,
+  "usingComponents": {
+    "market-quote": "/components/market-quote/index",
+    "market-chart-panel": "/components/market-chart-panel/index"
+  }
+}

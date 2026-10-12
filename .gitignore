@@ -24,10 +24,6 @@
 
 # 内部设计、部署历史、个人反馈与原始截图
 # 对外使用说明集中在根目录 README.md，以下本地资料不上传
-/第一版计划书.md
-/功能接口与架构审查.md
-/指数涨跌逻辑.md
-/体验记录/
 /backend/README.md
 /backend/agents/README.md
 /backend/agents/ENGINEERING.md

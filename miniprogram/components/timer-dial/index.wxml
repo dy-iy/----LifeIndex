@@ -1,0 +1,39 @@
+<view class="td-dial">
+  <view class="td-ring" aria-hidden="true"></view>
+  <view class="td-face" aria-hidden="true"></view>
+
+  <view class="td-ticks" aria-hidden="true">
+    <view
+      wx:for="{{ticks}}"
+      wx:key="id"
+      class="td-tick-arm"
+      style="transform: rotate({{item.angle}}deg);"
+    >
+      <view class="td-tick {{item.major ? 'td-tick--major' : ''}}"></view>
+    </view>
+  </view>
+
+  <view class="td-crown" aria-hidden="true"></view>
+
+  <view class="td-reading">
+    <text class="td-label">{{label}}</text>
+    <text class="td-time {{timeText.length > 5 ? 'td-time--compact' : ''}} {{timeText.length > 8 ? 'td-time--small' : ''}}">{{timeText}}</text>
+    <view class="td-status {{actionable ? 'td-status--action' : ''}}">
+      <!-- Recreate the caption when it changes to avoid clipped first paints on iOS. -->
+      <view wx:for="{{[statusText]}}" wx:for-item="caption" wx:key="*this" class="td-status-text {{statusKind ? 'td-status--' + statusKind : ''}}">{{caption}}</view>
+    </view>
+  </view>
+
+  <image
+    wx:if="{{catSrc}}"
+    class="td-cat"
+    src="{{catSrc}}"
+    mode="aspectFit"
+    aria-hidden="true"
+  />
+
+  <view class="td-ink td-ink--left" aria-hidden="true"></view>
+  <view class="td-ink td-ink--right" aria-hidden="true"></view>
+  <view class="td-spark td-spark--gold" aria-hidden="true"></view>
+  <view class="td-spark td-spark--violet" aria-hidden="true"></view>
+</view>

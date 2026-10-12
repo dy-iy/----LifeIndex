@@ -1,113 +1,106 @@
-@import "../../class-theme.wxss";
+page { background: #fbf7ee; color: #183844; }
 
-.market-title { font-family: "Songti SC", serif; font-size: 48rpx; margin-top: 0; }.market-quote { display: flex; justify-content: space-between; align-items: center; margin-top: 12rpx; }.market-value { font-size: 97rpx; }.market-unit { font-size: 22rpx; color: #8a997c; margin-left: 17rpx; }.market-change { text-align: right; font-size: 23rpx; color: #72876c; line-height: 1.7; }.market-meta { display: flex; margin-top: 18rpx; padding: 24rpx 22rpx; border: 1rpx solid #dce5eb; border-radius: 20rpx; background: #eff5f9; }.market-meta > view { flex: 1; padding-left: 23rpx; border-left: 1rpx solid #d7ddcc; font-size: 21rpx; color: #87937a; }.market-meta > view:first-child { padding-left: 0; border-left: 0; }.market-meta .serif { display: block; margin-top: 8rpx; font-size: 25rpx; color: #566d50; }.chart-tabs { display: flex; border-bottom: 1rpx solid #d1d9c2; margin-top: 15rpx; }.chart-tab { position: relative; flex: 1; text-align: center; padding: 23rpx 0; font-size: 26rpx; color: #8c987e; }.chart-tab.active { color: #274c37; border-bottom: 3rpx solid #274c37; }.chart-tab.coming { color: #a4ac95; }.chart-tab text { display: block; font-size: 14rpx; position: absolute; right: 11rpx; top: 10rpx; color: #a8ad98; }.chart { position: relative; height: 470rpx; margin-top: 18rpx; padding: 0 16rpx; border: 1rpx solid #e4dfd6; border-radius: 22rpx; background: #fffdf9; overflow: hidden; }.chart-scroll { width: 100%; height: 470rpx; }.chart-grid { width: 960rpx; height: 470rpx; padding-top: 40rpx; }.grid-line { height: 79rpx; border-top: 1rpx dashed #dce1cf; }.grid-line text { font-size: 18rpx; color: #adb49e; display: block; transform: translateY(-15rpx); background: #fffdf9; width: 25rpx; }.axis-caption { font-size: 18rpx; color: #a8af98; margin-top: -5rpx; padding-left: 6rpx; }.chart-empty { position: absolute; top: 56rpx; left: 30rpx; right: 30rpx; text-align: center; pointer-events: none; }.chart-empty-art { width: 220rpx; height: 170rpx; }.chart-empty .empty-title { font-size: 29rpx; margin-top: 3rpx; }.chart-caption { display: flex; justify-content: space-between; font-size: 18rpx; color: #9ca68c; border-bottom: 1rpx solid #d5ddc7; padding: 9rpx 0 23rpx; }
+.ip-page {
+  position: relative;
+  box-sizing: border-box;
+  min-height: 100vh;
+  overflow: hidden;
+  padding: 28rpx 40rpx 136rpx;
+  padding-bottom: calc(136rpx + constant(safe-area-inset-bottom));
+  padding-bottom: calc(136rpx + env(safe-area-inset-bottom));
+  color: #183844;
+  background-color: #fbf7ee;
+  background-image:
+    radial-gradient(rgba(149, 119, 73, .055) .6px, transparent 1px),
+    linear-gradient(125deg, rgba(255, 255, 255, .42), rgba(250, 239, 218, .12));
+  background-size: 7rpx 7rpx, 100% 100%;
+  font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+}
 
-.market-status { display: flex; justify-content: space-between; gap: 20rpx; margin: 12rpx 0; font-size: 20rpx; color: #84917e; }
-.market-alert { margin: 20rpx 0; padding: 20rpx; border-radius: 14rpx; background: #f6ebdc; font-size: 23rpx; line-height: 1.7; overflow-wrap: anywhere; }
-.rise { color: #e53935; }.fall { color: #15945e; }.flat { color: #737b80; }
-.market-value { font-family: -apple-system, BlinkMacSystemFont, "DIN Alternate", sans-serif; font-size: 88rpx; font-weight: 650; line-height: 1.2; letter-spacing: -3rpx; font-variant-numeric: tabular-nums; }
-.market-change { font-weight: 600; line-height: 1.5; }
-.market-percent { font-size: 34rpx; }
-.market-points { font-size: 23rpx; margin-top: 6rpx; }
-.market-meta { background: #fffdf9; padding: 22rpx 20rpx; border-color: #e2e1da; border-radius: 14rpx; }
-.market-meta > view { padding-left: 18rpx; border-color: #e4e4df; }
-.meta-value { display: block; margin-top: 10rpx; font-size: 27rpx; font-weight: 600; font-variant-numeric: tabular-nums; }
-.chart { height: auto; min-height: 412rpx; padding: 0; }.chart-scroll { height: 412rpx; }.chart-plot { height: 412rpx; position: relative; }
-.chart-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 20rpx; font-size: 22rpx; color: #758272; margin-top: 20rpx; min-height: 68rpx; }
-.chart-toolbar > text { flex-shrink: 0; }
-.plot-grid { position: absolute; left: 14rpx; right: 14rpx; border-top: 1rpx dashed #dde1d4; height: 1rpx; }.plot-grid text { position: absolute; top: -13rpx; font-size: 17rpx; background: #fffdf9; padding-right: 8rpx; color: #929e89; }
-.plot-line { position: absolute; height: 3rpx; transform-origin: 0 50%; }.plot-point-hit { position: absolute; width: 44rpx; height: 44rpx; display: flex; align-items: center; justify-content: center; }.plot-point { width: 10rpx; height: 10rpx; border: 3rpx solid currentColor; background: #fffdf9; border-radius: 50%; }
-.plot-label { position: absolute; top: 347rpx; width: 64rpx; text-align: center; font-size: 18rpx; color: #89957e; }.candle-hit { position: absolute; top: 0; width: 52rpx; height: 404rpx; }.candle-wick { position: absolute; left: 25rpx; width: 2rpx; background: currentColor; }.candle-body { position: absolute; left: 13rpx; width: 26rpx; background: currentColor; }.candle-label { position: absolute; top: 347rpx; left: -6rpx; width: 64rpx; text-align: center; font-size: 18rpx; color: #89957e; }.candle-ongoing { position: absolute; top: 375rpx; left: -6rpx; width: 64rpx; font-size: 16rpx; text-align: center; color: #ba6949; }
-.chart-empty { top: 55rpx; }.chart-empty-note { color: #9ba48e; font-size: 21rpx; margin-top: 14rpx; }.chart-caption { font-size: 18rpx; gap: 20rpx; }.candle-detail { background: #eff5f9; border-radius: 16rpx; padding: 20rpx; font-size: 23rpx; line-height: 1.8; margin-top: 16rpx; }
-.market-live { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8rpx; color: #737373; font-size: 20rpx; }
-.chart { background: #ffffff; border-color: #e5e5e5; border-radius: 8rpx; }
-.plot-grid { border-color: #ededed; }
-.plot-grid text { background: #ffffff; color: #888888; z-index: 1; }
-.intraday-line { position: absolute; left: 0; top: 0; width: 676rpx; height: 330rpx; pointer-events: none; }
-.plot-point { width: 6rpx; height: 6rpx; border: 1rpx solid #888888; background: #888888; }
-.plot-point-hit { z-index: 2; pointer-events: none; }
-.plot-crosshair-v { position: absolute; top: 28rpx; height: 320rpx; border-left: 1rpx solid #628297; pointer-events: none; z-index: 4; }
-.plot-crosshair-h { position: absolute; border-top: 1rpx solid #628297; pointer-events: none; z-index: 4; }
-.chart-stage { position: relative; height: 412rpx; }
-.chart-axis { position: absolute; top: 0; left: 0; width: 80rpx; height: 330rpx; background: #fff; pointer-events: none; z-index: 3; }
-.chart-axis-label { position: absolute; left: 8rpx; font-size: 17rpx; line-height: 26rpx; font-variant-numeric: tabular-nums; }
-.crosshair-price, .crosshair-date { position: absolute; background: #397da7; color: #fff; text-align: center; font-size: 19rpx; line-height: 34rpx; border-radius: 3rpx; pointer-events: none; z-index: 5; font-variant-numeric: tabular-nums; }
-.crosshair-price { left: 2rpx; width: 78rpx; }
-.crosshair-date { top: 340rpx; width: 164rpx; }
-.candle-hit { width: 28rpx; height: 330rpx; }
-.candle-selected { background: rgba(57,125,167,.05); }
-.candle-wick { left: 13rpx; }
-.candle-body { left: 5rpx; width: 18rpx; box-sizing: border-box; }
-.candle-body.rise { color: #e53935; border: 2rpx solid #e53935; background: #ffffff; }
-.candle-body.fall { color: #15945e; }
-.candle-body.flat { color: #737b80; }
-.candle-ongoing { left: -18rpx; top: 380rpx; font-size: 16rpx; color: #8a7458; }
-.plot-label { color: #7e8687; top: 348rpx; font-size: 19rpx; }
-.chart-caption { align-items: flex-start; color: #838d87; font-size: 18rpx; line-height: 1.5; }
+.ip-content { position: relative; z-index: 1; }
+.ip-chart-section { margin-top: 21rpx; }
 
-/* Mobile quote layout: keep chart space and readable text at narrow widths. */
-.market-page { padding-top: 22rpx; }
-.market-title { font-size: 40rpx; }
-.market-quote { display: block; margin-top: 14rpx; }
-.market-price-row { display: flex; align-items: baseline; }
-.market-value { font-size: 86rpx; font-weight: 700; letter-spacing: -2rpx; line-height: 1.15; }
-.market-unit { font-size: 12px; margin-left: 12rpx; }
-.market-change { display: flex; align-items: baseline; justify-content: flex-start; gap: 24rpx; margin-top: 8rpx; text-align: left; line-height: 1.3; font-variant-numeric: tabular-nums; }
-.market-points, .market-percent { font-size: 20px; font-weight: 600; white-space: nowrap; }
-.market-points { margin-top: 0; }
-.market-change-unit { font-size: 12px; font-weight: 400; margin-left: 8rpx; }
-.market-status { margin: 8rpx 0 4rpx; font-size: 13px; align-items: center; gap: 12rpx; min-height: 36px; }
-.market-status .section-link { font-size: 12px; padding: 12rpx 0 12rpx 24rpx; }
-.market-datetime { color: #78847e; font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.market-header-refresh { flex-shrink: 0; }
-.market-live { font-size: 11px; gap: 6rpx 16rpx; line-height: 1.7; }
-.market-meta { margin-top: 14rpx; padding: 16rpx 16rpx; border-radius: 12rpx; }
-.market-meta > view { font-size: 11px; padding-left: 14rpx; min-width: 0; }
-.meta-value { font-size: 14px; margin-top: 8rpx; font-family: -apple-system, BlinkMacSystemFont, "Arial", sans-serif; }
-.chart-tabs { margin-top: 12rpx; border-bottom-color: #dfe4e1; }
-.chart-tab { padding: 0; min-height: 44px; display: flex; align-items: center; justify-content: center; font-size: 15px; color: #7b8582; border-bottom: 0; }
-.chart-tab.active { color: #293f3b; border-bottom: 0; font-weight: 600; }
-.chart-tab.active::after { content: ""; position: absolute; bottom: 0; width: 28rpx; height: 5rpx; border-radius: 4rpx; background: #d66b52; }
-.chart-toolbar { margin-top: 6rpx; min-height: 40px; font-size: 12px; gap: 12rpx; }
-.chart-period-note { color: #818a86; }
-.chart-loading { color: #8b9390; font-size: 11px; }
-.chart-zoom { display: flex; align-items: center; gap: 8rpx; margin-left: auto; flex-shrink: 0; color: #818a86; font-size: 11px; }
-.chart-zoom .chart-zoom-button { width: 36px; height: 36px; min-width: 36px; padding: 0; margin: 0; line-height: 34px; font-size: 20px; color: #465950; background: #fffdf9; border: 1rpx solid #dfe4df; border-radius: 8rpx; }
-.chart-zoom .chart-zoom-button[disabled] { color: #bfc7c2; background: #f1f3f0; }
-.chart { margin-top: 8rpx; min-height: 462rpx; border-color: #dfe4e1; border-radius: 12rpx; }
-.chart-scroll, .chart-plot, .chart-stage { height: 462rpx; }
-.intraday-line { height: 390rpx; }
-.plot-grid { border-color: #ecefee; }
-.chart-axis { width: 104rpx; height: 390rpx; }
-.chart-axis-label { font-size: 11px; line-height: 16px; transform: translateY(-50%); color: #7b8580; font-family: -apple-system, BlinkMacSystemFont, "Arial", sans-serif; }
+/* slot 内的节点属于页面，容器样式保留在页面 WXSS 中。 */
+.ip-chart-host { box-sizing: border-box; width: 100%; height: 100%; min-width: 0; }
+
+.market-loading { margin-top: 4rpx; color: #879087; font-size: 22rpx; line-height: 32rpx; }
+.market-alert { margin: 20rpx 0; padding: 18rpx 22rpx; border: 1rpx solid #e9dfd2; border-radius: 10rpx; background: #fff9ee; color: #7e796e; font-size: 24rpx; line-height: 1.7; overflow-wrap: anywhere; }
+.market-action { margin: 8rpx 0 0; padding: 14rpx; color: #668397; background: transparent; font-size: 25rpx; line-height: 1.5; border-radius: 8rpx; }
+.market-action::after { border: 0; }
+.market-action[disabled] { color: #a4ada5; background: transparent; }
+.market-history { margin-top: 16rpx; }
+
+/* The plot's rpx coordinates and SVG height come from services/class-index.js. */
+.chart { position: relative; width: 100%; height: 462rpx; overflow: hidden; background: #fff; }
+.chart-stage { position: relative; height: 462rpx; }
+.chart-scroll { display: block; width: 100%; height: 462rpx; }
+.chart-plot { position: relative; height: 462rpx; }
+.plot-grid { position: absolute; left: 104rpx; right: 44rpx; height: 1rpx; border-top: 1rpx dashed #ecefee; }
+.intraday-line { position: absolute; top: 0; left: 0; height: 390rpx; pointer-events: none; }
+.plot-point-hit { position: absolute; z-index: 2; display: flex; align-items: center; justify-content: center; width: 44rpx; height: 44rpx; pointer-events: none; }
+.plot-point { width: 6rpx; height: 6rpx; border: 1rpx solid #888; border-radius: 50%; background: #888; }
+.plot-label { position: absolute; top: 392rpx; width: 80rpx; color: #7d8884; font-size: 22rpx; line-height: 44rpx; text-align: center; white-space: nowrap; }
+.chart-axis { position: absolute; z-index: 3; top: 0; left: 0; width: 104rpx; height: 390rpx; background: #fff; pointer-events: none; }
+.chart-axis-label { position: absolute; left: 8rpx; color: #7d8884; font-size: 21rpx; line-height: 32rpx; font-variant-numeric: tabular-nums; transform: translateY(-50%); }
 .chart-axis-label.rise { color: #e53935; }
 .chart-axis-label.fall { color: #15945e; }
-.plot-label { top: 392rpx; width: 80rpx; font-size: 11px; line-height: 24px; color: #7b8580; white-space: nowrap; }
-.candle-hit { height: 390rpx; }
-.plot-crosshair-v { top: 24rpx; height: 376rpx; border-color: #8c9ca3; }
-.plot-crosshair-h { border-color: #8c9ca3; }
-.crosshair-price, .crosshair-date { font-size: 11px; line-height: 44rpx; background: #49758f; border-radius: 4rpx; }
-.crosshair-price { width: 102rpx; }
+.candle-hit { position: absolute; top: 0; height: 390rpx; }
+.candle-selected { background: rgba(57, 125, 167, .05); }
+.candle-wick { position: absolute; width: 2rpx; background: currentColor; }
+.candle-body { position: absolute; box-sizing: border-box; background: currentColor; }
+.candle-body.rise { color: #e53935; border: 2rpx solid #e53935; background: #fff; }
+.candle-body.fall { color: #15945e; }
+.candle-body.flat { color: #737b80; }
+.plot-crosshair-v { position: absolute; z-index: 4; top: 24rpx; height: 376rpx; border-left: 1rpx solid #8c9ca3; pointer-events: none; }
+.plot-crosshair-h { position: absolute; z-index: 4; border-top: 1rpx solid #8c9ca3; pointer-events: none; }
+.crosshair-price, .crosshair-date { position: absolute; z-index: 5; border-radius: 4rpx; background: #49758f; color: #fff; font-size: 22rpx; line-height: 44rpx; font-variant-numeric: tabular-nums; text-align: center; pointer-events: none; }
+.crosshair-price { left: 2rpx; width: 102rpx; }
 .crosshair-date { top: 392rpx; }
-.crosshair-dot { position: absolute; width: 12rpx; height: 12rpx; border: 2rpx solid #fff; background: #49758f; border-radius: 50%; z-index: 5; pointer-events: none; }
-.chart-caption { font-size: 11px; gap: 10rpx; padding: 14rpx 0 22rpx; }
-.chart-caption-copy { display: flex; align-items: flex-start; justify-content: space-between; gap: 10rpx; flex: 1; min-width: 0; }
-.chart-gesture-note { text-align: right; }
-.chart-caption-controls { align-items: center; }
-.chart-caption-controls .chart-caption-copy { flex-direction: column; gap: 4rpx; }
-.chart-caption-controls .chart-gesture-note { text-align: left; }
-.chart-legend { display: flex; align-items: center; gap: 6rpx; flex-shrink: 0; }
-.legend-rise, .legend-fall { width: 8rpx; height: 16rpx; border-radius: 1rpx; }
-.legend-rise { background: #e53935; }
-.legend-fall { background: #15945e; margin-left: 10rpx; }
-.chart-count { color: #929b96; margin-left: 8rpx; }
-.chart-history-hint { position: absolute; top: 156rpx; right: 24rpx; text-align: center; color: #a4afa8; font-size: 12px; line-height: 1.8; pointer-events: none; }
+.crosshair-dot { position: absolute; z-index: 5; width: 12rpx; height: 12rpx; border: 2rpx solid #fff; border-radius: 50%; background: #49758f; pointer-events: none; }
+.chart-history-hint { position: absolute; top: 156rpx; right: 24rpx; color: #a4afa8; font-size: 24rpx; line-height: 1.8; text-align: center; pointer-events: none; }
 .chart-history-hint > text { display: block; }
-.chart-history-hint > text:last-child { color: #b2bbb6; font-size: 11px; }
-@media (max-width: 360px) {
-  .meta-value { font-size: 13px; }
-  .market-value { font-size: 82rpx; }
-  .market-points, .market-percent { font-size: 18px; }
-  .market-live { font-size: 10px; }
-  .chart-caption { font-size: 10px; }
+.chart-history-hint > text:last-child { color: #b2bbb6; font-size: 22rpx; }
+.chart-empty { position: absolute; top: 55rpx; right: 24rpx; left: 24rpx; text-align: center; pointer-events: none; }
+.chart-empty-art { width: 220rpx; height: 170rpx; }
+.chart-empty .empty-title { margin-top: 3rpx; color: #52665f; font-size: 29rpx; }
+.chart-empty-note { margin-top: 14rpx; color: #879087; font-size: 22rpx; line-height: 1.6; }
+
+/* 单片撕边纸张，没有横跨底部的折页覆盖层。 */
+.ip-corner {
+  position: absolute;
+  z-index: 0;
+  top: -46rpx;
+  right: -72rpx;
+  width: 300rpx;
+  height: 412.5rpx;
+  opacity: .75;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22320%22%20height%3D%22440%22%20viewBox%3D%220%200%20320%20440%22%3E%3Cdefs%3E%3ClinearGradient%20id%3D%22paper%22%20x1%3D%220%22%20y1%3D%220%22%20x2%3D%221%22%20y2%3D%221%22%3E%3Cstop%20stop-color%3D%22%23f4eaf6%22%2F%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%23e9d9ee%22%2F%3E%3C%2FlinearGradient%3E%3Cpattern%20id%3D%22grain%22%20width%3D%227%22%20height%3D%227%22%20patternUnits%3D%22userSpaceOnUse%22%3E%3Cpath%20d%3D%22M1%202l2%201m1%203l1-2%22%20fill%3D%22none%22%20stroke%3D%22%23c9adcf%22%20stroke-width%3D%22.6%22%20opacity%3D%22.3%22%2F%3E%3C%2Fpattern%3E%3C%2Fdefs%3E%3Cpath%20d%3D%22M58-12H334V448L306%20419Q297%20420%20296%20409L284%20397Q275%20398%20278%20388L265%20375Q257%20375%20258%20364L246%20352Q237%20353%20239%20342L226%20329Q218%20330%20219%20319L207%20307Q199%20308%20200%20296L187%20283Q178%20284%20181%20273L169%20260Q160%20261%20162%20250L150%20237Q141%20238%20143%20227L132%20214Q124%20215%20125%20203L116%20190Q107%20191%20110%20180L101%20167Q94%20167%2096%20154L89%20141Q81%20141%2084%20129L78%20114Q70%20114%2074%20102L69%2088Q61%2087%2066%2075L61%2059Q54%2058%2059%2045L55%2029Q49%2028%2054%2016Z%22%20fill%3D%22%23bca98f%22%20opacity%3D%22.09%22%20transform%3D%22translate(-3%205)%22%2F%3E%3Cpath%20d%3D%22M58-12H334V448L306%20419Q297%20420%20296%20409L284%20397Q275%20398%20278%20388L265%20375Q257%20375%20258%20364L246%20352Q237%20353%20239%20342L226%20329Q218%20330%20219%20319L207%20307Q199%20308%20200%20296L187%20283Q178%20284%20181%20273L169%20260Q160%20261%20162%20250L150%20237Q141%20238%20143%20227L132%20214Q124%20215%20125%20203L116%20190Q107%20191%20110%20180L101%20167Q94%20167%2096%20154L89%20141Q81%20141%2084%20129L78%20114Q70%20114%2074%20102L69%2088Q61%2087%2066%2075L61%2059Q54%2058%2059%2045L55%2029Q49%2028%2054%2016Z%22%20fill%3D%22url(%23paper)%22%20stroke%3D%22%23fffdf7%22%20stroke-width%3D%223%22%20stroke-linejoin%3D%22round%22%2F%3E%3Cpath%20d%3D%22M62%200H320V433L288%20399L259%20369L230%20338L202%20307L173%20275L145%20242L126%20208L108%20175L92%20142L79%20107L68%2070Z%22%20fill%3D%22url(%23grain)%22%2F%3E%3Ccircle%20cx%3D%22182%22%20cy%3D%22183%22%20r%3D%2236%22%20fill%3D%22%23f0cb78%22%20opacity%3D%22.53%22%2F%3E%3Cg%20fill%3D%22none%22%20stroke%3D%22%23bd96d4%22%20stroke-width%3D%221.5%22%20stroke-linecap%3D%22round%22%20opacity%3D%22.64%22%3E%3Cpath%20d%3D%22M136%20149C181%2098%20242%2086%20302%20104%22%2F%3E%3Cpath%20d%3D%22M309%20133C258%20111%20211%20126%20176%20167C140%20208%20131%20258%20155%20290C164%20302%20178%20309%20191%20311%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E");
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+}
+
+.ip-gold-spark { position: absolute; top: 32rpx; right: 242rpx; width: 7rpx; height: 27rpx; border-radius: 60%; background: #e2b459; opacity: .68; pointer-events: none; }
+.ip-gold-spark::after { position: absolute; top: 10rpx; left: -8rpx; width: 23rpx; height: 7rpx; border-radius: 60%; background: #e2b459; content: ""; }
+
+.ip-footer-art { position: relative; height: 109rpx; margin-top: 19rpx; pointer-events: none; }
+.ip-footer-paper { position: absolute; bottom: -19rpx; left: -65rpx; width: 237rpx; height: 132rpx; border-radius: 5% 44% 0 0; background: rgba(213, 181, 235, .22); transform: rotate(-11deg); }
+.ip-footer-curve { position: absolute; top: 36rpx; left: -64rpx; width: 520rpx; height: 84rpx; border-top: 3rpx solid rgba(176, 126, 218, .35); border-radius: 55%; transform: rotate(8deg); }
+.ip-footer-dot { position: absolute; top: 51rpx; left: 174rpx; width: 12rpx; height: 12rpx; border-radius: 50%; background: #edc573; }
+/* 叶片、叶脉与枝茎在同一 SVG 坐标系内共用连接点。 */
+.ip-sprig {
+  position: absolute;
+  right: 22rpx;
+  bottom: -2rpx;
+  width: 154rpx;
+  height: 135rpx;
+  opacity: .8;
+  background-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22160%22%20height%3D%22140%22%20viewBox%3D%220%200%20160%20140%22%3E%3Cg%20fill%3D%22none%22%20stroke%3D%22%23c6a8da%22%20stroke-width%3D%222.3%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M62%20135C63%20127%2065%20121%2068%20115C71%20105%2075%2096%2078%2089C81%2082%2084%2075%2087%2068C92%2051%2096%2038%20105%2025%22%2F%3E%3Cpath%20d%3D%22M78%2089C48%2077%2029%2049%2032%2017C55%2023%2079%2049%2078%2089Z%22%20fill%3D%22%23dfcce9%22%20fill-opacity%3D%22.28%22%2F%3E%3Cpath%20d%3D%22M78%2089C65%2068%2046%2039%2032%2017%22%20stroke-width%3D%221.4%22%2F%3E%3Cpath%20d%3D%22M87%2068C108%2039%20131%2032%20151%2035C144%2056%20119%2073%2087%2068Z%22%20fill%3D%22%23e2d1eb%22%20fill-opacity%3D%22.32%22%2F%3E%3Cpath%20d%3D%22M87%2068C106%2054%20130%2041%20151%2035%22%20stroke-width%3D%221.4%22%2F%3E%3Cpath%20d%3D%22M68%20115C50%20111%2035%2098%2025%2084C45%2083%2064%2095%2068%20115Z%22%20fill%3D%22%23e2d1eb%22%20fill-opacity%3D%22.21%22%2F%3E%3Cpath%20d%3D%22M68%20115C52%20104%2038%2092%2025%2084%22%20stroke-width%3D%221.2%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E");
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+}
+
+@media (max-height: 640px) {
+  .ip-page { padding-top: 20rpx; }
+  .ip-footer-art { height: 75rpx; }
 }

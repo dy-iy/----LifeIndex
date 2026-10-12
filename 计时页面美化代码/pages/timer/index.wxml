@@ -1,0 +1,62 @@
+<view class="tp-page">
+  <view class="tp-corner-paper" aria-hidden="true">
+    <view class="tp-sun"></view>
+    <view class="tp-corner-line"></view>
+  </view>
+
+  <view class="tp-main">
+    <view class="tp-heading">
+      <view class="tp-heading-tape" aria-hidden="true"></view>
+      <text class="tp-heading-text">上课计时</text>
+      <view class="tp-title-stroke" aria-hidden="true"></view>
+      <view class="tp-title-sparks" aria-hidden="true"></view>
+    </view>
+
+    <view class="tp-course">
+      <view class="tp-course-title-wrap">
+        <text class="tp-course-title">{{timer.courseTitle}}</text>
+      </view>
+      <text class="tp-course-hint">{{timer.courseHint}}</text>
+      <view class="tp-pencil-line" aria-hidden="true"></view>
+    </view>
+
+    <view class="tp-dial-wrap">
+      <timer-dial
+        time-text="{{timer.elapsedText}}"
+        status-text="{{timer.dialHint}}"
+        cat-src="{{catSrc}}"
+      />
+    </view>
+
+    <!-- 统计纸条：两个读数共用一张纸，不增加小标题或说明。 -->
+    <view class="tp-stats">
+      <view class="tp-stats-tape" aria-hidden="true"></view>
+
+      <view class="tp-stat">
+        <text class="tp-stat-label">课前准备</text>
+        <text class="tp-stat-number">{{timer.preparationText}}</text>
+      </view>
+
+      <view class="tp-stat-divider" aria-hidden="true"></view>
+
+      <view class="tp-stat">
+        <text class="tp-stat-label">课程计划</text>
+        <view class="tp-plan-number">
+          <text class="tp-stat-number">{{timer.plannedMinutesText}}</text>
+          <text class="tp-stat-unit">分钟</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="tp-footer-art" aria-hidden="true">
+      <view class="tp-purple-paper"></view>
+      <view class="tp-footer-curve"></view>
+      <view class="tp-sprig">
+        <view class="tp-sprig-stem"></view>
+        <view class="tp-leaf tp-leaf--left"></view>
+        <view class="tp-leaf tp-leaf--right"></view>
+      </view>
+      <view class="tp-footer-spark"></view>
+    </view>
+  </view>
+</view>

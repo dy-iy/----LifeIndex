@@ -1,90 +1,124 @@
-@import "../../class-theme.wxss";
 @import "../../review-window.wxss";
 
-.timer-page { padding-top: 30rpx; }
-.timer-heading { margin-top: 40rpx; text-align: center; }
-.timer-course { font-family: "Songti SC", serif; font-size: 42rpx; line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-/* Use a tappable view so native button layout cannot clip the first caption paint. */
-.timer-page .dial { position: relative; display: block; width: 500rpx; height: 500rpx; max-width: 100%; padding: 0; margin: 14rpx auto 12rpx; border: 0; border-radius: 50%; background: transparent; color: #4b3824; opacity: 1; font-weight: 400; line-height: 1.4; overflow: visible; -webkit-tap-highlight-color: transparent; }
-.dial { transition: transform .18s ease; }
+page { background: #fbf7ee; color: #102e46; }
+
+.tp-page {
+  position: relative;
+  box-sizing: border-box;
+  min-height: 100vh;
+  overflow: hidden;
+  padding: 30rpx 40rpx 156rpx;
+  padding-bottom: calc(156rpx + constant(safe-area-inset-bottom));
+  padding-bottom: calc(156rpx + env(safe-area-inset-bottom));
+  background-color: #fbf7ee;
+  background-image:
+    radial-gradient(rgba(132, 101, 69, .045) .6px, transparent 1px),
+    linear-gradient(118deg, rgba(255, 255, 255, .35), rgba(246, 235, 213, .12));
+  background-size: 7rpx 7rpx, 100% 100%;
+  color: #102e46;
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+
+.tp-main { position: relative; z-index: 1; width: 100%; max-width: 750rpx; margin: 0 auto; }
+.tp-heading { position: relative; display: inline-block; max-width: 86%; padding: 5rpx 6rpx 15rpx; }
+.tp-heading-text { position: relative; font-family: "Kaiti SC", "STKaiti", "KaiTi", "Songti SC", serif; font-size: 75rpx; font-weight: 900; line-height: 1.18; letter-spacing: -2rpx; }
+.tp-title-stroke { position: absolute; left: -3rpx; right: -5rpx; bottom: 1rpx; height: 9rpx; border-radius: 46% 12% 43% 10%; background: #bc8ce9; transform: rotate(-2deg); box-shadow: 8rpx 8rpx 0 -2rpx rgba(177, 112, 234, .50); }
+.tp-title-sparks { position: absolute; top: 5rpx; right: -37rpx; width: 9rpx; height: 27rpx; border-radius: 8rpx; background: #ac73ed; transform: rotate(26deg); }
+.tp-title-sparks::after { position: absolute; top: 17rpx; left: 23rpx; width: 9rpx; height: 24rpx; border-radius: 8rpx; background: #ac73ed; transform: rotate(31deg); content: ""; }
+.tp-heading-tape { position: absolute; top: -9rpx; left: -48rpx; width: 76rpx; height: 31rpx; background: rgba(189, 146, 230, .32); transform: rotate(-26deg); }
+
+.tp-corner-paper { position: absolute; top: -17rpx; right: -41rpx; width: 220rpx; height: 210rpx; border-radius: 15% 0 0 49%; background: rgba(248, 223, 195, .30); transform: rotate(12deg); box-shadow: -2rpx 5rpx 7rpx rgba(165, 138, 100, .04); pointer-events: none; }
+.tp-sun { position: absolute; top: 35rpx; left: 71rpx; width: 86rpx; height: 86rpx; border-radius: 48% 53% 46% 51%; background: rgba(247, 211, 120, .48); }
+.tp-corner-line { position: absolute; top: 2rpx; left: 10rpx; width: 161rpx; height: 55rpx; border-bottom: 3rpx solid rgba(180, 133, 220, .35); border-radius: 50%; transform: rotate(-44deg); }
+
+.tp-course { margin: 32rpx auto 0; text-align: center; }
+.tp-course-title-wrap { position: relative; display: inline-block; max-width: 100%; padding: 0 12rpx 3rpx; box-sizing: border-box; }
+.tp-course-title-wrap::before { position: absolute; right: 0; bottom: 2rpx; left: 0; height: 23rpx; border-radius: 45% 23% 45% 15%; background: rgba(214, 186, 236, .40); transform: rotate(-2deg); content: ""; }
+.tp-course-title { position: relative; font-family: "Kaiti SC", "STKaiti", "KaiTi", "Songti SC", serif; font-size: 38rpx; font-weight: 700; line-height: 1.4; word-break: break-all; }
+.tp-course-hint { display: block; margin-top: 12rpx; color: #698263; font-family: "Kaiti SC", "STKaiti", "KaiTi", "Songti SC", serif; font-size: 27rpx; font-weight: 600; line-height: 1.5; word-break: break-all; }
+.tp-course-time { display: block; margin-top: 12rpx; color: #7d817c; font-size: 22rpx; line-height: 1.5; }
+.tp-pencil-line { position: relative; width: 106rpx; height: 10rpx; margin: 8rpx auto 0; border-top: 2rpx solid #9ea6a8; border-radius: 50%; transform: rotate(-5deg); }
+.tp-pencil-line::after { position: absolute; top: 0; left: 49rpx; width: 35rpx; height: 8rpx; border-bottom: 2rpx solid #9ea6a8; transform: rotate(-20deg); content: ""; }
+
+.tp-dial-wrap { position: relative; width: 560rpx; max-width: 100%; margin: 33rpx auto 0; }
+.tp-dial-wrap { border-radius: 50%; transition: transform .18s ease; -webkit-tap-highlight-color: transparent; }
 .dial-pressed { transform: scale(.965); }
 .dial-tap-a { animation: dial-tap-a .52s ease-out; }
 .dial-tap-b { animation: dial-tap-b .52s ease-out; }
-.dial-tap-ripple { position: absolute; z-index: 2; left: 0; top: 0; width: 100%; height: 100%; border: 3rpx solid #d5ac55; border-radius: 50%; box-shadow: 0 0 20rpx rgba(226, 183, 82, .3), inset 0 0 12rpx rgba(255, 232, 158, .25); opacity: 0; transform: scale(.94); pointer-events: none; }
+.dial-tap-ripple { position: absolute; z-index: 2; top: 0; right: 0; bottom: 0; left: 0; border: 3rpx solid #bc8ce9; border-radius: 50%; box-shadow: 0 0 20rpx rgba(188, 140, 233, .25); opacity: 0; pointer-events: none; }
 .dial-tap-a .dial-tap-ripple { animation: dial-ripple-a .6s ease-out; }
 .dial-tap-b .dial-tap-ripple { animation: dial-ripple-b .6s ease-out; }
 @keyframes dial-tap-a { 0% { transform: scale(.98); } 24% { transform: scale(.965); } 60% { transform: scale(1.018); } 100% { transform: scale(1); } }
 @keyframes dial-tap-b { 0% { transform: scale(.98); } 24% { transform: scale(.965); } 60% { transform: scale(1.018); } 100% { transform: scale(1); } }
-@keyframes dial-ripple-a { 0% { opacity: .75; transform: scale(.94); } 35% { opacity: .5; } 100% { opacity: 0; transform: scale(1.15); } }
-@keyframes dial-ripple-b { 0% { opacity: .75; transform: scale(.94); } 35% { opacity: .5; } 100% { opacity: 0; transform: scale(1.15); } }
-.dial-ticks { position: absolute; left: 0; top: 0; width: 500rpx; height: 500rpx; border: 1rpx solid #dbc69b; border-radius: 50%; background: #f1e6ce; box-shadow: 0 18rpx 42rpx rgba(151, 115, 55, .12), inset 0 0 0 8rpx rgba(255, 253, 244, .45); }
-.dial-tick { position: absolute; top: 0; left: 248rpx; width: 2rpx; height: 498rpx; }
-.dial-tick::before { content: ""; display: block; width: 2rpx; height: 8rpx; background: #c6ac78; }
-.dial-tick-major::before { height: 14rpx; background: #a78242; }
-.dial-track, .dial-ring, .dial-pointer { position: absolute; left: 20rpx; top: 20rpx; width: 460rpx; height: 460rpx; border-radius: 50%; }
-.dial-track { border: 4rpx solid #e1d0aa; }
-.dial-ring { color: #b88a3f; }
-/* Clipped semicircles preserve accurate progress at 0%, 50% and 100%. */
-.ring-half { position: absolute; left: 0; top: 0; width: 460rpx; height: 460rpx; clip: rect(0, 460rpx, 460rpx, 230rpx); }
-.ring-half-left { transform: rotate(180deg); }
-.ring-fill { position: absolute; left: 0; top: 0; width: 460rpx; height: 460rpx; border: 4rpx solid currentColor; border-radius: 50%; clip: rect(0, 230rpx, 460rpx, 0); }
-.dial-pointer-dot { position: absolute; left: 219rpx; top: -9rpx; width: 22rpx; height: 22rpx; border: 4rpx solid #fff9eb; border-radius: 50%; background: #bb8d41; box-shadow: 0 0 0 1rpx #c4a05d, 0 0 18rpx rgba(192, 149, 72, .2); }
-.dial-face { overflow: hidden; position: absolute; left: 36rpx; top: 36rpx; width: 428rpx; height: 428rpx; border: 2rpx solid #fffdf6; border-radius: 50%; background: radial-gradient(circle at 34% 24%, #fffdf5 0%, #fbf4de 48%, #eee1bf 100%); box-shadow: inset 0 0 0 8rpx rgba(255, 253, 244, .5); pointer-events: none; }
-/* The full-size SVG stays behind the text and is clipped to the circular face. */
-.dial-art { position: absolute; left: 0; top: 0; width: 100%; height: 100%; }
-/* Native CSS animates the decoration; no timer state updates are needed. */
-/* Embedded alpha mask: assets/art/timer-leaf-mask.svg. */
-.dial-gold-mask { -webkit-mask-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MjgiIGhlaWdodD0iNDI4IiB2aWV3Qm94PSIwIDAgNDI4IDQyOCI+CiAgPHBhdGggZmlsbD0iI2ZmZiIgZD0iTTE1OSAyOTBDMTA3IDI5OCA2NSAyNzEgNjEgMjIwQzExNiAyMTQgMTU4IDI0MiAxNTkgMjkwWiBNMTcyIDI1OUMxODAgMjA5IDIyNCAxODEgMjgyIDE5MEMyNzAgMjQxIDIyNiAyNzMgMTcyIDI1OVogTTE5OCAyMDVDMTQ5IDIwNyAxMDkgMTcwIDExNyAxMjBDMTY4IDEyNiAyMDQgMTU4IDE5OCAyMDVaIE0yMTkgMTcxQzIyNyAxMjEgMjc1IDk5IDMyNyAxMTBDMzA1IDE2MSAyNjQgMTgyIDIxOSAxNzFaIE0yNDggMTIzQzIxOCA5NyAyMzEgNTcgMjY5IDM3QzI4NyA3MiAyODAgMTAzIDI0OCAxMjNaIE0xMzIgMzI5QzE1OCAyOTMgMjA0IDI5MCAyMzkgMzExQzIwNyAzNDUgMTYzIDM1MyAxMzIgMzI5WiIvPgogIDxwYXRoIGQ9Ik05NCAzNzVDMTUxIDMxNyAxNjIgMjcwIDE5MCAyMTlDMjE0IDE3NiAyMzAgMTQ0IDI1MCAxMTJDMjU4IDk2IDI2NCA3NyAyNjYgNTciIGZpbGw9Im5vbmUiIHN0cm9rZT0iI2ZmZiIgc3Ryb2tlLXdpZHRoPSIyLjUiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPgo8L3N2Zz4K"); mask-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MjgiIGhlaWdodD0iNDI4IiB2aWV3Qm94PSIwIDAgNDI4IDQyOCI+CiAgPHBhdGggZmlsbD0iI2ZmZiIgZD0iTTE1OSAyOTBDMTA3IDI5OCA2NSAyNzEgNjEgMjIwQzExNiAyMTQgMTU4IDI0MiAxNTkgMjkwWiBNMTcyIDI1OUMxODAgMjA5IDIyNCAxODEgMjgyIDE5MEMyNzAgMjQxIDIyNiAyNzMgMTcyIDI1OVogTTE5OCAyMDVDMTQ5IDIwNyAxMDkgMTcwIDExNyAxMjBDMTY4IDEyNiAyMDQgMTU4IDE5OCAyMDVaIE0yMTkgMTcxQzIyNyAxMjEgMjc1IDk5IDMyNyAxMTBDMzA1IDE2MSAyNjQgMTgyIDIxOSAxNzFaIE0yNDggMTIzQzIxOCA5NyAyMzEgNTcgMjY5IDM3QzI4NyA3MiAyODAgMTAzIDI0OCAxMjNaIE0xMzIgMzI5QzE1OCAyOTMgMjA0IDI5MCAyMzkgMzExQzIwNyAzNDUgMTYzIDM1MyAxMzIgMzI5WiIvPgogIDxwYXRoIGQ9Ik05NCAzNzVDMTUxIDMxNyAxNjIgMjcwIDE5MCAyMTlDMjE0IDE3NiAyMzAgMTQ0IDI1MCAxMTJDMjU4IDk2IDI2NCA3NyAyNjYgNTciIGZpbGw9Im5vbmUiIHN0cm9rZT0iI2ZmZiIgc3Ryb2tlLXdpZHRoPSIyLjUiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPgo8L3N2Zz4K"); }
-.dial-gold-mask { display: none; overflow: hidden; position: absolute; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; -webkit-mask-size: 100% 100%; mask-size: 100% 100%; -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; }
-@supports ((-webkit-mask-image: linear-gradient(#fff, #fff)) or (mask-image: linear-gradient(#fff, #fff))) { .dial-gold-mask { display: block; } }
-.dial-gold-flow { position: absolute; left: -100%; top: -100%; width: 300%; height: 300%; background-image: linear-gradient(135deg, transparent 34%, rgba(159, 100, 12, .12) 40%, rgba(255, 229, 138, .32) 45%, rgba(255, 253, 218, .95) 49%, rgba(255, 246, 185, .82) 51%, rgba(233, 176, 56, .22) 56%, transparent 62%); animation: gold-leaf-flow 5.6s ease-in-out infinite; }
-.dial-gold-dust { position: absolute; left: -10%; top: -10%; width: 120%; height: 120%; background-image: radial-gradient(circle, #fffde3 0, #fff3b5 .9rpx, transparent 1.8rpx), radial-gradient(circle, #fff9d1 0, #f6d878 .7rpx, transparent 1.5rpx), radial-gradient(circle, #a7751d 0, rgba(180, 128, 29, .5) .6rpx, transparent 1.3rpx); background-size: 17rpx 23rpx, 29rpx 19rpx, 13rpx 31rpx; background-position: 0 0, 9rpx 5rpx, 3rpx 14rpx; opacity: .58; animation: gold-dust-drift 7.2s linear infinite alternate; }
-.dial-gold-glint { position: absolute; width: 18rpx; height: 18rpx; opacity: 0; transform: scale(.35) rotate(0deg); animation: gold-glint 4.6s ease-in-out infinite; }
-.dial-gold-glint::before, .dial-gold-glint::after { content: ""; position: absolute; border-radius: 50%; background: #fffce5; box-shadow: 0 0 6rpx rgba(255, 233, 135, .9); }
-.dial-gold-glint::before { left: 43%; top: 0; width: 14%; height: 100%; }
-.dial-gold-glint::after { left: 0; top: 43%; width: 100%; height: 14%; }
-.glint-tip { left: 59%; top: 15%; width: 22rpx; height: 22rpx; animation-delay: -.8s; }
-.glint-right { left: 68%; top: 28%; animation-delay: -2.2s; }
-.glint-left { left: 22%; top: 57%; width: 15rpx; height: 15rpx; animation-delay: -3.6s; }
-.glint-low { left: 46%; top: 74%; width: 13rpx; height: 13rpx; animation-delay: -1.5s; }
-.glint-mid { left: 35%; top: 36%; width: 12rpx; height: 12rpx; animation-delay: -4.1s; }
-@keyframes gold-leaf-flow { 0% { transform: translate(-28%, -28%); opacity: 0; } 12% { opacity: .85; } 75% { opacity: .85; } 90%, 100% { transform: translate(28%, 28%); opacity: 0; } }
-@keyframes gold-dust-drift { 0% { transform: translate(0, 0); opacity: .4; } 50% { opacity: .8; } 100% { transform: translate(17rpx, -23rpx); opacity: .4; } }
-@keyframes gold-glint { 0%, 38%, 100% { opacity: 0; transform: scale(.35) rotate(0deg); } 48% { opacity: 1; transform: scale(1.08) rotate(12deg); } 60% { opacity: .25; transform: scale(.65) rotate(24deg); } 68% { opacity: 0; transform: scale(.35) rotate(30deg); } }
-@media (prefers-reduced-motion: reduce) { .dial-gold-flow, .dial-gold-dust, .dial-gold-glint { animation: none; } .dial-gold-flow { opacity: 0; } .dial-gold-dust { opacity: .45; } .dial-gold-glint { opacity: .55; transform: scale(.65); } }
-@media (prefers-reduced-motion: reduce) { .dial { transition: none; } .dial-pressed { transform: none; } .dial-tap-a, .dial-tap-b { animation: none; } .dial-tap-a .dial-tap-ripple, .dial-tap-b .dial-tap-ripple { animation: none; opacity: .5; transform: scale(1); } }
-.dial-center { position: absolute; z-index: 3; left: 42rpx; right: 42rpx; top: 151rpx; display: block; text-align: center; pointer-events: none; }
-.dial-label { color: #7b603a; font-size: 21rpx; letter-spacing: 4rpx; }
-.dial-time { margin-top: 10rpx; color: #4b3824; font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif; font-size: 101rpx; line-height: 1.18; letter-spacing: -4rpx; font-weight: 500; font-variant-numeric: tabular-nums; white-space: nowrap; text-shadow: 0 2rpx 12rpx rgba(255, 253, 245, .7); }
-.dial-time-long { font-size: 74rpx; line-height: 1.61; letter-spacing: -2rpx; }
-.dial-idle .dial-time { color: #6b5536; }
-/* Both the pill and its text view have explicit widths from their first paint. */
-.dial-caption { display: block; box-sizing: border-box; width: 300rpx; min-height: 48rpx; max-width: 100%; margin: 18rpx auto 0; padding: 8rpx 18rpx; overflow: visible; text-align: center; color: #79603c; border: 1rpx solid #d5bc8c; border-radius: 40rpx; background: rgba(255, 250, 236, .94); font-size: 19rpx; line-height: 1.45; letter-spacing: .5rpx; }
-.dial-caption-text { display: block; box-sizing: border-box; width: 100%; overflow: visible; white-space: normal; overflow-wrap: break-word; }
-.dial-action { border-color: #bc9854; color: #624724; background: #ebd8ad; box-shadow: 0 4rpx 12rpx rgba(151, 115, 55, .1); }
-.caption-play::before, .caption-stop::before { content: ""; display: inline-block; vertical-align: middle; margin-right: 10rpx; }
-.caption-play::before { width: 0; height: 0; border-top: 7rpx solid transparent; border-bottom: 7rpx solid transparent; border-left: 10rpx solid #98702f; }
-.caption-stop::before { width: 12rpx; height: 12rpx; border-radius: 3rpx; background: #98702f; }
-.dial-paused .dial-ring { color: #d7a187; }
-.dial-paused .dial-pointer-dot { background: #d7a187; }
+@keyframes dial-ripple-a { 0% { opacity: .75; transform: scale(.94); } 35% { opacity: .5; } 100% { opacity: 0; transform: scale(1.12); } }
+@keyframes dial-ripple-b { 0% { opacity: .75; transform: scale(.94); } 35% { opacity: .5; } 100% { opacity: 0; transform: scale(1.12); } }
 
-.timer-summary { display: flex; justify-content: center; align-items: center; gap: 54rpx; margin-top: 6rpx; }
-.timer-summary > view { text-align: center; }
-.summary-label { display: block; font-size: 21rpx; color: #8a9189; margin-bottom: 8rpx; }
-.summary-value { font-size: 36rpx; font-variant-numeric: tabular-nums; }
-.summary-unit { font-size: 20rpx; color: #8a9189; }
-.summary-divider { height: 44rpx; width: 1rpx; background: #dcded4; }
-.timer-progress { height: 5rpx; margin: 28rpx 50rpx 32rpx; background: #e4e6dc; border-radius: 10rpx; overflow: hidden; }
-.timer-progress > view { height: 100%; border-radius: 10rpx; background: #98ad94; transition: width .3s ease; }
-.timer-hints { padding: 0 30rpx; }
-.timing-hint { color: #a17c57; font-size: 22rpx; line-height: 1.7; text-align: center; margin-top: 20rpx; }
-.sync-copy { font-size: 22rpx; color: #8a9189; padding: 20rpx 0 0; text-align: center; }
-.timer-error { margin-top: 24rpx; color: #ae654c; padding: 20rpx 24rpx; border: 1rpx solid #ecd6c5; background: #fff6ee; border-radius: 18rpx; font-size: 23rpx; line-height: 1.7; overflow-wrap: anywhere; }
-.timer-error .text-button { color: #ae654c; padding-bottom: 0; }
-.pending-note { margin-top: 24rpx; padding: 24rpx; background: #fbf1da; border: 1rpx solid #e8d7b2; border-radius: 18rpx; color: #8a7147; font-size: 25rpx; line-height: 1.7; }
-.pending-note text { display: block; font-size: 22rpx; margin-top: 10rpx; }
-.timer-login { text-align: center; padding: 20rpx 30rpx 0; }
-.timer-login .primary-button { width: 360rpx; max-width: 100%; margin: 28rpx auto 0; }
+.tp-stats {
+  position: relative;
+  display: flex;
+  box-sizing: border-box;
+  align-items: center;
+  min-height: 140rpx;
+  margin-top: 25rpx;
+  padding: 21rpx 14rpx 24rpx;
+  border: 2rpx solid #fffdf4;
+  border-radius: 16rpx 11rpx 17rpx 12rpx;
+  background-color: #fffaf0;
+  background-image: radial-gradient(rgba(161, 126, 79, .055) .6px, transparent 1px);
+  background-size: 7rpx 7rpx;
+  box-shadow: 0 7rpx 12rpx rgba(130, 97, 58, .10), 0 1rpx 3rpx rgba(130, 97, 58, .05);
+}
 
-.timer-dial-state { margin-top: 24rpx; text-align: center; color: #386c50; font-size: 28rpx; line-height: 1.5; }
-.timer-finalize { margin: 0 auto 20rpx; text-align: center; }
+.tp-stats::after { position: absolute; right: 3rpx; bottom: -3rpx; left: 3rpx; height: 6rpx; background: radial-gradient(circle at 7rpx 7rpx, #fbf7ee 4rpx, transparent 5rpx); background-size: 14rpx 7rpx; content: ""; }
+.tp-stats-tape { position: absolute; top: -7rpx; left: 15rpx; width: 86rpx; height: 25rpx; background: rgba(189, 146, 230, .35); transform: rotate(-18deg); }
+.tp-stat { display: flex; flex: 1; flex-direction: column; align-items: center; min-width: 0; text-align: center; }
+.tp-stat-label { color: #414d4b; font-family: "Kaiti SC", "STKaiti", "KaiTi", "Songti SC", serif; font-size: 27rpx; font-weight: 600; line-height: 1.5; }
+.tp-stat-number { display: block; max-width: 100%; margin-top: 5rpx; color: #12314a; font-family: Georgia, "Times New Roman", serif; font-size: 44rpx; font-weight: 700; line-height: 1.2; word-break: break-all; }
+.tp-stat-divider { flex: 0 0 2rpx; height: 67rpx; margin: 0 5rpx; background: #dec7a4; opacity: .72; }
+.tp-plan-number { display: flex; align-items: baseline; justify-content: center; flex-wrap: wrap; max-width: 100%; }
+.tp-stat-unit { margin-left: 8rpx; color: #414d4b; font-family: "Kaiti SC", "STKaiti", "KaiTi", "Songti SC", serif; font-size: 27rpx; line-height: 1.4; }
+
+.tp-footer-art { position: relative; height: 182rpx; margin-top: 31rpx; pointer-events: none; }
+.tp-purple-paper { position: absolute; bottom: -15rpx; left: -58rpx; width: 178rpx; height: 119rpx; border-radius: 13% 36% 0 0; background: rgba(216, 190, 235, .24); transform: rotate(-9deg); }
+.tp-footer-curve { position: absolute; bottom: 33rpx; left: -74rpx; width: 575rpx; height: 95rpx; border-top: 3rpx solid rgba(173, 125, 216, .35); border-radius: 50%; transform: rotate(12deg); }
+.tp-sprig { position: absolute; right: 22rpx; bottom: 0; width: 100rpx; height: 169rpx; transform: rotate(13deg); }
+.tp-sprig-stem { position: absolute; bottom: 0; left: 39rpx; width: 26rpx; height: 147rpx; border-left: 3rpx solid #b1be9e; border-radius: 55% 0 0 0; transform: rotate(11deg); }
+.tp-leaf { position: absolute; width: 34rpx; height: 62rpx; border: 3rpx solid #b1be9e; border-radius: 100% 0 100% 0; }
+.tp-leaf--left { top: 58rpx; left: 0; height: 49rpx; transform: rotate(103deg); }
+.tp-leaf--right { top: 2rpx; left: 48rpx; transform: rotate(5deg); }
+.tp-footer-spark { position: absolute; top: 43rpx; right: -1rpx; width: 8rpx; height: 29rpx; border-radius: 60%; background: #c19ae7; }
+.tp-footer-spark::after { position: absolute; top: 11rpx; left: -10rpx; width: 28rpx; height: 7rpx; border-radius: 60%; background: #c19ae7; content: ""; }
+
+.timer-login { padding: 28rpx 10rpx 0; text-align: center; }
+.timer-login .empty-copy { color: #7d817c; font-size: 23rpx; line-height: 1.8; }
+.timer-login .empty-copy text { display: block; }
+.timer-login .primary-button { width: 370rpx; max-width: 100%; margin: 22rpx auto 0; padding: 23rpx 28rpx; background: #7954a0; color: #fffaf0; border: 2rpx solid #69458f; box-shadow: 0 5rpx 12rpx rgba(115, 78, 147, .14); }
+.tp-page--guest .tp-footer-art { height: 70rpx; margin-top: 18rpx; }
+.tp-page--guest .tp-footer-curve { height: 60rpx; bottom: 0; }
+.tp-page--guest .tp-purple-paper { height: 65rpx; }
+.tp-page--guest .tp-sprig { height: 100rpx; transform: scale(.65) rotate(13deg); transform-origin: right bottom; }
+.tp-page--guest .tp-footer-spark { top: 0; }
+.timer-finalize { width: 390rpx; max-width: 100%; margin: 24rpx auto 0; color: #7954a0; border: 1rpx solid #d6bce7; border-radius: 40rpx; background: #f6ecf8; }
+.sync-copy { padding-top: 20rpx; color: #7d817c; font-size: 22rpx; line-height: 1.6; text-align: center; }
+.timer-progress { height: 6rpx; margin: 24rpx 30rpx 0; border-radius: 10rpx; overflow: hidden; background: #e8dfec; }
+.timer-progress > view { height: 100%; border-radius: 10rpx; background: #ad83ce; transition: width .3s ease; }
+.timer-hints { padding: 0 16rpx; }
+.timing-hint { margin-top: 20rpx; color: #8b7356; font-size: 22rpx; line-height: 1.7; text-align: center; }
+.timer-error { margin-top: 24rpx; padding: 20rpx 24rpx; border: 1rpx solid #ecd6c5; border-radius: 18rpx; background: #fff6ee; color: #a25d48; font-size: 23rpx; line-height: 1.7; overflow-wrap: anywhere; }
+.timer-error .text-button { padding-bottom: 0; color: #a25d48; }
+.pending-note { margin-top: 24rpx; padding: 24rpx; border: 1rpx solid #e8d7b2; border-radius: 18rpx; background: #fbf1da; color: #8a7147; font-size: 25rpx; line-height: 1.7; }
+.pending-note text { display: block; margin-top: 10rpx; font-size: 22rpx; }
+.pending-note .text-button { color: #8a7147; }
+
+@media (max-height: 640px) {
+  .tp-page { padding-top: 20rpx; }
+  .tp-course { margin-top: 22rpx; }
+  .tp-stats { margin-top: 17rpx; }
+  .tp-footer-art { height: 110rpx; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tp-dial-wrap, .timer-progress > view { transition: none; }
+  .dial-pressed { transform: none; }
+  .dial-tap-a, .dial-tap-b, .dial-tap-a .dial-tap-ripple, .dial-tap-b .dial-tap-ripple { animation: none; }
+}

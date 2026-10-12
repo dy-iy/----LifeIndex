@@ -3,6 +3,7 @@ const session = require("../../services/session");
 const timer = require("../../services/timer");
 const reviews = require("../../services/reviews");
 const { buildTimeline, todayKey } = require("../../services/review-timeline");
+const { onShareAppMessage } = require("../../services/share");
 const RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
 
 function initialData() {
@@ -16,6 +17,7 @@ function atLeastAsRecent(candidate, previous) {
       >= ((previous.evaluation_summary && previous.evaluation_summary.version) || 0);
 }
 Page({
+  onShareAppMessage,
   data: initialData(),
   onLoad() {
     this._loadId = 0;

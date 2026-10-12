@@ -6,7 +6,9 @@ const { headerMarket } = require("../../services/market-art");
 const session = require("../../services/session");
 const timer = require("../../services/timer");
 const classIndex = require("../../services/class-index");
+const { onShareAppMessage } = require("../../services/share");
 Page({
+  onShareAppMessage,
   data: { loggedIn: false, brandWordmark: wordmark, headerMarket, entries: [
     { id: "class", name: "上课指数", points: null, art: art.classIndex, surface: surfaces.classIndex },
     { id: "algorithm", name: "算法指数", points: null, art: art.algorithmIndex, surface: surfaces.algorithmIndex },

@@ -59,11 +59,12 @@ function renderWindow(chart, scrollRpx = chart.scrollRpx || 0) {
 }
 function chart(values, kind, previousClose, options = {}) {
   const intraday = kind === "intraday";
+  const viewportWidth = Math.max(CHART_LEFT + CHART_RIGHT + 100, Number(options.viewportWidth) || CHART_WIDTH);
   const step = Math.max(16, Math.min(52, Number(options.candleStep) || CANDLE_STEP));
   const zoom = Math.max(1, Math.min(8, Number(options.intradayZoom) || 1));
   const times = new Map();
   let data = values.slice();
-  const empty = { width: CHART_WIDTH, viewportWidth: CHART_WIDTH, candleStep: step, intradayZoom: zoom, zoomable: false, plotLeft: CHART_LEFT,
+  const empty = { width: viewportWidth, viewportWidth, candleStep: step, intradayZoom: zoom, zoomable: false, plotLeft: CHART_LEFT,
     plotRight: CHART_RIGHT, plotTop: PLOT_TOP, plotHeight: PLOT_HEIGHT, latest: null,
     ticks: [], points: [], markers: [], labels: [], segments: [], candles: [], renderCandles: [], renderLabels: [],
     candleCount: 0, historyHintLeft: 0, lineImage: "", empty: true };
@@ -79,13 +80,13 @@ function chart(values, kind, previousClose, options = {}) {
   }
   if (!data.length) return empty;
   const start = intraday ? times.get(data[0]) : 0, end = intraday ? times.get(data[data.length - 1]) : 0;
-  const width = intraday ? CHART_LEFT + CHART_RIGHT + (CHART_WIDTH - CHART_LEFT - CHART_RIGHT) * (end > start ? zoom : 1)
-    : Math.max(CHART_WIDTH, CHART_LEFT + CHART_RIGHT + data.length * step);
+  const width = intraday ? CHART_LEFT + CHART_RIGHT + (viewportWidth - CHART_LEFT - CHART_RIGHT) * (end > start ? zoom : 1)
+    : Math.max(viewportWidth, CHART_LEFT + CHART_RIGHT + data.length * step);
   const left = CHART_LEFT, right = width - CHART_RIGHT;
   const x = (i) => left + step * (i + 0.5);
   const atX = (item) => end === start ? left : left + (times.get(item) - start) / (end - start) * (right - left);
-  const scrollRpx = Math.max(0, Math.min(width - CHART_WIDTH, Number.isFinite(options.scrollRpx) ? options.scrollRpx : width - CHART_WIDTH));
-  const visibleLeft = scrollRpx + left, visibleRight = scrollRpx + CHART_WIDTH - CHART_RIGHT;
+  const scrollRpx = Math.max(0, Math.min(width - viewportWidth, Number.isFinite(options.scrollRpx) ? options.scrollRpx : width - viewportWidth));
+  const visibleLeft = scrollRpx + left, visibleRight = scrollRpx + viewportWidth - CHART_RIGHT;
   const visible = data.filter((item, i) => (intraday ? atX(item) : x(i)) >= visibleLeft && (intraday ? atX(item) : x(i)) <= visibleRight);
   const priceValues = (item) => intraday ? [Number(item.price)] : [Number(item.high), Number(item.low)];
   const prices = visible.flatMap(priceValues).filter(Number.isFinite);

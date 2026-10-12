@@ -3,9 +3,15 @@ const session = require("../../services/session");
 const timer = require("../../services/timer");
 const index = require("../../services/class-index");
 const { goToClassTab, getClassPageState, saveClassPageState } = require("../../services/class-navigation");
+const { onShareAppMessage } = require("../../services/share");
 const periods = ["intraday", "day", "week", "month"];
 const CROSSHAIR_DISMISS_MS = 2000;
 const CHART_FRAME_MS = 16;
+// 750 - page padding (40 * 2) - paper padding (12 * 2) - slot inset (1 * 2).
+const CHART_VIEWPORT_RPX = 644;
+function marketChart(values, kind, previousClose, options) {
+  return index.chart(values, kind, previousClose, Object.assign({}, options, { viewportWidth: CHART_VIEWPORT_RPX }));
+}
 const CHART_VIEW_FIELDS = ["width", "viewportWidth", "ticks", "markers", "renderLabels", "renderCandles",
   "candleCount", "historyHintLeft", "lineImage", "zoomable", "empty"];
 function sameValue(a, b) {
@@ -36,18 +42,21 @@ function quoteHeader(data, selected) {
     direction: source ? source.changeDirection : data.quoteDirection,
     points: source ? source.changeLabel : data.pointsLabel,
     percent: source ? source.percentLabel : data.percentLabel, stamp, meta,
+    stats: meta.map((item, key) => ({ key, label: item.label, valueText: item.value,
+      tone: item.direction === "rise" ? "up" : item.direction === "fall" ? "down" : "neutral" })),
     state: source ? data.tab === 0 ? "查看所选时刻" : `查看所选${data.tabs[data.tab]}` : data.marketStateLabel };
 }
-function initialData() { const data = { art, tab: 0, tabs: ["分时", "日 K", "周 K", "月 K"],
+function initialData() { const data = { art, periods, tab: 0, tabs: ["分时", "日 K", "周 K", "月 K"],
   loggedIn: false, loading: false, chartLoading: false, error: "", chartError: "", quoteActivated: false, quoteDirection: "flat",
   priceLabel: "—", pointsLabel: "—", percentLabel: "—", meta: index.priceMeta([], null),
-  chart: chartView(index.chart([], "intraday")), businessDate: "", nextBefore: null, selectedCandleId: "",
+  chart: chartView(marketChart([], "intraday")), businessDate: "", nextBefore: null, selectedCandleId: "",
   marketStateLabel: "", quoteTimeLabel: "", crosshair: null,
   chartInspecting: false, chartScrollLeft: 0, chartTouching: false, chartPinching: false, candleStep: 28, intradayZoom: 1 }; data.header = quoteHeader(data); return data; }
 Page({
+  onShareAppMessage,
   data: initialData(),
   // Keep hit-test samples and full histories in the logic layer. Only changed visual fields cross setData.
-  setView(patch) {
+  setView(patch, rendered) {
     const view = Object.assign({}, patch);
     if (view.chart) { if (view.chart.candles) this._chart = view.chart; view.chart = chartView(view.chart); }
     if (Object.prototype.hasOwnProperty.call(view, "quote")) {
@@ -68,9 +77,10 @@ Page({
         }
       } else if (value !== undefined && !sameValue(this.data[key], value)) changed[key] = value;
     }
-    if (Object.keys(changed).length) this.setData(changed);
+    if (Object.keys(changed).length) this.setData(changed, rendered);
+    else if (rendered) rendered();
   },
-  chartModel() { if (!this._chart) this._chart = index.chart([], periods[this.data.tab]); return this._chart; },
+  chartModel() { if (!this._chart) this._chart = marketChart([], periods[this.data.tab]); return this._chart; },
   onLoad() {
     this._loadId = 0; this._chartId = 0;
     this.unsubscribe = session.subscribe(() => this.syncIdentity());
@@ -83,17 +93,24 @@ Page({
     return this.reload().finally(() => this.scheduleLive());
   },
   onHide() { this._visible = false; this._loadId += 1; this._chartId += 1;
+    this._chartScrollSync = null;
     clearTimeout(this._poll); this._poll = null; this._chartRect = null;
+    this.setView({ loading: false, chartLoading: false });
     this.clearChartSelection();
     this.rememberView(); },
   onUnload() { this.onHide(); this._disposed = true; if (this.unsubscribe) this.unsubscribe(); },
   onPageScroll() { this._chartRect = null; },
-  onResize() { this._windowScale = null; this._chartRect = null; this.rescaleChart(); },
+  onResize() {
+    const scrollRpx = (this._chartScrollPx || 0) / this.chartScale();
+    this._chartScrollSync = null; this._windowScale = null; this._chartRect = null;
+    this._chartScrollPx = scrollRpx * this.chartScale();
+    this.rescaleChart();
+  },
   syncIdentity() {
     const current = timer.identity();
     if (!this._snapshot || current.owner !== this._snapshot.owner || current.generation !== this._snapshot.generation) {
       this._loadId += 1; this._chartId += 1; this._candles = []; this._intraday = null;
-      this._chartRect = null; this._chartScrollPx = 0;
+      this._chartRect = null; this._chartScrollPx = 0; this._chartNativeScrollPx = 0; this._chartScrollSync = null;
       this._chart = null; this._quote = null; this._selectedPoint = null; this._selectedCandle = null; this._chartInfo = null;
       this.cancelChartFrames();
       this.cancelChartDismiss(); clearTimeout(this._chartScaleTimer); this._chartScaleTimer = null; this._chartTouchActive = false;
@@ -128,6 +145,7 @@ Page({
     } finally { this._liveBusy = false; }
   },
   async reload() {
+    if (this.data.loading || this.data.chartLoading) return;
     const snapshot = this.syncIdentity(); if (!snapshot.owner) return;
     const id = ++this._loadId, current = () => this.active(snapshot) && id === this._loadId;
     this.setView({ loading: true, error: "" });
@@ -136,10 +154,10 @@ Page({
     }
     finally { if (current()) this.setView({ loading: false }); }
   },
-  async loadChart(older = false, refresh = false) {
+  async loadChart(older = false, refresh = false, tab = this.data.tab) {
     if (!this.data.loggedIn) return;
-    const snapshot = this._snapshot, id = ++this._chartId, tab = this.data.tab;
-    const current = () => this.active(snapshot) && id === this._chartId && tab === this.data.tab
+    const snapshot = this._snapshot, id = ++this._chartId;
+    const current = () => this.active(snapshot) && id === this._chartId
       && !(refresh && (this.data.chartTouching || this.data.chartPinching));
     this.setView({ chartLoading: !refresh, chartError: "" });
     try {
@@ -148,6 +166,12 @@ Page({
         ? await index.intraday(refresh && this._intraday && this._intraday.cursor)
         : await index.candles(periods[tab], older ? this.data.nextBefore : null, refresh && last ? last.date : null);
       if (!current()) return;
+      if (!result || !Array.isArray(tab === 0 ? result.points : result.items)) throw new Error("行情图表数据不完整，请稍后刷新。");
+      if (!result.quote || index.number(result.quote.price) === "—") throw new Error("行情报价数据不完整，请稍后刷新。");
+      if (tab !== this.data.tab) {
+        this.clearChartSelection(); this._candles = []; this._intraday = null;
+        this.setView({ tab, nextBefore: null });
+      }
       this.applyQuote(result.quote);
       if (tab === 0) {
         delete result.quote;
@@ -173,7 +197,7 @@ Page({
         const candles = Array.from(byDate.values()).sort((a, b) => a.date.localeCompare(b.date));
         if (refresh && sameValue(this._candles, candles)) return;
         this._candles = candles;
-        const chart = index.chart(this._candles, periods[tab], undefined, { candleStep: this.data.candleStep,
+        const chart = marketChart(this._candles, periods[tab], undefined, { candleStep: this.data.candleStep,
           scrollRpx: refresh ? (this._chartScrollPx || 0) / this.chartScale() : undefined });
         this.applyChart(chart, { nextBefore: keepHistory ? this.data.nextBefore : result.next_before }, refresh || older, older);
       }
@@ -188,11 +212,12 @@ Page({
   },
   intradayChart(scrollRpx) {
     const result = this._intraday;
-    return index.chart(result.points, "intraday", result.previous_close,
+    return marketChart(result.points, "intraday", result.previous_close,
       Object.assign({}, result, { intradayZoom: this.data.intradayZoom, scrollRpx }));
   },
   applyChart(chart, extra = {}, preserve = false, older = false) {
-    this.cancelChartMove();
+    this.cancelChartFrames();
+    clearTimeout(this._chartScaleTimer); this._chartScaleTimer = null;
     const oldChart = this.chartModel(), oldPoint = preserve && this._selectedPoint, oldCandle = preserve && this._selectedCandle;
     let selectedPoint = null;
     if (oldPoint && chart.points.length) {
@@ -208,12 +233,43 @@ Page({
       if (anchor) scroll += (anchor.x - oldChart.candles[0].x) * scale;
     }
     this._chartScrollPx = Math.max(0, Math.min(maxScroll, scroll)); this._chartRect = null;
+    // Native scroll-view can clamp scroll-left against the OLD content width.
+    // Commit geometry first, then restore the window after its render callback.
+    const sync = oldChart.width !== chart.width || Math.abs((this._chartNativeScrollPx || 0) - this._chartScrollPx) > 0.5
+      ? { target: this._chartScrollPx, phase: "layout", rendered: false, rescale: older } : null;
+    this._chartScrollSync = sync;
     const selection = selectedPoint || selectedCandle;
     if (!selection) { this.cancelChartDismiss(); if (!this.data.chartTouching && !this.data.chartPinching) this._chartTouchActive = false; }
     this.setView(Object.assign({ chart, selectedPoint, selectedCandle, chartInfo: selection || chart.latest,
-      chartInspecting: Boolean(selection) && this.data.chartInspecting, chartScrollLeft: this._chartScrollPx,
-      crosshair: selection ? this.makeCrosshair(selection, chart, scale) : null }, extra));
+      chartInspecting: Boolean(selection) && this.data.chartInspecting,
+      crosshair: selection ? this.makeCrosshair(selection, chart, scale) : null }, extra), () => {
+      if (sync) sync.rendered = true;
+      this.restoreChartScroll(sync);
+    });
     if (older) this.rescaleChart();
+  },
+  restoreChartScroll(sync = this._chartScrollSync) {
+    const current = () => sync && sync.rendered && this._chartScrollSync === sync && this._visible && !this._disposed;
+    if (!current() || this.data.chartPinching || this.data.chartInspecting) return;
+    const commit = () => {
+      if (!current() || this.data.chartPinching || this.data.chartInspecting) return;
+      sync.phase = "scroll";
+      this.setView({ chartScrollLeft: sync.target }, () => {
+        if (current() && Math.abs((this._chartNativeScrollPx || 0) - sync.target) <= 0.5) this.finishChartScroll(sync);
+      });
+    };
+    // A user swipe changes the native offset without changing the last bound command.
+    // Reset that command before repeating an identical target, so it reaches the view.
+    const actual = this._chartNativeScrollPx || 0;
+    if (this.data.chartScrollLeft === sync.target && Math.abs(actual - sync.target) > 0.5) {
+      sync.phase = "layout";
+      this.setView({ chartScrollLeft: actual }, commit);
+    } else commit();
+  },
+  finishChartScroll(sync) {
+    if (this._chartScrollSync !== sync) return;
+    this._chartScrollSync = null;
+    if (sync.rescale) this.rescaleChart();
   },
   makeCrosshair(item, chart = this.chartModel(), scale = this.chartScale()) {
     const left = (this._chartScrollPx || 0) / scale;
@@ -224,7 +280,14 @@ Page({
       labelLeft: Math.max(left + chart.plotLeft, Math.min(left + chart.viewportWidth - labelWidth, item.x - labelWidth / 2)) };
   },
   scrollChart(event) {
-    this._chartScrollPx = Number(event.detail.scrollLeft) || 0;
+    const actual = Math.max(0, Number(event.detail.scrollLeft) || 0);
+    this._chartNativeScrollPx = actual;
+    const sync = this._chartScrollSync;
+    if (sync) {
+      if (sync.phase === "scroll" && Math.abs(actual - sync.target) <= 0.5) this.finishChartScroll(sync);
+      return;
+    }
+    this._chartScrollPx = actual;
     if (!this.data.chartInspecting && !this._chartWindowTimer && this.data.tab !== 0) {
       this._chartWindowTimer = setTimeout(() => {
         this._chartWindowTimer = null;
@@ -238,18 +301,21 @@ Page({
   },
   rescaleChart() {
     clearTimeout(this._chartScaleTimer); this._chartScaleTimer = null;
-    if (!this._visible) return;
+    if (!this._visible || this._chartScrollSync) return;
     if (this.data.tab === 0) {
       if (this._intraday && !this.chartModel().empty) this.applyChart(this.intradayChart((this._chartScrollPx || 0) / this.chartScale()), {}, true);
       return;
     }
     if (!this._candles || !this._candles.length) return;
-    this.applyChart(index.chart(this._candles, periods[this.data.tab], undefined,
+    this.applyChart(marketChart(this._candles, periods[this.data.tab], undefined,
       { candleStep: this.data.candleStep, scrollRpx: (this._chartScrollPx || 0) / this.chartScale() }), {}, true);
   },
   changeChartZoom(event) {
-    const delta = Number(event.currentTarget.dataset.delta);
+    if (this.data.loading || this.data.chartLoading) return;
+    const direction = event.detail && event.detail.direction;
+    const delta = direction ? ({ in: 1, out: -1 })[direction] : Number(event.currentTarget.dataset.delta);
     if (!Number.isFinite(delta)) return;
+    if (this.data.chartInspecting) this.clearChartSelection();
     if (this.data.tab === 0) this.zoomIntraday(this.data.intradayZoom + delta);
     else this.zoomCandles(this.data.candleStep + delta * 8);
   },
@@ -279,17 +345,20 @@ Page({
     const nextX = old.plotLeft + (old.candles.indexOf(point) + 0.5) * step;
     this._chartScrollPx = Math.max(0, scroll + nextX - point.x) * scale;
     this.setView({ candleStep: step });
-    this.applyChart(index.chart(this._candles, periods[this.data.tab], undefined,
+    this.applyChart(marketChart(this._candles, periods[this.data.tab], undefined,
       { candleStep: step, scrollRpx: this._chartScrollPx / scale }), {}, true);
   },
-  retryChart() { return this.loadChart(); },
+  retryChart() { if (!this.data.loading && !this.data.chartLoading) return this.loadChart(); },
   olderCandles() { if (!this.data.chartLoading && this.data.nextBefore) return this.loadChart(true); },
   changeTab(event) {
-    const tab = Number(event.currentTarget.dataset.index);
+    if (this.data.loading || this.data.chartLoading) return;
+    const tab = event.detail && event.detail.period ? periods.indexOf(event.detail.period) : Number(event.currentTarget.dataset.index);
     if (!Number.isInteger(tab) || tab < 0 || tab > 3 || tab === this.data.tab) return;
-    this._chartId += 1; this._candles = []; this._intraday = null; clearTimeout(this._chartScaleTimer); this._chartScaleTimer = null;
-    this.cancelChartFrames(); this._pinch = null; this._chartGesture = null;
-    this.applyChart(index.chart([], periods[tab]), { tab, nextBefore: null, chartTouching: false, chartPinching: false }); return this.loadChart();
+    if (!this.data.loggedIn) {
+      this.applyChart(marketChart([], periods[tab]), { tab, nextBefore: null }); return;
+    }
+    // Keep the current quote, chart and period together if the next request fails.
+    return this.loadChart(false, false, tab);
   },
   selectCandle(event) { const candle = this.chartModel().candles.find((item) => item.id === event.currentTarget.dataset.id); if (candle) this.selectChartItem(candle); },
   selectChartItem(item) {
@@ -302,7 +371,7 @@ Page({
     this.cancelChartFrames();
     clearTimeout(this._chartScaleTimer); this._chartScaleTimer = null;
     this.setView({ selectedPoint: null, selectedCandle: null, chartInfo: this.chartModel().latest, crosshair: null,
-      chartInspecting: false, chartTouching: false, chartPinching: false });
+      chartInspecting: false, chartTouching: false, chartPinching: false }, () => this.restoreChartScroll());
     this._chartRect = null; this._chartGesture = null;
   },
   cancelChartDismiss() { clearTimeout(this._chartDismissTimer); this._chartDismissTimer = null; },
@@ -323,6 +392,12 @@ Page({
   startChartTouch(event) {
     const touch = event.touches && event.touches[0];
     if (!touch) return;
+    if (!this._chartTouchActive && this._chartScrollSync) {
+      // A fresh gesture owns the actual window; obsolete render callbacks must not move it.
+      this._chartScrollSync = null;
+      this._chartScrollPx = this._chartNativeScrollPx || 0;
+      this.rescaleChart();
+    }
     this._chartTouchActive = true; this.cancelChartDismiss();
     this._chartGesture = { x: touch.clientX, y: touch.clientY, moved: false };
     this._chartTouch = touch; this.setView({ chartTouching: true });
@@ -358,7 +433,7 @@ Page({
       }).exec();
       return;
     }
-    const scale = this.chartScale(), left = this._chartRect ? this._chartRect.left : 36 * scale;
+    const scale = this.chartScale(), left = this._chartRect ? this._chartRect.left : 53 * scale;
     const anchor = ((a.clientX + b.clientX) / 2 - left + (this._chartScrollPx || 0)) / scale;
     this.zoomCandles(this._pinch.step * distance / this._pinch.distance, anchor);
   },
@@ -371,7 +446,8 @@ Page({
     this._chartRect = null;
     this._chartTouchActive = Boolean(event && event.touches && event.touches.length);
     if (event && event.changedTouches && event.changedTouches[0]) this._chartTouch = event.changedTouches[0];
-    this.setView({ chartTouching: this._chartTouchActive, chartPinching: this._chartTouchActive && this.data.chartPinching });
+    this.setView({ chartTouching: this._chartTouchActive, chartPinching: this._chartTouchActive && this.data.chartPinching },
+      () => this.restoreChartScroll());
     if (!this._chartTouchActive) this._pinch = null;
     this.scheduleChartDismiss();
   },

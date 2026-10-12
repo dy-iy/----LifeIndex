@@ -1,0 +1,70 @@
+<view class="market-chart-panel">
+  <view class="period-tabs">
+    <button
+      wx:for="{{periods}}"
+      wx:key="key"
+      class="period-tab {{period === item.key ? 'period-tab--active' : ''}}"
+      size="mini"
+      data-period="{{item.key}}"
+      bindtap="onPeriodTap"
+      disabled="{{busy}}"
+      hover-class="period-tab--pressed"
+      aria-label="{{item.label}}"
+    >
+      <text class="period-label">{{item.label}}</text>
+      <view
+        wx:if="{{period === item.key}}"
+        class="period-underline"
+        aria-hidden="true"
+      ></view>
+    </button>
+  </view>
+
+  <view wx:if="{{periodNote}}" class="period-note">{{periodNote}}</view>
+  <view class="chart-frame">
+    <view class="chart-paper-layer" aria-hidden="true"></view>
+    <view class="chart-paper-face" aria-hidden="true"></view>
+    <view class="chart-slot">
+      <slot></slot>
+    </view>
+    <view class="chart-tape" aria-hidden="true"></view>
+  </view>
+
+  <view class="chart-tools">
+    <view class="chart-help">
+      <view class="chart-legend">
+        <view class="legend-item">
+          <view class="legend-swatch legend-swatch--up" aria-hidden="true"></view>
+          <text>涨</text>
+        </view>
+        <view class="legend-item">
+          <view class="legend-swatch legend-swatch--down" aria-hidden="true"></view>
+          <text>跌</text>
+        </view>
+        <text wx:if="{{detailText}}" class="chart-detail">{{detailText}}</text>
+      </view>
+      <view class="chart-hint">{{hint}}</view>
+    </view>
+
+    <view class="zoom-controls">
+      <button
+        class="zoom-button {{busy || !canZoomOut ? 'zoom-button--unavailable' : ''}}"
+        size="mini"
+        data-direction="out"
+        bindtap="onZoomTap"
+        disabled="{{busy || !canZoomOut}}"
+        hover-class="zoom-button--pressed"
+        aria-label="缩小图表"
+      ><text class="zoom-symbol">−</text></button>
+      <button
+        class="zoom-button {{busy || !canZoomIn ? 'zoom-button--unavailable' : ''}}"
+        size="mini"
+        data-direction="in"
+        bindtap="onZoomTap"
+        disabled="{{busy || !canZoomIn}}"
+        hover-class="zoom-button--pressed"
+        aria-label="放大图表"
+      ><text class="zoom-symbol">+</text></button>
+    </view>
+  </view>
+</view>
