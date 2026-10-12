@@ -102,7 +102,7 @@ worker may call apply again after the application transaction already committed.
         return {"image_observations": extract(state) if extract else []}
 
     def can_repair(state):
-        return state.get("schedule_prompt") in {"schedule_v3.txt", "schedule_v4.txt"} and state.get("repair_count", 0) < 2
+        return state.get("schedule_prompt") in {"schedule_v3.txt", "schedule_v4.txt", "schedule_v5.txt"} and state.get("repair_count", 0) < 2
 
     def repair_node(state):
         return {"repair_count": state.get("repair_count", 0) + 1, "repair_needed": False}
@@ -127,7 +127,7 @@ worker may call apply again after the application transaction already committed.
         missing_questions = [question for question in questions if question not in reply]
         if missing_questions:
             reply += "\n" + "\n".join(missing_questions)
-        if (state.get("schedule_prompt") in {"schedule_v3.txt", "schedule_v4.txt"} and state.get("route") != "read"
+        if (state.get("schedule_prompt") in {"schedule_v3.txt", "schedule_v4.txt", "schedule_v5.txt"} and state.get("route") != "read"
                 and not questions and not plan["operations"]
                 and ((state.get("conversation_memory") or {}).get("pending_proposal") or state.get("image_ids"))):
             # Prose claiming a preserved/confirmable proposal is not a real preview.

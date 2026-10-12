@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import os
 from collections import deque
 from contextlib import asynccontextmanager
@@ -18,6 +19,7 @@ from auth import CurrentUser, Db, router as auth_router
 from avatars import router as avatars_router
 from config import Settings
 from db import make_engine
+from diagnostics import log_failure
 from quota import reserve_chat_request
 from timetables import router as timetables_router
 from schedule_api import router as schedule_router
@@ -31,6 +33,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 load_dotenv(Path(__file__).with_name(".env"))
 MODEL = "deepseek-flash"
+logger = logging.getLogger(__name__)
 
 
 def create_app(settings: Settings | None = None):
@@ -66,6 +69,7 @@ def create_app(settings: Settings | None = None):
 
     @application.exception_handler(SQLAlchemyError)
     async def database_unavailable(request: Request, exc: SQLAlchemyError):
+        log_failure(logger, "Database request failed: %s %s", exc, request.method, request.url.path)
         return JSONResponse(status_code=503, content={"detail": "数据服务暂时不可用，请稍后重试。"})
 
     @application.middleware("http")

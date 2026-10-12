@@ -133,11 +133,12 @@ def validate_image_planning_plan(value):
         raise ModelError("课表方案的图片引用或操作格式不完整，已保留任务，请重试。") from None
 
 
-def compile_image_imports(plan, observations, progress=None, *, persist_periods=False):
-    return compile_image_imports_with_progress(plan, observations, progress, persist_periods=persist_periods)[0]
+def compile_image_imports(plan, observations, progress=None, *, persist_periods=False, semester_timezone="Asia/Shanghai"):
+    return compile_image_imports_with_progress(plan, observations, progress, persist_periods=persist_periods,
+                                              semester_timezone=semester_timezone)[0]
 
 
-def compile_image_imports_with_progress(plan, observations, progress=None, *, persist_periods=False):
+def compile_image_imports_with_progress(plan, observations, progress=None, *, persist_periods=False, semester_timezone="Asia/Shanghai"):
     """Resolve an import directive using saved image facts, without another LLM.
 
     The planner chooses user-requested weeks and selection, never rewrites card
@@ -189,7 +190,9 @@ def compile_image_imports_with_progress(plan, observations, progress=None, *, pe
         if op["kind"] != "import_image_courses":
             if images and op["kind"] == "create_course":
                 raise HTTPException(422, "图片课程必须引用已识别的课程卡导入，不能重新猜测星期或时段。")
-            result.append({**op, "timezone": "Asia/Shanghai"} if persist_periods and op["kind"] == "create_semester" else op)
+            # Older v4 checkpoints retain their frozen Shanghai policy; new
+            # tasks explicitly supply the authenticated account's saved zone.
+            result.append({**op, "timezone": semester_timezone} if persist_periods and op["kind"] == "create_semester" else op)
             continue
         image = images.get(op["image_id"])
         if image is None:

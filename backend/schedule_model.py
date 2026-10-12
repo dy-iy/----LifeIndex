@@ -69,10 +69,10 @@ def prepare_messages(state: dict, images: list[dict]) -> dict:
     if not isinstance(images, list) or len(images) > MAX_IMAGES:
         raise ModelError("一段待处理的安排最多使用六张课表图片，请先完成当前导入。", status_code=422)
     prompt_name = state.get("schedule_prompt", "schedule_v2.txt")
-    if prompt_name not in {"schedule_v2.txt", "schedule_v3.txt", "schedule_v4.txt"}:
+    if prompt_name not in {"schedule_v2.txt", "schedule_v3.txt", "schedule_v4.txt", "schedule_v5.txt"}:
         raise ModelError("未知课表提示版本，已保留当前任务。")
     schema_model = SchedulePlan
-    if prompt_name in {"schedule_v3.txt", "schedule_v4.txt"}:
+    if prompt_name in {"schedule_v3.txt", "schedule_v4.txt", "schedule_v5.txt"}:
         from agents.schedule_image_reader import ImagePlanningPlan
         schema_model = ImagePlanningPlan
     schema = json.dumps(schema_model.model_json_schema(), ensure_ascii=False, separators=(",", ":"))

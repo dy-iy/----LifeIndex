@@ -34,7 +34,7 @@ function quoteHeader(data, selected) {
   const source = data.chartInspecting && selected;
   const stamp = source ? source.date + (data.tab === 0 ? ` ${source.label}`
     : data.tab > 1 && source.endDate !== source.date ? ` ~ ${source.endDate}` : "")
-    : data.quoteTimeLabel.replace(/ 北京时间$/, "") || data.businessDate;
+    : data.quoteTimeLabel || data.businessDate;
   const meta = source && data.tab !== 0
     ? source.prices.map((price, i) => Object.assign({}, price, { label: ["开盘", "最高", "最低", "收盘"][i] }))
     : data.meta;

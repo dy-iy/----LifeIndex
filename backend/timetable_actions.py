@@ -244,7 +244,7 @@ def local_instant(day, clock, tz_name):
         if utc.astimezone(tz).replace(tzinfo=None) == naive:
             candidates.add(utc)
     if len(candidates) != 1:
-        raise HTTPException(422, f"{day.isoformat()} {clock} 在 {tz_name} 因时区切换不存在或有歧义，请调整时间。")
+        raise HTTPException(422, f"{day.isoformat()} {clock} 不存在或对应多个时刻，请调整时间。")
     return candidates.pop()
 
 
@@ -309,7 +309,7 @@ def recorded_lessons(db, user_id):
 
 def create_semester_record(db, user, body, *, record_id=None):
     values = body.model_dump()
-    values["timezone"] = body.timezone or "Asia/Shanghai"
+    values["timezone"] = body.timezone or user.timezone
     item = Semester(user_id=user.id, **values)
     if record_id is not None:
         item.id = record_id

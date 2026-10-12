@@ -3,7 +3,6 @@ const art = require("../../services/art");
 const session = require("../../services/session");
 const timetable = require("../../services/timetable");
 const { buildWeekGrid } = require("../../services/timetable-grid");
-const { DEFAULT_TIMEZONE } = require("../../config/timezone");
 const { onShareAppMessage } = require("../../services/share");
 const DAYS = ["一", "二", "三", "四", "五", "六", "日"];
 const PATTERNS = ["每周", "单周", "双周"];
@@ -36,18 +35,23 @@ Page({
   syncIdentity() {
     const current = timetable.identity();
     if (!this._snapshot || current.owner !== this._snapshot.owner || current.generation !== this._snapshot.generation) {
+      const draft = current.owner && this._snapshot && current.owner === this._snapshot.owner ? this.draftState() : null;
       this._snapshot = current; this._loadId = (this._loadId || 0) + 1;
-      this.setData(initialData());
+      this.setData(Object.assign(initialData(), draft || {}));
+      if (draft) timetable.saveDraft(draft);
     }
     this._snapshot = current;
     this.setData({ loggedIn: Boolean(current.owner) });
     return current;
   },
   active(snapshot) { return !this._disposed && timetable.isCurrent(snapshot); },
+  draftState() {
+    const { selectedDate, weekStart, viewMode, semesterIndex, semester, editor, semesterForm, courseForm, lessonForm, courseListOpen } = this.data;
+    return { selectedDate, weekStart, viewMode, semesterIndex, semester, editor, semesterForm, courseForm, lessonForm, courseListOpen };
+  },
   rememberDraft() {
     if (!this.active(this._snapshot)) return;
-    const { selectedDate, weekStart, viewMode, semesterIndex, semester, editor, semesterForm, courseForm, lessonForm, courseListOpen } = this.data;
-    timetable.saveDraft({ selectedDate, weekStart, viewMode, semesterIndex, semester, editor, semesterForm, courseForm, lessonForm, courseListOpen });
+    timetable.saveDraft(this.draftState());
   },
   async reload() {
     const snapshot = this.syncIdentity();
@@ -63,7 +67,7 @@ Page({
       if (!semester) { this.setData({ semesters, semester: null, courses: [], lessons: [], visibleLessons: [], weekDays: [], grid: null, weekOptions: [] }); return; }
       const changedSemester = semester.id !== previousId;
       let selectedDate = this.data.selectedDate;
-      if (!selectedDate || changedSemester) selectedDate = semester.today || timetable.today();
+      if (!selectedDate || changedSemester) selectedDate = timetable.today();
       if (selectedDate < semester.start_date) selectedDate = semester.start_date;
       if (selectedDate > semester.end_date) selectedDate = semester.end_date;
       const weekStart = timetable.monday(selectedDate);
@@ -122,7 +126,7 @@ Page({
   currentWeek() {
     if (this.data.loading || this.data.saving || !this.data.semester) return;
     const semester = this.data.semester;
-    const today = semester.today || timetable.today();
+    const today = timetable.today();
     this.setData({ selectedDate: today < semester.start_date ? semester.start_date : today > semester.end_date ? semester.end_date : today });
     return this.reload();
   },
@@ -228,7 +232,7 @@ Page({
     });
     const data = { name: form.name.trim(), periods };
     if (form.id && (form.has_courses || this.data.courses.length)) return Object.assign(data, { version: form.version });
-    return Object.assign(data, { start_date: form.start_date, end_date: form.end_date, first_week_monday: form.first_week_monday, timezone: DEFAULT_TIMEZONE }, form.id ? { version: form.version } : {});
+    return Object.assign(data, { start_date: form.start_date, end_date: form.end_date, first_week_monday: form.first_week_monday }, form.id ? { version: form.version } : {});
   },
   saveSemester() { return this.submit("semester", () => this.semesterPayload()); },
   toggleCourses() { this.setData({ courseListOpen: !this.data.courseListOpen }); },

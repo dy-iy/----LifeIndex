@@ -74,8 +74,14 @@ function inputState(value) {
     noteDraft: value.noteDraft };
 }
 function sameInput(value, remote) {
+  const localContext = value.reviewContext || {}, remoteContext = remote.review_context || {};
+  // ReviewContext is a flat record of choices. JSONB may reorder its keys;
+  // field order must not turn the same saved evidence into an answer conflict.
+  const sameContext = Object.keys(localContext).length === Object.keys(remoteContext).length
+    && Object.keys(localContext).every((key) => Object.prototype.hasOwnProperty.call(remoteContext, key)
+      && localContext[key] === remoteContext[key]);
   return equal(value.answers, remote.answers) && value.questionVersion === remote.question_version
-    && equal(value.reviewContext || {}, remote.review_context || {});
+    && sameContext;
 }
 function acceptInput(value, remote) {
   value.answers = remote.answers.slice(); value.questionVersion = remote.question_version || QUESTION_VERSION;

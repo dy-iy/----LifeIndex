@@ -4,6 +4,7 @@ Maintenance closes only canonical five-second ticks. Accepted business mutations
 split a tick. Historical timer evidence never changes these immutable actions.
 """
 from datetime import datetime, time, timedelta, timezone
+import logging
 import secrets
 from zoneinfo import ZoneInfo
 
@@ -12,11 +13,13 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from index_models import (ClassIndexAccount, ClassIndexEvent, ClassMarketAction,
                           ClassMarketDay, ClassMarketPoint, ClassMarketState)
+from diagnostics import log_failure
 from market_math import (MOOD_UNIT, SNAPSHOT, STEP, VERSION, display, normals, step)
 from rules import INITIAL_PRICE
 from models import StudySession
 
 DEFAULT_BATCH_STEPS = 4096
+logger = logging.getLogger(__name__)
 
 
 def market_mode(state, at):
@@ -117,6 +120,10 @@ def timer_action(db, user, item, now, operation):
     state = db.get(ClassMarketState, user.id)
     if state is None and operation not in ("start", "resume", "reconcile"):
         return  # Existing timers do not silently gain backdated activation.
+    if state is not None and operation == "finish" and state.session_id != item.id:
+        # Confirming an already-finished record (including a timed-out or
+        # offline-corrected one) cannot stop a different course's live market.
+        return
     source = f"timer:{item.id}:{item.version}:{operation}"
     if state is not None and db.scalar(select(ClassMarketAction.sequence).where(
             ClassMarketAction.user_id == user.id, ClassMarketAction.source_key == source)) is not None:
@@ -196,7 +203,7 @@ def maintain_markets(factory, now=None, limit=100):
                         account = db.get(ClassIndexAccount, user_id)
                         advance(db, state, account, now, max_steps=720)
                         processed += 1
-        except (SQLAlchemyError, ValueError):
+        except (SQLAlchemyError, ValueError) as error:
             # An unavailable/corrupt account must not stall everybody's quotes.
-            print("Market maintenance transaction failed; retrying next round.", flush=True)
+            log_failure(logger, "Market maintenance transaction failed for user_id=%s; retrying next round.", error, user_id)
     return processed

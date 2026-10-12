@@ -1,6 +1,6 @@
 const backend = require("./backend");
 const session = require("./session");
-const { UTC_OFFSET_MINUTES } = require("../config/timezone");
+const { localDate } = require("../config/timezone");
 let owner = null;
 let draft = null;
 let keys = {};
@@ -48,8 +48,8 @@ function saveLesson(id, data) { return write(`/api/lessons/${id}`, "PATCH", data
 function addDays(value, amount) { return new Date(Date.parse(`${value}T00:00:00Z`) + amount * 86400000).toISOString().slice(0, 10); }
 function monday(value) { const day = new Date(`${value}T00:00:00Z`).getUTCDay(); return addDays(value, -(day === 0 ? 6 : day - 1)); }
 function today(now = Date.now()) {
-  // UTC+8 does not depend on device timezone or Intl support in older WeChat versions.
-  return new Date(now + UTC_OFFSET_MINUTES * 60000).toISOString().slice(0, 10);
+  const current = identity();
+  return localDate(now, current.user && current.user.timezone);
 }
 function errorMessage(error) {
   if (error.statusCode === 409) {

@@ -12,6 +12,7 @@
   <button wx:if="{{user && canRetryAvatar}}" class="text-button avatar-retry" bindtap="retryAvatar" disabled="{{!!busy}}">重试保存头像</button>
   <form wx:if="{{user}}" class="profile-form" bindsubmit="saveProfile">
     <text class="field-label">昵称</text><input class="field-input" type="nickname" name="display_name" value="{{displayName}}" bindfocus="focusName" bindinput="inputName" bindblur="inputName" placeholder="填写或选择微信昵称" maxlength="60" disabled="{{!!busy}}"/>
+    <text class="field-label">时区（默认北京时间）</text><input class="field-input" name="timezone" value="{{timezone}}" bindfocus="focusTimezone" bindinput="inputTimezone" placeholder="例如 Asia/Shanghai" maxlength="64" disabled="{{!!busy}}"/>
     <button class="secondary-button" form-type="submit" loading="{{busy === 'save'}}" disabled="{{!!busy}}">保存设置</button>
   </form>
   <view class="section-head"><text class="section-title">设置</text></view>

@@ -1,11 +1,15 @@
 """Typed capabilities bound to an authenticated account and workflow phase."""
 from dataclasses import dataclass
 from typing import Callable
+import logging
 import time
 import uuid
 from pydantic import BaseModel, ConfigDict
 from pydantic import ValidationError
 from agents.models import AgentTrace
+from diagnostics import log_failure
+
+logger = logging.getLogger(__name__)
 
 
 class NoArguments(BaseModel):
@@ -40,8 +44,9 @@ def record_trace(factory, scope, node, status, started, metadata=None):
             db.add(AgentTrace(user_id=scope.user_id, run_id=scope.run_id, workflow=scope.workflow,
                 node=node, status=status, elapsed_ms=int((time.monotonic() - started) * 1000),
                 metadata_json=metadata or {"phase": scope.phase}))
-    except Exception:
-        print("Agent trace unavailable", flush=True)
+    except Exception as error:
+        log_failure(logger, "Agent trace unavailable workflow=%s run_id=%s node=%s",
+                    error, scope.workflow, scope.run_id, node)
 
 
 class ToolRegistry:

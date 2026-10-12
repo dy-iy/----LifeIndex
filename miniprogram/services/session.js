@@ -1,11 +1,13 @@
 const STORAGE_KEY = "lifefund.session.v1";
 const listeners = new Set();
-let owner = null, token = null, generation = 0;
+let owner = null, token = null, timezone = null, generation = 0;
 function subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); }
 function changed(previous, next) {
   const before = previous && previous.user && previous.user.id;
   const after = next && next.user && next.user.id;
-  if (before === after) return;
+  const beforeZone = previous && previous.user && previous.user.timezone;
+  const afterZone = next && next.user && next.user.timezone;
+  if (before === after && beforeZone === afterZone) return;
   const navigation = require("./class-navigation");
   for (let index = 0; index < navigation.CLASS_ROUTES.length; index += 1) navigation.clearClassPageState(index);
   listeners.forEach((listener) => listener());
@@ -40,12 +42,13 @@ function save(value) {
 function updateUser(user, expectedToken) {
   const value = get();
   if (!value || (expectedToken && value.access_token !== expectedToken)) return null;
-  value.user = user; return save(value);
+  return save(Object.assign({}, value, { user }));
 }
 function identity() {
   const current = get(), nextOwner = current ? current.user.id : null, nextToken = current ? current.access_token : null;
-  if (nextOwner !== owner || nextToken !== token) {
-    owner = nextOwner; token = nextToken; generation += 1;
+  const nextTimezone = current ? current.user.timezone : null;
+  if (nextOwner !== owner || nextToken !== token || nextTimezone !== timezone) {
+    owner = nextOwner; token = nextToken; timezone = nextTimezone; generation += 1;
   }
   return { owner, generation, user: current ? current.user : null };
 }

@@ -1,6 +1,8 @@
 """Idempotent review placeholders for elapsed courses after timer enrollment."""
 from db import lock_reader
+from diagnostics import log_failure
 from datetime import datetime, timedelta, timezone
+import logging
 
 from sqlalchemy import exists, select
 from sqlalchemy.exc import SQLAlchemyError
@@ -56,6 +58,7 @@ def maintain_review_records(factory, now=None, limit=100):
                     create_record(db, lesson)
                     created = True
             count += int(created)
-        except SQLAlchemyError:
-            print("Review record maintenance failed; retrying next round.", flush=True)
+        except SQLAlchemyError as error:
+            log_failure(logging.getLogger("lifefund.review.worker"),
+                "Review record maintenance failed lesson_id=%s; retrying next round", error, lesson_id)
     return count

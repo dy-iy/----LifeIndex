@@ -1,5 +1,6 @@
 const backend = require("./backend");
 const session = require("./session");
+const { localDateTime } = require("../config/timezone");
 const COLORS = { rise: "#e53935", fall: "#15945e", flat: "#737b80" };
 const CHART_WIDTH = 676, CANDLE_STEP = 28;
 const CHART_LEFT = 104, CHART_RIGHT = 44, PLOT_TOP = 24, PLOT_HEIGHT = 350;
@@ -16,13 +17,8 @@ function priceMeta(prices, previousClose) {
   return ["开盘", "最高", "最低", "昨收"].map((label, i) => ({ label, value: number(prices[i]),
     direction: i === 3 ? "flat" : changeStats(prices[i], previousClose).changeDirection }));
 }
-function dateTime(value, timezone = "Asia/Shanghai") {
-  const timestamp = Date.parse(value);
-  if (!Number.isFinite(timestamp)) return "";
-  if (timezone === "Asia/Shanghai") return `${new Date(timestamp + 8 * 3600000).toISOString().slice(0, 16).replace("T", " ")} 北京时间`;
-  if (timezone === "UTC") return `${new Date(timestamp).toISOString().slice(0, 16).replace("T", " ")} UTC`;
-  try { return `${new Intl.DateTimeFormat("zh-CN", { timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(timestamp))} ${timezone}`; }
-  catch (_) { return String(value).replace("T", " "); }
+function dateTime(value, timezone) {
+  return value === null || value === undefined || value === "" ? "" : localDateTime(value, timezone);
 }
 async function read(path) {
   const snapshot = session.identity();
@@ -36,7 +32,7 @@ function eventView(event) {
     direction: sign(event.change_points), priceLabel: number(event.price_after), clippedLabel: signed(event.clipped_points),
     typeLabel: event.is_correction ? "历史修正" : event.kind === "absence" ? "确认缺席" : event.kind === "excluded" ? "参与情况调整" : "课程结算",
     versionLabel: Number(event.revision || 0) + 1,
-    occurredLabel: (event.created_at || "").replace("T", " "), hasClipped: Number(event.clipped_points) !== 0 });
+    occurredLabel: dateTime(event.created_at, event.timezone), hasClipped: Number(event.clipped_points) !== 0 });
 }
 function svgUrl(svg) {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
@@ -127,15 +123,14 @@ function chart(values, kind, previousClose, options = {}) {
         date: item.time.slice(0, 10), time: item.time, timestamp: times.get(item), kind: item.kind, name: item.lesson_name || "指数" }, changeStats(item.price, previousClose));
     });
     const coordinates = renderedPoints.map((point) => `${point.x.toFixed(3)},${point.y.toFixed(3)}`).join(" ");
-    const shape = renderedPoints.length > 1 ? `<polyline points="${coordinates}" fill="none" stroke="#25313b" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`
+    const shape = renderedPoints.length > 1 ? `<polyline points="${coordinates}" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`
       : `<circle cx="${renderedPoints[0].x}" cy="${renderedPoints[0].y}" r="1" fill="#000000"/>`;
     const lineImage = svgUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="390" viewBox="0 0 ${width} 390">${shape}</svg>`);
     const labels = [];
-    const localStart = Date.parse(`${data[0].time.slice(0, 19)}Z`);
     for (let i = 0; i < (end > start ? 5 : 1); i++) {
       const labelX = visibleLeft + (visibleRight - visibleLeft) * i / 4;
-      const time = end === start ? localStart : localStart + (labelX - left) / (right - left) * (end - start);
-      const label = new Date(time).toISOString().slice(11, 16);
+      const time = end === start ? start : start + (labelX - left) / (right - left) * (end - start);
+      const label = dateTime(time, options.timezone).slice(11, 16);
       if (!labels.length || labels[labels.length - 1].label !== label) labels.push({ id: `time-${i}`, x: labelX, label });
     }
     const points = renderedPoints.filter(point => point.x >= visibleLeft && point.x <= visibleRight);

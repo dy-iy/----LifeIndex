@@ -1,4 +1,5 @@
-const { UTC_OFFSET_MINUTES } = require("../config/timezone");
+const { localDate } = require("../config/timezone");
+const session = require("./session");
 
 const MONTH_NAMES = ["一月", "二月", "三月", "四月", "五月", "六月", "七月", "八月", "九月", "十月", "十一月", "十二月"];
 const ACCENTS = ["#7546DD", "#448EFF", "#E7854A", "#24AAA5"];
@@ -7,8 +8,9 @@ const EVALUATION_LABELS = {
   failed: "评估失败", succeeded: "已结算", invalid_answer: "待修改",
 };
 
-function todayKey(now) {
-  return new Date(now + UTC_OFFSET_MINUTES * 60000).toISOString().slice(0, 10);
+function todayKey(now = Date.now()) {
+  const current = session.identity();
+  return localDate(now, current.user && current.user.timezone);
 }
 
 function formatDuration(value) {

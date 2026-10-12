@@ -1,5 +1,6 @@
 """Run durable evaluation jobs and periodic incomplete-record maintenance."""
 import argparse
+import logging
 from pathlib import Path
 import signal
 import time
@@ -9,11 +10,14 @@ from dotenv import load_dotenv
 from sqlalchemy.exc import SQLAlchemyError
 
 from config import Settings
+from diagnostics import log_failure
 from evaluation_worker import Worker
 from learning_lifecycle import archive_incomplete, backfill_outcomes
 from study_sessions import expire_sessions
 from review_records import maintain_review_records
 from market_engine import maintain_markets
+
+logger = logging.getLogger(__name__)
 
 
 def maintain(worker, stopped, once=False):
@@ -30,8 +34,8 @@ def maintain(worker, stopped, once=False):
                 backfill_outcomes(worker.factory)
                 worker.backfill_pending()
                 maintenance_at = time.monotonic() + 30
-        except SQLAlchemyError:
-            print("Learning maintenance data service unavailable; retrying.", flush=True)
+        except SQLAlchemyError as error:
+            log_failure(logger, "Learning maintenance data service unavailable; retrying.", error)
         if once:
             return
         # Drain full batches promptly; do not make every 100 users wait 30 seconds.
@@ -56,8 +60,8 @@ def main():
             worked = False
             try:
                 worked = worker.run_once()
-            except SQLAlchemyError:
-                print("Learning data service unavailable; retrying.", flush=True)
+            except SQLAlchemyError as error:
+                log_failure(logger, "Learning data service unavailable; retrying.", error)
             if args.once:
                 break
             if not worked:

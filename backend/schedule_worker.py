@@ -3,6 +3,7 @@ import argparse
 from copy import deepcopy
 import hashlib
 import json
+import logging
 from contextlib import contextmanager
 from datetime import timedelta
 import os
@@ -22,6 +23,7 @@ from sqlalchemy.orm import sessionmaker
 from auth import utcnow
 from config import Settings
 from db import make_engine, checkpoint_location
+from diagnostics import log_failure
 from models import ScheduleImage, ScheduleRun, ScheduleThread, ScheduleModelCall, User
 from agents.memory import remember_schedule
 from agents.context import CONTEXT_VERSION, CONTEXT_CODE_SHA256
@@ -33,6 +35,8 @@ from schedule_budget import reserve, settle
 from schedule_graph import PlanningResult, build_graph
 from schedule_model import ModelError, prepare_messages, invoke_planner, validate_plan
 from schedule_plan import apply_plan, context_snapshot, preview_plan
+
+logger = logging.getLogger(__name__)
 
 
 def setup_checkpoints(database_url):
@@ -100,6 +104,11 @@ class Worker:
                 db.commit()
                 return None
             run.attempts += 1
+            run.updated_at = now
+            # Every visible transition invalidates known_version polling,
+            # including the terminal failure after repeated lease expiry.
+            db.execute(update(ScheduleThread).where(ScheduleThread.id == run.thread_id).values(
+                version=ScheduleThread.version + 1, updated_at=now))
             if run.attempts > 3:
                 run.status, run.error = "failed", "任务多次中断，已保留对话和方案，请手动重试。"
                 run.lease_owner, run.lease_until = None, None
@@ -108,9 +117,6 @@ class Worker:
             lease_owner = uuid.uuid4()
             run.status = "confirming" if run.decision else "running"
             run.lease_owner, run.lease_until = lease_owner, now + timedelta(minutes=5)
-            run.updated_at = now
-            db.execute(update(ScheduleThread).where(ScheduleThread.id == run.thread_id).values(
-                version=ScheduleThread.version + 1, updated_at=now))
             db.commit()
             return run.id, lease_owner
 
@@ -168,7 +174,7 @@ class Worker:
             historical_images = [image_id for image_id in dict.fromkeys(historical_images) if usable_image(image_id)]
             return {"run_id": str(run.id), "thread_id": str(thread.id), "user_id": str(run.user_id),
                     "context_policy": CONTEXT_VERSION,
-                    "schedule_prompt": "schedule_v4.txt",
+                    "schedule_prompt": "schedule_v5.txt",
                     "context_code_sha256": CONTEXT_CODE_SHA256,
                     "semester_id": str(thread.semester_id) if thread.semester_id else None,
                     "new_image_ids": list(run.image_ids),
@@ -178,7 +184,7 @@ class Worker:
 
     def extract_images(self, state):
         """Cache image facts per owned immutable upload, independently of chat turns."""
-        if state.get("schedule_prompt") not in {"schedule_v3.txt", "schedule_v4.txt"} or state.get("route") == "read":
+        if state.get("schedule_prompt") not in {"schedule_v3.txt", "schedule_v4.txt", "schedule_v5.txt"} or state.get("route") == "read":
             return []
         identifiers = state.get("image_ids", [])
         if len(identifiers) > 6 or len(identifiers) != len(set(identifiers)):
@@ -221,7 +227,9 @@ class Worker:
             except ModelError as error:
                 settle(self.factory, call_id, answer.get("usage", {}) if answer else error.usage)
                 raise
-            except Exception:
+            except Exception as error:
+                log_failure(logger, "Schedule image reading failed run_id=%s image_id=%s", error,
+                            state["run_id"], image_id)
                 settle(self.factory, call_id, {})
                 raise ModelError("课表图像读取暂未完成，原图和要求已保留，请重试。") from None
             settle(self.factory, call_id, answer.get("usage", {}),
@@ -237,7 +245,7 @@ class Worker:
         # Keep the shared evaluation compiler stable. The task capsule is its
         # existing protected slot for required schedule facts and repair feedback.
         state = deepcopy(state)
-        if state.get("schedule_prompt") in {"schedule_v3.txt", "schedule_v4.txt"}:
+        if state.get("schedule_prompt") in {"schedule_v3.txt", "schedule_v4.txt", "schedule_v5.txt"}:
             memory = state.setdefault("conversation_memory", {})
             pending = memory.get("pending_proposal") or {"source": state["run_id"], "plan": None}
             if state.get("image_observations") or state.get("validation_feedback"):
@@ -279,7 +287,7 @@ class Worker:
         result = None
         try:
             result = self.planner(messages, api_key=key)
-            if state.get("schedule_prompt") in {"schedule_v3.txt", "schedule_v4.txt"}:
+            if state.get("schedule_prompt") in {"schedule_v3.txt", "schedule_v4.txt", "schedule_v5.txt"}:
                 from agents.schedule_image_reader import validate_image_planning_plan
                 result["plan"] = validate_image_planning_plan(result["plan"])
             else:
@@ -287,7 +295,8 @@ class Worker:
         except ModelError as error:
             settle(self.factory, call_id, result.get("usage", {}) if result else error.usage)
             raise
-        except Exception:
+        except Exception as error:
+            log_failure(logger, "Schedule planning failed run_id=%s", error, state["run_id"])
             settle(self.factory, call_id, {})
             raise ModelError("课表助手暂时无法处理，请稍后重试。") from None
         settle(self.factory, call_id, result.get("usage", {}), result["plan"])
@@ -295,13 +304,15 @@ class Worker:
 
     @staticmethod
     def _compiled_plan(plan, state, *, with_progress=False):
-        if state.get("schedule_prompt") not in {"schedule_v3.txt", "schedule_v4.txt"}:
+        if state.get("schedule_prompt") not in {"schedule_v3.txt", "schedule_v4.txt", "schedule_v5.txt"}:
             return validate_plan(plan)
         from agents.schedule_image_reader import compile_image_imports_with_progress
         try:
             pending = (state.get("conversation_memory") or {}).get("pending_proposal") or {}
             compiled, progress = compile_image_imports_with_progress(plan, state.get("image_observations", []),
-                pending.get("image_import_progress"), persist_periods=state.get("schedule_prompt") == "schedule_v4.txt")
+                pending.get("image_import_progress"),
+                persist_periods=state.get("schedule_prompt") in {"schedule_v4.txt", "schedule_v5.txt"},
+                semester_timezone=state["context"]["timezone"] if state.get("schedule_prompt") == "schedule_v5.txt" else "Asia/Shanghai")
             return PlanningResult(compiled, progress) if with_progress else compiled
         except HTTPException as error:
             error.plan = plan
@@ -313,11 +324,22 @@ class Worker:
     def retrieve(self, state):
         return ScheduleTools(self, state).retrieve()
 
+    @staticmethod
+    def execution_plan(state):
+        # Pre-v5 checkpoints may omit a create-semester zone. Preserve the
+        # already previewed default when resuming those frozen proposals.
+        plan = deepcopy(state["plan"])
+        for operation in plan.get("operations", []):
+            if operation["kind"] == "create_semester" and not operation.get("timezone"):
+                operation["timezone"] = (state["context"]["timezone"]
+                    if state.get("schedule_prompt") == "schedule_v5.txt" else "Asia/Shanghai")
+        return plan
+
     def preview(self, state):
         with self.factory() as db:
             user = db.scalar(select(User).where(User.id == uuid.UUID(state["user_id"])).with_for_update())
             # The executor rolls back its own savepoint; no business records are saved.
-            return preview_plan(db, user, state["semester_id"], state["plan"], state["run_id"])
+            return preview_plan(db, user, state["semester_id"], self.execution_plan(state), state["run_id"])
 
     def apply(self, state, lease_owner):
         with self.factory() as db:
@@ -333,7 +355,7 @@ class Worker:
             current = latest_run(db, thread.id)
             if current.id != run.id:
                 raise HTTPException(409, "方案已被后续对话替代，请读取最新对话。")
-            result = apply_plan(db, user, thread.semester_id, state["plan"], run.id, state["preview"]["baseline_hash"])
+            result = apply_plan(db, user, thread.semester_id, self.execution_plan(state), run.id, state["preview"]["baseline_hash"])
             if state.get("image_import_progress") is not None:
                 # Derived only from owned source rows and the compiled proposal.
                 # Save it in the same transaction as course writes/idempotency.
@@ -394,7 +416,7 @@ class Worker:
                                     retrieve=self.retrieve, memory=self.memory, extract=self.extract_images)
                 config = {"configurable": {"thread_id": str(run_id)}, "recursion_limit": 20}
                 snapshot = graph.get_state(config)
-                if snapshot.values and snapshot.values.get("schedule_prompt") not in {"schedule_v3.txt", "schedule_v4.txt"}:
+                if snapshot.values and snapshot.values.get("schedule_prompt") not in {"schedule_v3.txt", "schedule_v4.txt", "schedule_v5.txt"}:
                     graph = build_graph(saver, lambda state: self.interpret(state, with_progress=True), self.preview, lambda state: self.apply(state, lease_owner),
                                         retrieve=self.retrieve, memory=self.memory, legacy=True)
                     snapshot = graph.get_state(config)
@@ -420,8 +442,7 @@ class Worker:
         except HTTPException as error:
             self.finish(run_id, lease_owner, error=error.detail if isinstance(error.detail, str) else "任务无法处理，请重试。")
         except Exception as error:
-            # Do not log exception values: DB/provider errors may contain payloads or secrets.
-            print(f"schedule worker failed ({type(error).__name__})", flush=True)
+            log_failure(logger, "Schedule worker failed run_id=%s", error, run_id)
             self.finish(run_id, lease_owner, error="处理暂时中断，已保留对话。请稍后重试。")
         return True
 
@@ -446,7 +467,7 @@ def main():
                 try:
                     worked = worker.run_once()
                 except Exception as error:
-                    print(f"schedule worker unavailable ({type(error).__name__})", flush=True)
+                    log_failure(logger, "Schedule worker unavailable; retrying.", error)
                     worked = False
                 if not worked:
                     time.sleep(2)

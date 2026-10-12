@@ -1,6 +1,7 @@
 """Server-clock timers with durable segments, ownership and retryable transitions."""
 from db import IdempotencyKey, Input, Version, check_version, mutate, owned
 from db import lock_reader
+import logging
 import uuid
 from datetime import date, datetime, timedelta, timezone
 from typing import Literal
@@ -12,12 +13,14 @@ from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 
 from auth import CurrentUser, Db
+from diagnostics import log_failure
 from models import Lesson, Review, StudySegment, StudySession, User
 from market_engine import reconcile_active_timer, timer_action
 from timetable_actions import LessonResponse, lesson_result
 
 router = APIRouter()
 TIMING_GRACE = timedelta(minutes=10)
+logger = logging.getLogger(__name__)
 
 
 def utcnow():
@@ -210,8 +213,8 @@ def expire_sessions(factory, now=None, limit=100):
             with factory.begin() as db:
                 lock_reader(db, user_id)
                 count += close_expired_sessions(db, user_id, now)
-        except SQLAlchemyError:
-            print("Timer maintenance transaction failed; retrying next round.", flush=True)
+        except SQLAlchemyError as error:
+            log_failure(logger, "Timer maintenance transaction failed for user_id=%s; retrying next round.", error, user_id)
     return count
 
 

@@ -21,6 +21,7 @@ from sqlalchemy.orm import sessionmaker
 
 from config import Settings
 from db import make_engine
+from diagnostics import log_failure
 from evaluation_api import current_input, deadline, enqueue_evaluation, fingerprint, utcnow
 from evaluation_model import MODEL_NAME, PROMPT_VERSION, MAX_OUTPUT_TOKENS, ModelError, build_messages, invoke_evaluator, needs_clarification, validate_assessment, score_maxima
 from evaluation_models import EvaluationCall, EvaluationDailyUsage, EvaluationJob
@@ -30,6 +31,8 @@ import review_flow
 import review_v5
 import review_v6
 import review_v7
+
+logger = logging.getLogger("lifefund.review.worker")
 
 
 class Worker:
@@ -222,7 +225,8 @@ class Worker:
             except ModelError as error:
                 self.settle_call(call_id, error.usage)
                 raise
-            except Exception:
+            except Exception as error:
+                log_failure(logger, "Legacy evaluation provider failed job_id=%s", error, job_id)
                 self.settle_call(call_id, {})
                 raise ModelError("评估服务暂时不可用，已保留复盘，请重试。") from None
             self.settle_call(call_id, answer.get("usage", {}), assessment)
@@ -424,10 +428,15 @@ class Worker:
                 else:
                     raise ModelError("未知工作流版本，已保留输入，请联系管理员。")
             except ModelError as error:
+                logger.warning("Evaluation failed job_id=%s status_code=%s error=%s",
+                               job_id, error.status_code, error.message)
                 self.fail(job_id, owner, error.message)
-            except HTTPException:
+            except HTTPException as error:
+                log_failure(logger, "Evaluation settlement failed job_id=%s status_code=%s",
+                            error, job_id, error.status_code)
                 self.fail(job_id, owner, "结算暂未完成，评估已保存，请重试。")
-            except Exception:
+            except Exception as error:
+                log_failure(logger, "Unexpected evaluation failure job_id=%s", error, job_id)
                 self.fail(job_id, owner, "评估暂未完成，复盘与已生成结果已保存，请重试。")
         return True
 

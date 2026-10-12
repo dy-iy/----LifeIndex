@@ -1,7 +1,6 @@
 const { request } = require("./backend");
 const session = require("./session");
 const { normalizeBuffer } = require("./binary-upload");
-const { DEFAULT_TIMEZONE } = require("../config/timezone");
 let loginPending = null;
 let refreshPending = null;
 let profileVersion = 0;
@@ -30,7 +29,7 @@ async function updateProfile(data) {
   const current = session.get();
   profileVersion += 1;
   try {
-    const user = await request({ path: "/api/users/me", method: "PATCH", data: Object.assign({}, data, { timezone: DEFAULT_TIMEZONE }) });
+    const user = await request({ path: "/api/users/me", method: "PATCH", data });
     if (current) session.updateUser(user, current.access_token);
     return user;
   } finally { profileVersion += 1; }

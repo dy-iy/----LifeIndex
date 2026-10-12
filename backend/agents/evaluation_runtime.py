@@ -1,6 +1,7 @@
 """Durable asynchronous execution with per-role caches and independent budgets."""
 import asyncio
 import inspect
+import logging
 import os
 import time
 from dataclasses import replace
@@ -18,9 +19,11 @@ from evaluation_api import fingerprint
 from evaluation_model import MODEL_NAME, ModelError, validate_assessment
 from evaluation_models import EvaluationCall
 from db import checkpoint_location
+from diagnostics import log_failure
 from review_flow import QUESTION_VERSION as REVIEW_VERSION, QUALITY_VERSION as BRANCH_QUALITY_VERSION, clarification_text
 
 PROMPTS = ("quality_v2.txt", "long_manager_v2.txt", "short_manager_v2.txt")
+logger = logging.getLogger("lifefund.review.worker")
 
 
 async def call_provider(provider, messages, api_key):
@@ -155,7 +158,8 @@ class EvaluationRuntime:
         except ModelError as error:
             await asyncio.to_thread(worker.settle_call, call_id, answer.get("usage", {}) if answer else error.usage)
             raise
-        except Exception:
+        except Exception as error:
+            log_failure(logger, "Evaluation provider role failed job_id=%s role=%s", error, job_id, role)
             await asyncio.to_thread(worker.settle_call, call_id, {})
             raise ModelError("模型角色调用暂未完成，已有结果已保存，请重试。") from None
         # Persist before returning to LangGraph; provider charges and graph
