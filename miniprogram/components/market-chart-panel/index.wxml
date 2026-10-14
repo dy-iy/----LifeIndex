@@ -46,7 +46,7 @@
       <view class="chart-hint">{{hint}}</view>
     </view>
 
-    <view class="zoom-controls">
+    <view wx:if="{{showZoom}}" class="zoom-controls">
       <button
         class="zoom-button {{busy || !canZoomOut ? 'zoom-button--unavailable' : ''}}"
         size="mini"

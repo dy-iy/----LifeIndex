@@ -1,4 +1,4 @@
-<page-meta page-style="{{chartPinching || chartInspecting && chartTouching ? 'overflow: hidden;' : ''}}"/>
+<page-meta page-style="{{chartInspecting && chartTouching ? 'overflow: hidden;' : ''}}"/>
 <view class="ip-page">
   <!-- 装饰放在内容后方，数值和图表保留干净的阅读区域。 -->
   <view class="ip-corner" aria-hidden="true"></view>
@@ -15,7 +15,7 @@
       status-text="{{header.state}}"
       stats="{{header.stats}}"
       refreshing="{{loading}}"
-      refresh-disabled="{{!loggedIn || chartLoading || chartTouching || chartPinching}}"
+      refresh-disabled="{{!loggedIn || chartLoading || chartTouching}}"
       bind:refresh="reload"
     >
       <view wx:if="{{chartLoading}}" class="market-loading">读取图表中…</view>
@@ -25,11 +25,11 @@
     <view class="ip-chart-section">
       <market-chart-panel
         period="{{periods[tab]}}"
-        can-zoom-out="{{!chart.empty && (tab === 0 ? intradayZoom > 1 && chart.zoomable : candleStep > 16)}}"
-        can-zoom-in="{{!chart.empty && (tab === 0 ? intradayZoom < 8 && chart.zoomable : candleStep < 52)}}"
-        busy="{{loading || chartLoading || chartTouching || chartPinching}}"
-        hint="{{chartInspecting ? '拖动查看 · 松手 2 秒恢复' : tab === 0 ? intradayZoom > 1 ? '横滑查看 · 长按读数' : '长按查看' : '长按查看 · 横滑历史 · 双指缩放'}}"
-        detail-text="{{tab !== 0 ? chart.candleCount + ' 根' : intradayZoom > 1 ? intradayZoom + '×' : ''}}"
+        can-zoom-out="{{!chart.empty && (tab === 0 ? intradayWindowMinutes < 240 : candleStep > 16)}}"
+        can-zoom-in="{{!chart.empty && (tab === 0 ? intradayWindowMinutes > 15 : candleStep < 52)}}"
+        busy="{{loading || chartLoading || chartTouching}}"
+        hint="{{chartInspecting ? '拖动查看 · 松手 2 秒恢复' : tab === 0 ? '横滑时间轴 · 点击或长按读数' : '长按查看 · 横滑历史'}}"
+        detail-text="{{tab !== 0 ? chart.candleCount + ' 根' : intradayWindowMinutes < 60 ? intradayWindowMinutes + ' 分钟' : intradayWindowMinutes / 60 + ' 小时'}}"
         period-note="{{tab === 0 ? '' : tab === 1 ? '自然日 · 含周末' : tab === 2 ? '周一开周' : '自然月'}}"
         bind:periodchange="changeTab"
         bind:zoom="changeChartZoom"
@@ -37,12 +37,14 @@
         <view class="ip-chart-host">
           <view class="chart">
             <view class="chart-stage">
-            <scroll-view scroll-x="{{!chartInspecting && !chartPinching}}" scroll-left="{{chartScrollLeft}}" bindscroll="scrollChart" class="chart-scroll" enhanced show-scrollbar="{{false}}">
+            <scroll-view scroll-x="{{!chartInspecting}}" scroll-left="{{chartScrollLeft}}" bindscroll="scrollChart" class="chart-scroll" enhanced show-scrollbar="{{false}}">
               <view class="chart-plot" style="width: {{chart.width}}rpx;" bindtouchstart="startChartTouch" bindtouchmove="moveChartTouch" bindtouchend="endChartTouch" bindtouchcancel="endChartTouch" bindlongpress="inspectChart" bindtap="tapChart">
                 <view wx:for="{{chart.ticks}}" wx:key="slot" class="plot-grid" style="top: {{item.y}}rpx;"></view>
                 <image wx:if="{{chart.lineImage}}" src="{{chart.lineImage}}" class="intraday-line" style="width: {{chart.width}}rpx;" mode="scaleToFill"/>
                 <view wx:for="{{chart.markers}}" wx:key="id" class="plot-point-hit" style="left: {{item.x - 22}}rpx; top: {{item.y - 22}}rpx;"><view class="plot-point"></view></view>
-                <text wx:for="{{chart.renderLabels}}" wx:key="id" class="plot-label" style="left: {{item.x - 40}}rpx;">{{item.label}}</text>
+                <view class="chart-time-axis" bindtouchstart="startChartAxisTouch" catchtap="tapChartAxis" catchlongpress="tapChartAxis">
+                  <text wx:for="{{chart.renderLabels}}" wx:key="id" class="plot-label" style="left: {{item.x - 40}}rpx;">{{item.label}}</text>
+                </view>
                 <view wx:for="{{chart.renderCandles}}" wx:key="id" class="candle-hit {{selectedCandleId === item.id ? 'candle-selected' : ''}}" style="left: {{item.x - item.step / 2}}rpx; width: {{item.step}}rpx; color: {{item.color}};" role="button" aria-label="{{item.date}} 开{{item.open}} 高{{item.high}} 低{{item.low}} 收{{item.close}} {{item.ongoing ? '进行中' : ''}}"><view class="candle-wick" style="left: {{item.step / 2 - 1}}rpx; top: {{item.top}}rpx; height: {{item.wick}}rpx;"></view><view class="candle-body {{item.direction}}" style="left: {{(item.step - item.bodyWidth) / 2}}rpx; width: {{item.bodyWidth}}rpx; top: {{item.bodyTop}}rpx; height: {{item.bodyHeight}}rpx;"></view></view>
                 <block wx:if="{{crosshair}}"><view class="plot-crosshair-v" style="left: {{crosshair.x}}rpx;"></view><view class="plot-crosshair-h" style="left: {{crosshair.lineLeft}}rpx; width: {{crosshair.lineWidth}}rpx; top: {{crosshair.y}}rpx;"></view><view wx:if="{{tab === 0}}" class="crosshair-dot" style="left: {{crosshair.x - 6}}rpx; top: {{crosshair.y - 6}}rpx;"></view><text class="crosshair-date" style="left: {{crosshair.labelLeft}}rpx; width: {{crosshair.labelWidth}}rpx;">{{crosshair.label}}</text></block>
               </view>

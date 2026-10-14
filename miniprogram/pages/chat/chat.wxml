@@ -1,0 +1,45 @@
+<view class="chat-page">
+  <view wx:if="{{!loggedIn}}" class="list-status">登录后查看和创建群聊</view>
+  <view wx:elif="{{loading && !items.length}}" class="list-status">正在加载…</view>
+  <view wx:elif="{{!items.length && !error}}" class="list-status">还没有群聊</view>
+  <view wx:if="{{error}}" class="list-error">
+    <text>{{error}}</text>
+    <button wx:if="{{loggedIn}}" class="retry-button" bindtap="reload" disabled="{{loading}}">重试</button>
+  </view>
+
+  <view class="group-list">
+    <view wx:for="{{items}}" wx:key="id" class="group-row" data-id="{{item.id}}" bindtap="openGroup" hover-class="group-row-pressed" hover-start-time="20" hover-stay-time="80" role="button" aria-label="进入群聊 {{item.name}}，群聊指数 {{item.indexLabel}}，涨跌幅 {{item.changePercentLabel}}">
+      <image wx:if="{{item.avatarSrc}}" class="group-avatar" src="{{item.avatarSrc}}" mode="aspectFill" data-index="{{index}}" binderror="avatarLoadError" />
+      <view wx:else class="group-avatar group-avatar-fallback" aria-hidden="true">{{item.initial}}</view>
+      <view class="group-info">
+        <view class="group-name">{{item.name}}</view>
+      </view>
+      <view class="group-quote group-quote--{{item.indexDirection}}">
+        <text class="group-index">{{item.indexLabel}}</text>
+        <text class="group-change">{{item.changePercentLabel}}</text>
+      </view>
+    </view>
+  </view>
+
+  <button class="create-group-button" bindtap="openCreate" disabled="{{creating}}">
+    <text class="create-plus">＋</text>
+    <text>{{creating ? '正在新建…' : '新建群聊'}}</text>
+  </button>
+</view>
+
+<class-tab-bar selected="{{4}}" bind:select="switchClassTab" />
+
+<view wx:if="{{createOpen}}" class="modal-mask" bindtap="closeCreate" catchtouchmove="keepCreateOpen">
+  <view class="create-modal" catchtap="keepCreateOpen" role="dialog" aria-label="新建群聊">
+    <view class="modal-title">新建群聊</view>
+    <form bindsubmit="createGroup">
+      <label class="name-label" for="group-name">群聊名称</label>
+      <input id="group-name" name="name" class="name-input" value="{{groupName}}" placeholder="输入群聊名称" maxlength="60" focus="{{createFocus}}" disabled="{{creating}}" cursor-spacing="100" adjust-position="{{true}}" confirm-type="done" bindinput="inputGroupName" bindconfirm="createGroup" />
+      <view wx:if="{{createError}}" class="create-error" role="alert">{{createError}}</view>
+      <view class="modal-actions">
+        <button class="cancel-button" bindtap="closeCreate">取消</button>
+        <button class="confirm-button" form-type="submit" loading="{{creating}}" disabled="{{creating}}">{{creating ? '创建中' : '创建'}}</button>
+      </view>
+    </form>
+  </view>
+</view>

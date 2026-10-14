@@ -233,6 +233,11 @@ def settle_lesson(db, user_id, lesson_id, source_key, kind, effective_seconds=0,
 def market_context(db, user, now):
     state = db.get(ClassMarketState, user.id)
     account = db.get(ClassIndexAccount, user.id)
+    return market_context_from_rows(user, now, account, state)
+
+
+def market_context_from_rows(user, now, account, state):
+    """Use the same personal quote context for single and batched reads."""
     if state:
         return account, state, account.business_date, account.price, account.previous_close
     today = now.astimezone(ZoneInfo(user.timezone)).date()
@@ -248,8 +253,9 @@ def get_index(user: CurrentUser, db: Db):
     return quote_result(db, user, utcnow())
 
 
-def quote_result(db, user, now, context=None):
-    account, state, today, price, previous_close = context or market_context(db, user, now)
+def quote_summary(user, now, context):
+    """Format a committed personal quote without issuing per-member queries."""
+    account, state, today, price, previous_close = context
     lower, upper = daily_bounds(previous_close)
     quote_at = state.cursor_at if state else now
     result = {"code": "class", "name": "上课指数", "price": money(price), "previous_close": money(previous_close),
@@ -260,6 +266,13 @@ def quote_result(db, user, now, context=None):
             "server_now": now.isoformat(), "quote_at": quote_at.isoformat(),
             "activated": state is not None, "market_state": market_mode(state, max(now, quote_at)) if state else "dormant",
             "market_sequence": state.sequence if state else 0, "catching_up": bool(state and now-quote_at >= market_math.STEP)}
+    return result
+
+
+def quote_result(db, user, now, context=None):
+    context = context or market_context(db, user, now)
+    account, state, today, price, previous_close = context
+    result = quote_summary(user, now, context)
     if state:
         day = db.get(ClassMarketDay, (user.id, today))
         result.update({name: money(getattr(day, name)) for name in ("open", "high", "low")})

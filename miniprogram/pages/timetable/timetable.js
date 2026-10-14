@@ -2,7 +2,6 @@ const { goToClassTab } = require("../../services/class-navigation");
 const art = require("../../services/art");
 const session = require("../../services/session");
 const timetable = require("../../services/timetable");
-const agent = require("../../services/timetable-agent");
 const structured = require("../../services/timetable-structured");
 const { buildWeekGrid } = require("../../services/timetable-grid");
 const { onShareAppMessage } = require("../../services/share");
@@ -11,7 +10,7 @@ const PATTERNS = ["每周", "单周", "双周"];
 const PATTERN_VALUES = ["all", "odd", "even"];
 const STATUS = ["正常上课", "请假", "停课"];
 const STATUS_VALUES = ["scheduled", "leave", "cancelled"];
-const MODAL_EDITORS = ["semester", "course", "structured"];
+const MODAL_EDITORS = ["semester", "structured"];
 let formRowSequence = 0;
 function editorFormData(editor, raw) {
   if (!editor) return { courseInputCursors: {} };
@@ -42,8 +41,6 @@ function editorInputCursors(editor, form) {
   if (editor === "semester") {
     add("course-field-semester-name", form.name);
     form.periods.forEach((row, index) => add(`course-field-period-${index}-number`, row.number));
-  } else if (editor === "course") {
-    ["name", "start_week", "end_week", "startPeriod", "endPeriod", "location"].forEach((field) => add(`course-field-${field}`, form[field]));
   } else if (editor === "structured") {
     add("course-field-name", form.name);
     form.schedules.forEach((row, index) => ["weeks", "start_time", "end_time", "period_numbers", "teacher", "location"]
@@ -52,12 +49,14 @@ function editorInputCursors(editor, form) {
   return cursors;
 }
 function initialData() {
-  return { art, days: DAYS, patterns: PATTERNS, statuses: STATUS, loggedIn: false, loading: false, saving: false,
+  return { art, statuses: STATUS, loggedIn: false, loading: false, saving: false, structuredDeleting: false,
+    coursesLoading: false, lessonsLoading: false, structuredLoading: false, stateVersion: 0,
+    coursesError: "", lessonsError: "", structuredError: "",
     semesters: [], semester: null, semesterIndex: 0, courses: [], lessons: [], visibleLessons: [], weekDays: [],
     selectedDate: "", weekStart: "", viewMode: "week", grid: null, weekOptions: [], weekIndex: 0,
     canPreviousWeek: false, canNextWeek: false, selectedLesson: null, error: "", message: "", formError: "", conflict: false,
-    editor: "", courseKeyboardHeight: 0, courseScrollTop: 0, courseInputCursors: {}, semesterForm: {}, courseForm: {}, lessonForm: {}, structuredForm: {}, structuredDays: structured.WEEKDAYS,
-    structuredDocument: null, structuredCourses: [], unlinkedThreads: [], unlinkedThreadIndex: 0, structuredThreadId: "", showStructuredUnlinked: false, courseListOpen: true, agentOpen: false, agentSemesterId: "", agentThreadId: "" };
+    editor: "", courseKeyboardHeight: 0, courseScrollTop: 0, courseInputCursors: {}, semesterForm: {}, lessonForm: {}, structuredForm: {}, structuredDays: structured.WEEKDAYS,
+    structuredDocument: null, structuredCourses: [], courseListOpen: true, agentOpen: false, agentSemesterId: "" };
 }
 function fail(message) { throw new Error(message); }
 function validDate(value) { return /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(Date.parse(`${value}T00:00:00Z`)) && new Date(`${value}T00:00:00Z`).toISOString().slice(0, 10) === value; }
@@ -66,11 +65,9 @@ Page({
   onShareAppMessage,
   data: initialData(),
   onLoad() {
-    this._snapshot = timetable.identity(); this._loadId = 0;
+    this._snapshot = timetable.identity(); this._loadId = 0; this._scopeEpoch = 0; this._scopeId = undefined;
     this.unsubscribe = session.subscribe(() => this.syncIdentity());
     this.setData({ loggedIn: Boolean(this._snapshot.owner) });
-    const draft = timetable.getDraft();
-    if (draft) this.setData({ ...draft, ...editorFormData(draft.editor, draft[`${draft.editor}Form`]) });
   },
   onShow() {
     this._courseEditorHidden = false; this.syncIdentity();
@@ -82,69 +79,139 @@ Page({
   syncIdentity() {
     const current = timetable.identity();
     if (!this._snapshot || current.owner !== this._snapshot.owner || current.generation !== this._snapshot.generation) {
-      const draft = current.owner && this._snapshot && current.owner === this._snapshot.owner ? this.draftState() : null;
+      if (current.owner && this._snapshot && current.owner === this._snapshot.owner && this._scopeId !== undefined) timetable.saveDraft(this._scopeId, this.draftState());
       this._snapshot = current; this._loadId = (this._loadId || 0) + 1;
+      this._scopeEpoch = (this._scopeEpoch || 0) + 1; this._scopeId = undefined;
       this.resetCourseKeyboard(true);
-      this.setData(Object.assign(initialData(), draft || {}, draft ? editorFormData(draft.editor, draft[`${draft.editor}Form`]) : {}));
-      if (draft) timetable.saveDraft(draft);
+      this.setData(initialData());
     }
     this._snapshot = current;
     this.setData({ loggedIn: Boolean(current.owner) });
-    return current;
+    return { ...current, scopeEpoch: this._scopeEpoch };
   },
-  active(snapshot) { return !this._disposed && timetable.isCurrent(snapshot); },
+  active(snapshot) { return !this._disposed && timetable.isCurrent(snapshot) && (snapshot.scopeEpoch == null || snapshot.scopeEpoch === this._scopeEpoch); },
+  currentLoad(snapshot, loadId) { return !this._disposed && timetable.isCurrent(snapshot) && this._loadId === loadId; },
   draftState() {
-    const { selectedDate, weekStart, viewMode, semesterIndex, semester, editor, semesterForm, courseForm, lessonForm, structuredForm, structuredThreadId, showStructuredUnlinked, courseListOpen } = this.data;
-    return { selectedDate, weekStart, viewMode, semesterIndex, semester, editor, semesterForm, courseForm, lessonForm, structuredForm, structuredThreadId, showStructuredUnlinked, courseListOpen };
+    const { selectedDate, weekStart, viewMode, editor, semesterForm, lessonForm, structuredForm, courseListOpen } = this.data;
+    return { selectedDate, weekStart, viewMode, editor, semesterForm, lessonForm, structuredForm, courseListOpen };
   },
   rememberDraft() {
-    if (!this.active(this._snapshot)) return;
-    timetable.saveDraft(this.draftState());
+    if (!this.active(this._snapshot) || this._scopeId === undefined) return;
+    timetable.saveDraft(this._scopeId, this.draftState());
+  },
+  applySemesterState(state) {
+    if (state.version < this.data.stateVersion) return false;
+    const semesters = state.semesters || [];
+    const semester = semesters.find((value) => value.id === state.active_semester_id) || null;
+    if (state.active_semester_id && !semester) fail("当前学期状态不完整，请重新读取。");
+    const scopeId = semester ? semester.id : "";
+    if (this._scopeId !== scopeId) {
+      this.rememberDraft(); this._scopeEpoch += 1; this._scopeId = scopeId;
+      this.resetCourseKeyboard(true);
+      const draft = timetable.getDraft(scopeId) || {};
+      const editor = MODAL_EDITORS.concat("lesson").includes(draft.editor) && (semester || draft.editor === "semester") ? draft.editor : "";
+      this.setData({ selectedDate: "", weekStart: "", viewMode: "week", courseListOpen: true,
+        saving: false, structuredDeleting: false,
+        courses: [], lessons: [], visibleLessons: [], weekDays: [], grid: null, weekOptions: [],
+        structuredDocument: null, structuredCourses: [], selectedLesson: null,
+        editor: "", semesterForm: {}, lessonForm: {}, structuredForm: {}, formError: "", conflict: false,
+        agentOpen: false, agentSemesterId: "", ...draft, editor,
+        ...editorFormData(editor, draft[`${editor}Form`]) });
+    }
+    this.setData({ semesters, semester, semesterIndex: Math.max(0, semesters.findIndex((value) => semester && value.id === semester.id)), stateVersion: state.version });
+    return true;
   },
   async reload() {
     const snapshot = this.syncIdentity();
     if (!snapshot.owner) return;
     const loadId = ++this._loadId;
-    const current = () => this.active(snapshot) && this._loadId === loadId;
-    this.setData({ loading: true, error: "", selectedLesson: null });
+    const current = () => this.currentLoad(snapshot, loadId);
+    this.setData({ loading: true, error: "", selectedLesson: null,
+      coursesLoading: false, lessonsLoading: false, structuredLoading: false,
+      coursesError: "", lessonsError: "", structuredError: "" });
+    let state;
     try {
-      const initial = await Promise.all([timetable.semesters(), agent.list()]);
-      const semesters = initial[0]; const threads = initial[1].filter((value) => !value.semester_id);
+      state = await timetable.state();
       if (!current()) return;
-      const remembered = agent.recall("all");
-      const thread = threads.find((value) => value.id === this.data.structuredThreadId) || threads.find((value) => remembered && remembered.thread && value.id === remembered.thread.id) || threads[0];
-      this.setData({ unlinkedThreads: threads, unlinkedThreadIndex: Math.max(0, threads.findIndex((value) => thread && value.id === thread.id)), structuredThreadId: thread && thread.id || "" });
-      const previousId = this.data.semester && this.data.semester.id;
-      const semester = semesters.find((value) => value.id === previousId) || semesters[0] || null;
-      if (!semester) {
-        this.setData({ semesters, semester: null, courses: [], lessons: [], visibleLessons: [], weekDays: [], grid: null, weekOptions: [] });
-        const result = thread ? await timetable.structured({ thread_id: thread.id }) : { document: null, courses: [] };
-        if (current()) this.setStructured(result, false);
-        return;
-      }
-      const changedSemester = semester.id !== previousId;
-      let selectedDate = this.data.selectedDate;
-      if (!selectedDate || changedSemester) selectedDate = timetable.today();
-      if (selectedDate < semester.start_date) selectedDate = semester.start_date;
-      if (selectedDate > semester.end_date) selectedDate = semester.end_date;
-      const weekStart = timetable.monday(selectedDate);
-      if (changedSemester || weekStart !== this.data.weekStart) this.setData({ lessons: [], visibleLessons: [] });
-      this.setData({ semesters, semester, semesterIndex: semesters.findIndex((value) => value.id === semester.id), selectedDate, weekStart });
-      this.updateVisible();
-      const unlinked = Boolean(this.data.showStructuredUnlinked && thread);
-      if (!unlinked && this.data.showStructuredUnlinked) this.setData({ showStructuredUnlinked: false });
-      const results = await Promise.all([timetable.courses(semester.id), timetable.lessons(semester.id, weekStart, timetable.addDays(weekStart, 6)), timetable.structured(unlinked ? { thread_id: thread.id } : { semester_id: semester.id })]);
-      if (!current()) return;
-      const courses = results[0].filter((value) => !value.is_deleted).map((value) => Object.assign({}, value, { weekdayLabel: DAYS[value.weekday - 1], patternLabel: PATTERNS[PATTERN_VALUES.indexOf(value.week_pattern)] }));
-      const lessons = results[1].map((value) => Object.assign({}, value, { actualWeek: Math.floor((Date.parse(`${value.local_date}T00:00:00Z`) - Date.parse(`${semester.first_week_monday}T00:00:00Z`)) / 604800000) + 1, statusLabel: STATUS[STATUS_VALUES.indexOf(value.status)], canAdjust: true,
-        hasOverlap: value.status === "scheduled" && results[1].some((other) => other.id !== value.id && other.status === "scheduled" && other.local_date === value.local_date && other.start_time < value.end_time && other.end_time > value.start_time) }));
-      this.setData({ courses, lessons }); this.setStructured(results[2], !unlinked); this.updateVisible();
+      if (!this.applySemesterState(state)) return;
     } catch (error) {
       if (current()) this.setData({ error: `${this.data.message ? "已保存，列表暂未更新。" : ""}${timetable.errorMessage(error)}` });
+      return;
     } finally { if (current()) this.setData({ loading: false }); }
+    if (!current()) return;
+    const semester = this.data.semester;
+    if (!semester) {
+      this.setData({ courses: [], lessons: [], visibleLessons: [], weekDays: [], grid: null, weekOptions: [], structuredDocument: null, structuredCourses: [] });
+      return;
+    }
+    let selectedDate = this.data.selectedDate;
+    if (!selectedDate) selectedDate = timetable.today();
+    if (selectedDate < semester.start_date) selectedDate = semester.start_date;
+    if (selectedDate > semester.end_date) selectedDate = semester.end_date;
+    const weekStart = timetable.monday(selectedDate);
+    if (weekStart !== this.data.weekStart) this.setData({ lessons: [], visibleLessons: [] });
+    this.setData({ selectedDate, weekStart });
+    this.updateVisible();
+    // Each request commits its own result. Assistant discovery never gates the timetable.
+    const requests = [this.loadCourses(semester, snapshot, loadId), this.loadLessons(semester, weekStart, snapshot, loadId), this.loadStructured({ semester_id: semester.id }, snapshot, loadId)];
+    await Promise.all(requests);
   },
-  setStructured(result, linked) {
-    this.setData({ structuredDocument: result.document || null, structuredCourses: (result.courses || []).filter((value) => !value.is_deleted).map((value) => structured.describe(value, linked)) });
+  async loadCourses(semester, snapshot, loadId) {
+    this.setData({ coursesLoading: true, coursesError: "" });
+    try {
+      const rows = await timetable.courses(semester.id);
+      if (!this.currentLoad(snapshot, loadId)) return;
+      const courses = rows.filter((value) => !value.is_deleted).map((value) => Object.assign({}, value, { weekdayLabel: DAYS[value.weekday - 1], patternLabel: PATTERNS[PATTERN_VALUES.indexOf(value.week_pattern)] }));
+      this.setData({ courses });
+    } catch (error) { if (this.currentLoad(snapshot, loadId)) this.setData({ coursesError: timetable.errorMessage(error) }); }
+    finally {
+      if (this.currentLoad(snapshot, loadId)) {
+        this.setData({ coursesLoading: false });
+        if (this.data.selectedLesson) this.showLessonDetails(this.data.selectedLesson);
+      }
+    }
+  },
+  async loadLessons(semester, weekStart, snapshot, loadId) {
+    this.setData({ lessonsLoading: true, lessonsError: "" });
+    try {
+      const rows = await timetable.lessons(semester.id, weekStart, timetable.addDays(weekStart, 6));
+      if (!this.currentLoad(snapshot, loadId)) return;
+      const lessons = rows.map((value) => Object.assign({}, value, { actualWeek: Math.floor((Date.parse(`${value.local_date}T00:00:00Z`) - Date.parse(`${semester.first_week_monday}T00:00:00Z`)) / 604800000) + 1, statusLabel: STATUS[STATUS_VALUES.indexOf(value.status)], canAdjust: true,
+        hasOverlap: value.status === "scheduled" && rows.some((other) => other.id !== value.id && other.status === "scheduled" && other.local_date === value.local_date && other.start_time < value.end_time && other.end_time > value.start_time) }));
+      this.setData({ lessons }); this.updateVisible();
+    } catch (error) { if (this.currentLoad(snapshot, loadId)) this.setData({ lessonsError: timetable.errorMessage(error) }); }
+    finally { if (this.currentLoad(snapshot, loadId)) this.setData({ lessonsLoading: false }); }
+  },
+  async loadStructured(scope, snapshot, loadId) {
+    const requestId = this._structuredLoadId = (this._structuredLoadId || 0) + 1;
+    const current = () => this.currentLoad(snapshot, loadId) && this._structuredLoadId === requestId;
+    this.setData({ structuredLoading: true, structuredError: "" });
+    try {
+      const result = await timetable.structured(scope);
+      if (current()) this.setStructured(result);
+    } catch (error) { if (current()) this.setData({ structuredError: timetable.errorMessage(error) }); }
+    finally { if (current()) this.setData({ structuredLoading: false }); }
+  },
+  retryCourses() {
+    const snapshot = this.syncIdentity();
+    if (!snapshot.owner) return;
+    if (this.data.loading || this.data.saving || this.data.coursesLoading || !this.data.semester) return;
+    return this.loadCourses(this.data.semester, snapshot, this._loadId);
+  },
+  retryLessons() {
+    const snapshot = this.syncIdentity();
+    if (!snapshot.owner) return;
+    if (this.data.loading || this.data.saving || this.data.lessonsLoading || !this.data.semester) return;
+    return this.loadLessons(this.data.semester, this.data.weekStart, snapshot, this._loadId);
+  },
+  retryStructured() {
+    const snapshot = this.syncIdentity();
+    if (!snapshot.owner) return;
+    if (this.data.loading || this.data.saving || this.data.structuredLoading || !this.data.semester) return;
+    return this.loadStructured({ semester_id: this.data.semester.id }, snapshot, this._loadId);
+  },
+  setStructured(result) {
+    this.setData({ structuredDocument: result.document || null, structuredCourses: (result.courses || []).filter((value) => !value.is_deleted).map((value) => structured.describe(value)) });
     this.refreshStructuredTimes();
   },
   refreshStructuredTimes() {
@@ -158,34 +225,6 @@ Page({
       structuredTimeChanges(this, changes, row, index, structuredTimeValues(row, form, periods));
     });
     if (Object.keys(changes).length) { this.setData(changes); this.rememberDraft(); }
-  },
-  selectUnlinkedThread(event) {
-    if (this.data.saving || this.data.loading) return;
-    const thread = this.data.unlinkedThreads[Number(event.detail.value)];
-    if (!thread) return;
-    this.setData({ structuredThreadId: thread.id, editor: "", structuredCourses: [], structuredDocument: null });
-    return this.reload();
-  },
-  selectStructuredScope(event) {
-    if (this.data.saving || this.data.loading) return;
-    this.setData({ showStructuredUnlinked: event.currentTarget.dataset.scope === "thread", structuredCourses: [], structuredDocument: null }); return this.reload();
-  },
-  async bindStructuredToSemester() {
-    if (this.data.saving || !this.data.semester || !this.data.structuredDocument) return;
-    const snapshot = this.syncIdentity(); const document = this.data.structuredDocument;
-    this.setData({ saving: true, error: "", message: "" });
-    try {
-      await timetable.bindStructuredDocument(document.id, { version: document.version, semester_id: this.data.semester.id });
-      if (!this.active(snapshot)) return;
-      timetable.acknowledgeBind(document.id);
-      this.setData({ showStructuredUnlinked: false, message: "课程已关联到当前学期，完整安排已同步到周课表" }); this.rememberDraft(); await this.reload();
-    } catch (error) { if (this.active(snapshot)) this.setData({ error: timetable.errorMessage(error) }); }
-    finally { if (this.active(snapshot)) this.setData({ saving: false }); }
-  },
-  createSemesterForStructured() {
-    if (this.data.saving || !this.data.structuredDocument) return;
-    this.openSemester();
-    this.setData({ "semesterForm.bind_document_id": this.data.structuredDocument.id, "semesterForm.bind_document_version": this.data.structuredDocument.version }); this.rememberDraft();
   },
   updateVisible() {
     const { lessons, selectedDate, weekStart, viewMode, semester } = this.data;
@@ -204,10 +243,28 @@ Page({
   goLogin() { wx.switchTab({ url: "/pages/settings/settings" }); },
   switchClassTab(event) { return goToClassTab(event.detail.index); },
   async selectSemester(event) {
-    if (this.data.saving) return;
+    if (this.data.saving || this.data.loading) return;
     const index = Number(event.detail.value);
-    this.setData({ semester: this.data.semesters[index], semesterIndex: index, selectedDate: "", courses: [], lessons: [], visibleLessons: [], grid: null, selectedLesson: null, editor: "", formError: "", message: "" });
-    this.rememberDraft(); return this.reload();
+    const semester = this.data.semesters[index];
+    if (!semester || this.data.semester && semester.id === this.data.semester.id) return;
+    const snapshot = this.syncIdentity(); if (!snapshot.owner) return;
+    this.rememberDraft(); this._loadId += 1;
+    this.setData({ saving: true, agentOpen: false, agentSemesterId: "", error: "", message: "",
+      coursesLoading: false, lessonsLoading: false, structuredLoading: false });
+    try {
+      const state = await timetable.selectSemester({ version: this.data.stateVersion, semester_id: semester.id });
+      if (!this.active(snapshot)) return;
+      this.applySemesterState(state);
+      this.setData({ saving: false });
+      await this.reload();
+    } catch (error) {
+      if (!this.active(snapshot)) return;
+      this.setData({ error: timetable.errorMessage(error) });
+      if (timetable.isVersionConflict(error)) {
+        this.setData({ saving: false, message: "学期选择已发生变化，请核对当前学期后重试。" });
+        await this.reload();
+      }
+    } finally { if (this.active(snapshot)) this.setData({ saving: false }); }
   },
   chooseDay(event) { if (event.currentTarget.dataset.disabled) return; this.setData({ selectedDate: event.currentTarget.dataset.date, viewMode: "day" }); this.updateVisible(); },
   changeDate(event) { this.setData({ selectedDate: event.detail.value }); return this.reload(); },
@@ -234,32 +291,17 @@ Page({
     this.setData({ selectedDate: today < semester.start_date ? semester.start_date : today > semester.end_date ? semester.end_date : today });
     return this.reload();
   },
-  openGridSlot(event) {
-    if (this.data.loading || this.data.saving || !this.data.semester) return;
-    const { date, start_time, end_time } = event.detail;
-    const semester = this.data.semester;
-    if (!validDate(date) || date < semester.start_date || date > semester.end_date) return;
-    try { timeRange(start_time, end_time); } catch (_) { return; }
-    const week = Math.floor((Date.parse(`${date}T00:00:00Z`) - Date.parse(`${semester.first_week_monday}T00:00:00Z`)) / 604800000) + 1;
-    const weekdayIndex = (new Date(`${date}T00:00:00Z`).getUTCDay() + 6) % 7;
-    this.setData({ selectedDate: date });
-    this.setForm("course", { name: "", location: "", weekdayIndex, start_week: String(week), end_week: String(week),
-      patternIndex: 0, start_time, end_time, timeMode: "time", startPeriod: "", endPeriod: "", placementDate: date, placementWeek: week });
-  },
-  setPlacementRepeat(event) {
-    if (this.data.saving || !this.data.courseForm.placementDate) return;
-    const form = this.data.courseForm;
-    this.setData({ courseForm: Object.assign({}, form, { start_week: String(form.placementWeek),
-      end_week: String(event.currentTarget.dataset.repeat ? this.data.semester.total_weeks : form.placementWeek), patternIndex: 0 }) });
-    this.rememberDraft();
-  },
   inspectLesson(event) {
-    if (this.data.loading || this.data.saving) return;
+    if (this.data.loading || this.data.lessonsLoading || this.data.saving) return;
     const lesson = this.data.lessons.find((value) => value.id === event.detail.id);
     if (!lesson) return;
+    this.showLessonDetails(lesson);
+  },
+  showLessonDetails(lesson) {
     const course = this.data.courses.find((value) => value.id === lesson.course_id);
     this.setData({ selectedLesson: Object.assign({}, lesson, { canAdjust: true,
-      canEditCourse: Boolean(course), repeatLabel: course ? Array.isArray(course.weeks) ? `第 ${course.weeks.join("、")} 周` : `第 ${course.start_week}–${course.end_week} 周 · ${course.patternLabel}` : "原课程已删除，保留这次记录" }) });
+      canEditCourse: Boolean(course) && !this.data.coursesLoading && !this.data.coursesError,
+      repeatLabel: this.data.coursesLoading ? "正在读取课程安排…" : this.data.coursesError ? "课程安排信息暂不可用" : course ? Array.isArray(course.weeks) ? `第 ${course.weeks.join("、")} 周` : `第 ${course.start_week}–${course.end_week} 周 · ${course.patternLabel}` : "原课程已删除，保留这次记录" }) });
   },
   closeLessonDetails() { this.setData({ selectedLesson: null }); },
   editSelectedLesson() {
@@ -283,7 +325,8 @@ Page({
       finally { if (this.active(snapshot)) this.setData({ saving: false }); }
       return;
     }
-    this.closeLessonDetails(); this.openCourse({ currentTarget: { dataset: { id: lesson.course_id } } });
+    this.closeLessonDetails();
+    this.setData({ error: "这项安排缺少结构化课程来源，请先修复课程数据后再编辑。" });
   },
   noop() {},
   changeView(event) { this.setData({ viewMode: event.currentTarget.dataset.mode }); this.updateVisible(); },
@@ -406,7 +449,7 @@ Page({
     this.rememberDraft();
   },
   openSemester(event) {
-    if (this.data.saving) return;
+    if (this.data.saving || this.data.loading) return;
     const edit = event && event.currentTarget.dataset.edit && this.data.semester;
     this.setForm("semester", edit ? Object.assign({}, edit, { periods: edit.periods.map((value) => Object.assign({}, value)) })
       : { name: "", start_date: "", end_date: "", first_week_monday: "", periods: [] });
@@ -470,7 +513,7 @@ Page({
   saveSemester() { return this.submit("semester", () => this.semesterPayload()); },
   toggleCourses() { this.setData({ courseListOpen: !this.data.courseListOpen }); },
   openStructuredCourse(event) {
-    if (this.data.saving || !this.data.structuredDocument) return;
+    if (this.data.saving || this.data.loading || this.data.structuredLoading || !this.data.semester || !this.data.structuredDocument) return;
     const id = event && event.currentTarget.dataset.id;
     const course = this.data.structuredCourses.find((value) => value.id === id);
     this.setForm("structured", structured.courseForm(course, this.data.structuredDocument, this.data.semester));
@@ -508,6 +551,7 @@ Page({
     if (this.data.saving) return;
     const snapshot = this.syncIdentity(); if (!snapshot.owner) return;
     const form = this.data.structuredForm;
+    if (!this.data.semester || !form.scope || form.scope.semester_id !== this.data.semester.id) return;
     let data;
     try { data = structured.payload(form); } catch (error) { this.setData({ formError: error.message }); return; }
     this.setData({ saving: true, formError: "", conflict: false, message: "" });
@@ -521,18 +565,53 @@ Page({
     } catch (error) { if (this.active(snapshot)) this.setData({ formError: timetable.errorMessage(error), conflict: timetable.isVersionConflict(error) }); }
     finally { if (this.active(snapshot)) this.setData({ saving: false }); }
   },
+  async deleteStructuredCourse() {
+    if (this.data.saving || this._structuredDeletePending) return;
+    const snapshot = this.syncIdentity();
+    const form = this.data.structuredForm;
+    if (!snapshot.owner || this.data.editor !== "structured" || !form.id) return;
+    if (!this.data.semester || !form.scope || form.scope.semester_id !== this.data.semester.id) return;
+    const operation = { id: form.id, version: form.version, semesterId: this.data.semester.id };
+    this._structuredDeletePending = operation;
+    try {
+      const confirmed = await this.confirmDeletion(snapshot, { title: "删除这门课程？",
+        content: "这门课程的信息、全部上课安排及对应课次都会删除。已有计时和复盘历史保留；正在计时或暂停的课次需先结束计时。",
+        confirmText: "删除课程" }, "formError");
+      if (!confirmed || !this.active(snapshot) || this.data.saving || this.data.editor !== "structured"
+          || this.data.structuredForm !== form || form.id !== operation.id || form.version !== operation.version) return;
+      this.setData({ saving: true, structuredDeleting: true, formError: "", conflict: false, message: "" });
+      try {
+        await timetable.deleteStructuredCourse(operation.id, operation.version, operation.semesterId);
+        if (!this.active(snapshot)) return;
+        const templateIds = new Set(this.data.courses.filter((course) => course.structured_course_id === operation.id).map((course) => course.id));
+        this.resetCourseKeyboard(true);
+        this.setData({ editor: "", structuredForm: {}, selectedLesson: null,
+          structuredCourses: this.data.structuredCourses.filter((course) => course.id !== operation.id),
+          courses: this.data.courses.filter((course) => !templateIds.has(course.id)),
+          lessons: this.data.lessons.filter((lesson) => !templateIds.has(lesson.course_id)),
+          message: "课程信息及全部上课安排已删除，计时和复盘历史保留" });
+        this.updateVisible(); this.rememberDraft();
+        timetable.acknowledgeStructuredDelete(operation.id, operation.version, operation.semesterId);
+        wx.showToast({ title: "已删除", icon: "success" });
+        await this.reload();
+      } catch (error) {
+        if (this.active(snapshot)) this.setData({ formError: timetable.errorMessage(error), conflict: timetable.isVersionConflict(error) });
+      } finally { if (this.active(snapshot)) this.setData({ saving: false, structuredDeleting: false }); }
+    } finally { if (this._structuredDeletePending === operation) this._structuredDeletePending = null; }
+  },
   async rebaseStructuredVersion() {
     if (this.data.saving) return;
     const snapshot = this.syncIdentity(); const form = this.data.structuredForm;
     this.setData({ saving: true });
     try {
-      const scope = form.scope || (this.data.semester && !this.data.showStructuredUnlinked ? { semester_id: this.data.semester.id } : { thread_id: this.data.structuredThreadId });
+      if (!this.data.semester || !form.scope || form.scope.semester_id !== this.data.semester.id) fail("课程不属于当前学期，请关闭编辑并刷新。");
+      const scope = form.scope;
       const result = await timetable.structured(scope);
       if (!this.active(snapshot)) return;
       const latest = (result.courses || []).find((value) => value.id === form.id && !value.is_deleted);
       if (!latest) fail("这门课程已被删除，请关闭编辑并刷新课程列表。");
       // 仅重放本地改动；保留其他人在最新版本中修改的字段。
-      const patch = structured.payload(form); const merged = structured.courseForm(latest, result.document);
+      const patch = structured.payload(form); const merged = structured.courseForm(latest, result.document, this.data.semester);
       if (Object.prototype.hasOwnProperty.call(patch, "name")) merged.name = form.name;
       patch.schedule_updates.forEach((change) => {
         const index = merged.schedules.findIndex((row) => row.id === change.id);
@@ -548,33 +627,8 @@ Page({
     } catch (error) { if (this.active(snapshot)) this.setData({ formError: timetable.errorMessage(error) }); }
     finally { if (this.active(snapshot)) this.setData({ saving: false }); }
   },
-  openCourse(event) {
-    if (this.data.saving || !this.data.semester) return;
-    const id = event && event.currentTarget.dataset.id;
-    const course = this.data.courses.find((value) => value.id === id);
-    this.setForm("course", course ? Object.assign({}, course, { weekdayIndex: course.weekday - 1, patternIndex: PATTERN_VALUES.indexOf(course.week_pattern), timeMode: "time", startPeriod: "", endPeriod: "" })
-      : { name: "", location: "", weekdayIndex: Math.max(0, this.data.weekDays.findIndex((value) => value.date === this.data.selectedDate)), start_week: "1", end_week: String(this.data.semester.total_weeks), patternIndex: 0, start_time: "09:00", end_time: "09:45", timeMode: "time", startPeriod: "", endPeriod: "" });
-  },
-  changeTimeMode(event) { if (this.data.saving) return; this.setData({ courseForm: Object.assign({}, this.data.courseForm, { timeMode: event.currentTarget.dataset.mode }) }); this.rememberDraft(); },
-  coursePayload() {
-    const form = this.data.courseForm;
-    if (!form.name.trim()) fail("请填写课程名称。");
-    const startWeek = Number(form.start_week); const endWeek = Number(form.end_week);
-    if (!Number.isInteger(startWeek) || !Number.isInteger(endWeek) || startWeek < 1 || endWeek < startWeek || endWeek > this.data.semester.total_weeks) fail("请填写学期内有效的起止周次。");
-    let start = form.start_time; let end = form.end_time;
-    if (form.timeMode === "period") {
-      const first = this.data.semester.periods.find((row) => row.number === Number(form.startPeriod));
-      const last = this.data.semester.periods.find((row) => row.number === Number(form.endPeriod));
-      if (!first || !last || first.start_time > last.start_time) fail("请填写学期中已配置的起止节次。");
-      start = first.start_time; end = last.end_time;
-    }
-    timeRange(start, end);
-    const data = { name: form.name.trim(), location: form.location.trim(), weekday: Number(form.weekdayIndex) + 1, start_week: startWeek, end_week: endWeek, week_pattern: PATTERN_VALUES[Number(form.patternIndex)], start_time: start, end_time: end };
-    return Object.assign(data, form.id ? { version: form.version } : { semester_id: this.data.semester.id });
-  },
-  saveCourse() { return this.submit("course", () => this.coursePayload()); },
   openLesson(event) {
-    if (this.data.saving) return;
+    if (this.data.saving || this.data.loading || this.data.lessonsLoading) return;
     const lesson = this.data.lessons.find((value) => value.id === event.currentTarget.dataset.id);
     if (!lesson || !lesson.canAdjust) return;
     this.setForm("lesson", Object.assign({}, lesson, { date: lesson.local_date, statusIndex: STATUS_VALUES.indexOf(lesson.status) }));
@@ -594,30 +648,20 @@ Page({
     const form = this.data[`${kind}Form`];
     this.setData({ saving: true, formError: "", conflict: false, message: "" });
     try {
-      const action = { semester: timetable.saveSemester, course: timetable.saveCourse, lesson: timetable.saveLesson }[kind];
-      const saved = await action(form.id, data);
+      const action = { semester: timetable.saveSemester, lesson: timetable.saveLesson }[kind];
+      await action(form.id, data, this.data.semester && this.data.semester.id);
       if (!this.active(snapshot)) return;
       // 写入确认与后续列表刷新分开处理：刷新失败也绝不重复创建。
       this.resetCourseKeyboard(true);
-      this.setData({ editor: "", courseKeyboardHeight: 0, [`${kind}Form`]: {}, message: "已保存到个人课表", saving: Boolean(kind === "semester" && form.bind_document_id) });
-      if (kind === "semester") this.setData({ semester: saved, selectedDate: "" });
-      this.rememberDraft(); timetable.acknowledge(kind, form.id, data); wx.showToast({ title: "已保存", icon: "success" });
-      if (kind === "semester" && form.bind_document_id) {
-        try {
-          await timetable.bindStructuredDocument(form.bind_document_id, { version: form.bind_document_version, semester_id: saved.id });
-          if (!this.active(snapshot)) return;
-          timetable.acknowledgeBind(form.bind_document_id); this.setData({ showStructuredUnlinked: false, message: "学期已保存，课程已关联并同步" });
-        } catch (error) {
-          if (!this.active(snapshot)) return;
-          this.setData({ showStructuredUnlinked: true, error: `学期已保存，课程关联暂未完成。${timetable.errorMessage(error)}`, message: "学期已保存，请在未关联课程中重试关联" });
-        }
-      }
+      this.setData({ editor: "", courseKeyboardHeight: 0, [`${kind}Form`]: {}, message: "已保存到个人课表", saving: false });
+      if (kind === "semester") this.setData({ selectedDate: "" });
+      this.rememberDraft(); timetable.acknowledge(kind, form.id, data, this.data.semester && this.data.semester.id); wx.showToast({ title: "已保存", icon: "success" });
       await this.reload();
     } catch (error) {
       if (this.active(snapshot)) this.setData({ formError: timetable.errorMessage(error), conflict: timetable.isVersionConflict(error) });
     } finally { if (this.active(snapshot)) this.setData({ saving: false }); }
   },
-  async confirmDeletion(snapshot, options) {
+  async confirmDeletion(snapshot, options, errorField = "error") {
     try {
       const result = await new Promise((resolve, reject) => wx.showModal(Object.assign({}, options, {
         confirmColor: "#b4533a", success: resolve, fail: reject
@@ -625,7 +669,7 @@ Page({
       return Boolean(result.confirm);
     } catch (_) {
       if (this.active(snapshot)) {
-        this.setData({ error: "无法打开删除确认框，请重试。", message: "" });
+        this.setData({ [errorField]: "无法打开删除确认框，请重试。", message: "" });
         wx.showToast({ title: "无法打开删除确认框", icon: "none" });
       }
       return false;
@@ -640,12 +684,12 @@ Page({
     if (!confirmed || !this.active(snapshot) || this.data.saving) return;
     this.setData({ saving: true, error: "", message: "" });
     try {
-      await timetable.deleteCourse(course.id, course.version);
+      const semesterId = this.data.semester.id;
+      await timetable.deleteCourse(course.id, course.version, semesterId);
       if (!this.active(snapshot)) return;
       this.resetCourseKeyboard(true);
-      this.setData({ message: "这项安排及对应课次已从课表删除，计时和复盘历史独立保留", selectedLesson: null,
-        editor: this.data.courseForm.id === course.id ? "" : this.data.editor, courseForm: {}, courseKeyboardHeight: 0 });
-      this.rememberDraft(); timetable.acknowledgeDelete(course.id, course.version); await this.reload();
+      this.setData({ message: "这项安排及对应课次已从课表删除，计时和复盘历史独立保留", selectedLesson: null, courseKeyboardHeight: 0 });
+      this.rememberDraft(); timetable.acknowledgeDelete(course.id, course.version, semesterId); await this.reload();
     } catch (error) { if (this.active(snapshot)) this.setData({ error: timetable.errorMessage(error) }); }
     finally { if (this.active(snapshot)) this.setData({ saving: false }); }
   },
@@ -660,11 +704,12 @@ Page({
     if (!confirmed || !this.active(snapshot) || this.data.saving) return;
     this.setData({ saving: true, error: "", message: "" });
     try {
-      await timetable.deleteLesson(lesson.id, lesson.version);
+      const semesterId = this.data.semester.id;
+      await timetable.deleteLesson(lesson.id, lesson.version, semesterId);
       if (!this.active(snapshot)) return;
       this.setData({ message: "这次课程安排已删除", selectedLesson: null,
         editor: this.data.lessonForm.id === lesson.id ? "" : this.data.editor });
-      this.rememberDraft(); timetable.acknowledgeLessonDelete(lesson.id, lesson.version); await this.reload();
+      this.rememberDraft(); timetable.acknowledgeLessonDelete(lesson.id, lesson.version, semesterId); await this.reload();
     } catch (error) { if (this.active(snapshot)) this.setData({ error: timetable.errorMessage(error) }); }
     finally { if (this.active(snapshot)) this.setData({ saving: false }); }
   },
@@ -675,7 +720,7 @@ Page({
     if (!form || !form.id) { this.setData({ formError: "请调整冲突时段后重新保存。", conflict: false }); return; }
     this.setData({ saving: true });
     try {
-      const rows = editor === "semester" ? await timetable.semesters() : editor === "course" ? await timetable.courses(this.data.semester.id) : await timetable.lessons(this.data.semester.id, this.data.semester.start_date, timetable.addDays(this.data.semester.start_date, Math.min(92, Math.floor((Date.parse(this.data.semester.end_date) - Date.parse(this.data.semester.start_date)) / 86400000))));
+      const rows = editor === "semester" ? await timetable.semesters() : await timetable.lessons(this.data.semester.id, this.data.semester.start_date, timetable.addDays(this.data.semester.start_date, Math.min(92, Math.floor((Date.parse(this.data.semester.end_date) - Date.parse(this.data.semester.start_date)) / 86400000))));
       if (!this.active(snapshot)) return;
       let latest = rows.find((value) => value.id === form.id);
       if (editor === "lesson" && !latest) {
@@ -694,18 +739,12 @@ Page({
     finally { if (this.active(snapshot)) this.setData({ saving: false }); }
   },
   openAgent() {
-    if (this.data.agentOpen) return;
-    const unlinked = !this.data.semester || this.data.showStructuredUnlinked;
-    this.setData({ agentOpen: true, agentSemesterId: unlinked ? "" : this.data.semester.id, agentThreadId: unlinked ? this.data.structuredThreadId : "" });
-  },
-  onAgentThreadChange(event) {
-    const detail = event.detail || {};
-    if (detail.semesterId || !detail.threadId || this.data.structuredThreadId === detail.threadId) return;
-    this.setData({ structuredThreadId: detail.threadId }); return this.reload();
+    if (this.data.agentOpen || this.data.loading || this.data.saving || !this.data.semester) return;
+    this.setData({ agentOpen: true, agentSemesterId: this.data.semester.id });
   },
   onAgentApplied(event) {
     const detail = event.detail || {};
-    if (!detail.semesterId && detail.threadId) this.setData({ structuredThreadId: detail.threadId, showStructuredUnlinked: Boolean(this.data.semester) });
+    if (!this.data.semester || detail.semesterId !== this.data.semester.id) return;
     this.setData({ message: "课表信息已保存" }); return this.reload();
   },
   closeAgent() {

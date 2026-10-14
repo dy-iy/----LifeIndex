@@ -6,7 +6,7 @@ interpretation belongs to the LLM, together with the user's original words.
 from copy import deepcopy
 import re
 
-SCHEMA_VERSION = "timetable-json-v2"
+SCHEMA_VERSION = "timetable-json-v3"
 SCHEDULE_FIELDS = ("weekday", "period_table_id", "period_numbers", "start_time", "end_time", "weeks", "teacher", "location")
 
 _NULLABLE_STRING = {"type": ["string", "null"]}
@@ -26,7 +26,7 @@ UNDERSTANDING_SCHEMA = {
     "type": "object",
     "properties": {
         "intent": {"enum": ["write", "read"]},
-        "mode": {"enum": ["merge", "replace"], "description": "replace only when explicitly requested by the current user"},
+        "mode": {"enum": ["merge", "replace"], "description": "replace only when explicitly requested by the current user and courses contains nonempty usable course data. To clear the timetable, use merge with explicit delete changes for the current courses."},
         "period_tables": {"type": "array", "items": {"type": "object", "properties": {
             "id": {"type": "string"}, "weeks": _NULLABLE_INTS,
             "periods": {"type": "array", "items": {"type": "object", "properties": {
@@ -67,9 +67,6 @@ UNDERSTANDING_SCHEMA = {
             "candidate_course_ids": {"type": "array", "items": {"type": "string"}},
             "reason": {"type": "string"}, "source_text": {"type": "string"},
         }, "required": ["action"]}},
-        "semester": {"type": ["object", "null"], "properties": {
-            "id": _NULLABLE_STRING, "name": _NULLABLE_STRING, "start_date": _NULLABLE_STRING, "first_week_monday": _NULLABLE_STRING,
-            "end_date": _NULLABLE_STRING, "timezone": _NULLABLE_STRING}},
         "sources": {"type": "array", "items": {"type": "object"}},
         "unapplied_changes": {"type": "array", "items": {"type": "object"}},
     },
@@ -170,24 +167,111 @@ def normalize_period_table_change(value):
     return result
 
 
+def _has_course_facts(course):
+    return bool(_text(course.get("id"), 100) or _text(course.get("name"), 200) or any(
+        any(fields.get(field) is not None for field in SCHEDULE_FIELDS)
+        for fields in map(normalize_fields, course.get("schedules", []))))
+
+
+def validate_operation_controls(value, *, check_sources=True):
+    """Reject ambiguous write commands while allowing incomplete course facts."""
+    from schedule_model import ModelError
+
+    def invalid():
+        raise ModelError("课表助手返回的操作类型或范围无效，已保留本次输入，请重试。")
+
+    def items(record, key):
+        entries = record.get(key, [])
+        if not isinstance(entries, list) or any(not isinstance(item, dict) for item in entries):
+            invalid()
+        return entries
+
+    def target(record, key, *, nullable=True):
+        if key in record and not (nullable and record[key] is None):
+            if not isinstance(record[key], str) or not record[key].strip():
+                invalid()
+
+    def selector(record, key):
+        if key in record and record[key] is not None:
+            weeks = record[key]
+            if not isinstance(weeks, list) or not weeks or any(type(week) is not int or not 1 <= week <= 54 for week in weeks):
+                invalid()
+
+    if not isinstance(value, dict) or value.get("intent") not in ("read", "write") or value.get("mode") not in ("merge", "replace"):
+        invalid()
+    if value.get("semester") is not None:
+        if not isinstance(value["semester"], dict):
+            invalid()
+        target(value["semester"], "id")
+    courses = items(value, "courses")
+    if value["mode"] == "replace" and not courses:
+        invalid()
+    for course in courses:
+        target(course, "id")
+        for schedule in items(course, "schedules"):
+            target(schedule, "id")
+        items(course, "exceptions")
+        if value["mode"] == "replace" and not _has_course_facts(course):
+            invalid()
+    for table in items(value, "period_tables"):
+        target(table, "id")
+        items(table, "periods")
+    for change in items(value, "period_table_changes"):
+        if change.get("action") not in ("create", "update", "delete", "clear"):
+            invalid()
+        target(change, "id", nullable=False)
+        items(change, "periods")
+        if "period_removals" in change:
+            numbers = change["period_removals"]
+            if not isinstance(numbers, list) or any(type(number) is not int or not 1 <= number <= 30 for number in numbers):
+                invalid()
+    for change in items(value, "changes"):
+        if change.get("action") not in ("update", "delete"):
+            invalid()
+        target(change, "course_id")
+        target(change, "schedule_id")
+        selector(change, "weeks")
+        if "fields" in change and not isinstance(change["fields"], dict):
+            invalid()
+        for key in ("schedules", "schedule_updates"):
+            for schedule in items(change, key):
+                target(schedule, "id")
+                selector(schedule, "weeks")
+                selector(schedule, "target_weeks")
+                if "fields" in schedule and not isinstance(schedule["fields"], dict):
+                    invalid()
+        for key in ("add_schedules", "schedule_additions", "exceptions"):
+            items(change, key)
+        for key in ("remove_schedule_ids", "schedule_removals"):
+            if key in change and (not isinstance(change[key], list) or any(
+                    not isinstance(item, str) or not item.strip() for item in change[key])):
+                invalid()
+    items(value, "unapplied_changes")
+    sources = items(value, "sources")
+    if check_sources:
+        # Old cached/checkpointed results may already have defaulted controls or
+        # dropped malformed entries. Check their original extraction as well.
+        for source in sources:
+            if source.get("kind") == "llm_extraction" and "raw" in source:
+                validate_operation_controls(source["raw"], check_sources=False)
+
+
 def normalize_understanding(value):
     """Normalize business fields independently, preserving partial useful data.
 
-Only a completely unusable response is a technical error. Bad fields become
-null and the original response is retained as provenance, never repaired by a
-second LLM call.
-"""
-    from schedule_model import ModelError
-    if not isinstance(value, dict) or not any(key in value for key in ("courses", "changes", "period_tables", "period_table_changes", "intent")):
-        raise ModelError("课表助手返回的数据无法解析，已保留本次输入，请重试。")
-    result = {"intent": "read" if value.get("intent") == "read" else "write",
-              "mode": "replace" if value.get("mode") == "replace" else "merge",
+    Control fields and operation containers must be valid. Incomplete business
+    facts remain nullable and the original response is retained as provenance,
+    never repaired by a second LLM call.
+    """
+    validate_operation_controls(value)
+    result = {"intent": value["intent"], "mode": value["mode"],
               "period_tables": [], "period_table_changes": [], "courses": [], "changes": [],
               "sources": deepcopy(value.get("sources")) if isinstance(value.get("sources"), list) else [],
               "unapplied_changes": deepcopy(value.get("unapplied_changes")) if isinstance(value.get("unapplied_changes"), list) else []}
     if isinstance(value.get("semester"), dict):
-        result["semester"] = {key: _text(value["semester"].get(key), 100)
-                              for key in ("id", "name", "start_date", "first_week_monday", "end_date", "timezone")}
+        # Unexpected and old cached scope requests must reach the application
+        # guard intact; normalization cannot erase an attempted scope change.
+        result["semester"] = deepcopy(value["semester"])
     for table in value.get("period_tables", []) if isinstance(value.get("period_tables"), list) else []:
         if not isinstance(table, dict):
             continue
@@ -216,14 +300,14 @@ second LLM call.
         for schedule in course.get("schedules", []) if isinstance(course.get("schedules"), list) else []:
             if isinstance(schedule, dict):
                 data["schedules"].append(normalize_fields(schedule))
-        # Preserve an unnamed course only when some actual course fact exists.
-        if data["name"] or any(any(item.get(key) is not None for key in SCHEDULE_FIELDS) for item in data["schedules"]):
+        # Keep existing ID-only references as well as incomplete course facts.
+        if _has_course_facts(data):
             result["courses"].append(data)
     for change in value.get("changes", []) if isinstance(value.get("changes"), list) else []:
         if not isinstance(change, dict):
             continue
         item = deepcopy(change)
-        item["action"] = "delete" if change.get("action") == "delete" else "update"
+        item["action"] = change["action"]
         if "name" in change:
             name = _text(change["name"], 200)
             if change["name"] is None or name is not None:
@@ -247,5 +331,4 @@ second LLM call.
         result["sources"].append({"kind": "llm_extraction", "schema_version": SCHEMA_VERSION, "raw": deepcopy(value)})
     if result["intent"] == "read":
         result.update(mode="merge", courses=[], changes=[], period_tables=[], period_table_changes=[])
-        result.pop("semester", None)
     return result

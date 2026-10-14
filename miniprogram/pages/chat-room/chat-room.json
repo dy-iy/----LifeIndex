@@ -1,0 +1,17 @@
+{
+  "navigationStyle": "custom",
+  "navigationBarTitleText": "群聊",
+  "navigationBarBackgroundColor": "#fbf7ee",
+  "navigationBarTextStyle": "black",
+  "backgroundColor": "#fbf7ee",
+  "backgroundTextStyle": "dark",
+  "disableSwipeBack": false,
+  "disableScroll": true,
+  "usingComponents": {
+    "group-navigation": "/components/group-navigation/index",
+    "group-chat": "/components/group-chat/index",
+    "index-card": "/components/index-card/index",
+    "group-member-list": "/components/group-member-list/index",
+    "shared-review-modal": "/components/shared-review-modal/index"
+  }
+}

@@ -5,26 +5,9 @@ Component({
       value: { height: 0, rows: [], days: [], changes: [], scheduledCount: 0 },
     },
     disabled: { type: Boolean, value: false },
+    showEmpty: { type: Boolean, value: true },
   },
   methods: {
-    selectSlot(event) {
-      if (this.properties.disabled) return;
-      const grid = this.properties.grid || {};
-      const dataset = event.currentTarget.dataset;
-      const day = (grid.days || []).find((item) => item.date === dataset.date);
-      const rowIndex = Number(dataset.row);
-      if (!Number.isInteger(rowIndex) || rowIndex < 0) return;
-      const row = (grid.rows || [])[rowIndex];
-      if (!day || day.disabled || !row || row.kind === "break") return;
-      if (!row.startTime || !row.endTime) return;
-      this.triggerEvent("selectslot", {
-        date: day.date,
-        weekday: day.weekday,
-        start_time: row.startTime,
-        end_time: row.endTime,
-        period: row.kind === "period" ? row.number : null,
-      });
-    },
     selectLesson(event) {
       if (this.properties.disabled) return;
       const id = event.currentTarget.dataset.id;

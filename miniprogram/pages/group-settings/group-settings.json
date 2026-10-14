@@ -1,0 +1,12 @@
+{
+  "navigationStyle": "custom",
+  "navigationBarTitleText": "群聊设置",
+  "navigationBarTextStyle": "black",
+  "navigationBarBackgroundColor": "#fbf7ee",
+  "backgroundColor": "#fbf7ee",
+  "backgroundTextStyle": "dark",
+  "disableSwipeBack": false,
+  "usingComponents": {
+    "group-navigation": "/components/group-navigation/index"
+  }
+}

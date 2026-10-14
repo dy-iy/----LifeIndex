@@ -1,0 +1,9 @@
+{
+  "backgroundColor": "#fbf7ee",
+  "navigationBarBackgroundColor": "#fbf7ee",
+  "navigationBarTitleText": "群聊",
+  "enablePullDownRefresh": true,
+  "usingComponents": {
+    "class-tab-bar": "/components/class-tab-bar/index"
+  }
+}

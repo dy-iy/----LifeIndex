@@ -14,7 +14,8 @@ class ScheduleState(TypedDict, total=False):
     run_id: str
     user_id: str
     thread_id: str
-    semester_id: str | None
+    semester_id: str
+    semester_scope: str
     input_text: str
     image_ids: list[str]
     period_time_setup_pending: bool
@@ -37,7 +38,7 @@ def build_graph(checkpointer, interpret: Callback, apply: Callback):
 
     def apply_node(state):
         result = apply(state)
-        return {"result": result, "status": "completed" if state["plan"].get("intent") == "read" else "applied",
+        return {"result": result, "status": "completed" if state["plan"].get("intent") == "read" or result.get("saved") is False else "applied",
                 "reply": result.get("reply", "已保存识别到的课表信息。")}
 
     builder = StateGraph(ScheduleState)

@@ -6,6 +6,7 @@ from sqlalchemy import select
 
 from auth import utcnow
 from models import ScheduleDailyUsage, ScheduleModelCall, User
+from schedule_model import MAX_IMAGE_TOKENS
 
 
 def token_upper_bound(messages):
@@ -22,7 +23,7 @@ def token_upper_bound(messages):
                     texts.append(block.get("text", ""))
                 elif block.get("type") == "image_url":
                     images += 1
-    return len(json.dumps(texts, ensure_ascii=False).encode()) + 8192 + images * 2048
+    return len(json.dumps(texts, ensure_ascii=False).encode()) + 8192 + images * MAX_IMAGE_TOKENS
 
 
 def reserve(factory, user_id, run_id, messages, settings, *, input_hash=None):

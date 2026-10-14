@@ -1,0 +1,15 @@
+@import "../review-panel/index.wxss";
+@import "../../review-window.wxss";
+
+:host { display: block; }
+.shared-review-member { display: flex; align-items: center; gap: 17rpx; margin-bottom: 26rpx; padding: 0 3rpx; }
+.shared-review-avatar { display: block; box-sizing: border-box; flex-shrink: 0; width: 76rpx; height: 76rpx; border: 3rpx solid #fffdf6; border-radius: 50%; background: #e9e3d3; box-shadow: 0 3rpx 9rpx rgba(103, 82, 45, .1); }
+.shared-review-avatar-fallback { display: flex; align-items: center; justify-content: center; color: #688274; font-size: 32rpx; }
+.shared-review-member-copy { display: flex; flex: 1; flex-direction: column; min-width: 0; gap: 6rpx; }
+.shared-review-member-name { overflow: hidden; color: #253d35; font-size: 29rpx; font-weight: 600; line-height: 1.4; text-overflow: ellipsis; white-space: nowrap; }
+.shared-review-course-time { color: #8b9183; font-size: 23rpx; line-height: 1.5; font-variant-numeric: tabular-nums; }
+.shared-review-status { padding: 40rpx 0; color: #8b9183; font-size: 26rpx; text-align: center; }
+.shared-review-error { padding: 35rpx 0; color: #ad5948; font-size: 25rpx; line-height: 1.6; text-align: center; overflow-wrap: anywhere; }
+.shared-review-error > text { display: block; }
+.shared-review-error button { display: inline-block; width: auto; margin: 20rpx 0 0; padding: 8rpx 24rpx; border-radius: 12rpx; color: #496951; background: #eeeee7; font-size: 25rpx; line-height: 1.5; }
+.shared-review-error button::after { border: 0; }

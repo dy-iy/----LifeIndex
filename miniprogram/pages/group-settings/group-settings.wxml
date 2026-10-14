@@ -1,0 +1,117 @@
+<view class="settings-page">
+  <group-navigation title="群聊设置" bind:back="goBack" />
+
+  <view class="settings-content">
+    <view wx:if="{{loading && !group}}" class="state-card">
+      <view class="loading-dot"></view><text>正在加载群聊设置…</text>
+    </view>
+    <view wx:elif="{{error && !group}}" class="state-card error-card">
+      <text class="state-message">{{error}}</text>
+      <button class="retry-button" bindtap="reload">重新加载</button>
+    </view>
+    <block wx:if="{{group}}">
+      <view wx:if="{{error}}" class="refresh-error" bindtap="reload">{{error}} 点击重试</view>
+      <view class="settings-card member-card">
+        <view class="card-heading">
+          <text class="card-title">群聊成员</text>
+          <view class="member-count" bindtap="toggleMembers" hover-class="row-pressed">
+            <text>{{group.memberCount}} / {{group.maxMembers}} 人</text>
+            <view wx:if="{{hasMoreMembers}}" class="chevron {{showAllMembers ? 'chevron-up' : ''}}"></view>
+          </view>
+        </view>
+        <view class="member-grid">
+          <view wx:for="{{visibleMembers}}" wx:key="id" class="member-item" data-id="{{item.id}}" bindtap="showMember" hover-class="member-pressed">
+            <view class="member-avatar">
+              <image wx:if="{{item.avatarSrc}}" class="avatar-image" src="{{item.avatarSrc}}" mode="aspectFill" data-id="{{item.id}}" binderror="avatarLoadError" />
+              <text wx:else class="avatar-initial">{{item.initial}}</text>
+            </view>
+            <text class="member-name">{{item.name}}</text>
+            <text wx:if="{{item.isOwner}}" class="owner-label">群主</text>
+          </view>
+          <view wx:if="{{group.canInvite}}" class="member-item member-action">
+            <view class="member-action-circle">
+              <button class="action-avatar member-action-button invite-button" size="mini" open-type="share"
+                data-group-invite="{{true}}" data-invitation="{{inviteId}}" disabled="{{busy || !inviteReady}}" hover-class="none">
+                <view class="plus-icon"></view>
+              </button>
+            </view>
+            <text class="member-name">邀请</text>
+          </view>
+          <view wx:if="{{group.canRemove}}" class="member-item member-action">
+            <view class="member-action-circle">
+              <button class="action-avatar member-action-button" size="mini" bindtap="removeMembers" disabled="{{busy}}" hover-class="none">
+                <view class="minus-icon"></view>
+              </button>
+            </view>
+            <text class="member-name">移除</text>
+          </view>
+        </view>
+        <view wx:if="{{inviteError}}" class="invite-error" bindtap="prepareInvitation">{{inviteError}} 点击重试</view>
+        <view wx:if="{{hasMoreMembers}}" class="expand-members" bindtap="toggleMembers" hover-class="row-pressed">
+          <text>{{showAllMembers ? '收起成员' : '查看全部成员'}}</text>
+          <view class="expand-chevron {{showAllMembers ? 'expanded' : ''}}"></view>
+        </view>
+      </view>
+
+      <view class="settings-card details-card">
+        <view class="detail-row" bindtap="editGroup" hover-class="row-pressed">
+          <text class="detail-label">群名称与头像</text>
+          <view class="detail-value"><text class="value-text">{{group.name}}</text><view wx:if="{{group.canEdit}}" class="chevron"></view></view>
+        </view>
+        <view class="detail-row" bindtap="editNickname" hover-class="row-pressed">
+          <text class="detail-label">我在本群的昵称</text>
+          <view class="detail-value"><text class="value-text">{{group.selfNickname}}</text><view class="chevron"></view></view>
+        </view>
+      </view>
+      <button class="leave-button" bindtap="leaveGroup" disabled="{{busy || invitePreparing}}">{{group.isOwner ? '群主操作' : '退出群聊'}}</button>
+      <text wx:if="{{group.isOwner}}" class="leave-help">转让群主、退出或解散群聊</text>
+    </block>
+  </view>
+
+  <view wx:if="{{dialog && group}}" class="dialog-mask">
+    <view class="dialog-backdrop" catchtap="closeDialog" catchtouchmove="stopPropagation"></view>
+    <view class="dialog-panel" catchtap="stopPropagation">
+      <view class="dialog-heading"><text>{{dialogTitle}}</text><button class="dialog-close" bindtap="closeDialog" disabled="{{busy}}">关闭</button></view>
+      <scroll-view class="dialog-body dialog-{{dialog}}" scroll-y="{{true}}">
+        <block wx:if="{{dialog === 'remove'}}">
+          <text class="dialog-hint">每次最多选择 10 位成员。群主无法被移除。</text>
+          <view wx:for="{{removableMembers}}" wx:key="id" class="select-member-row" data-id="{{item.id}}" bindtap="selectMember">
+            <view class="member-avatar select-avatar"><image wx:if="{{item.avatarSrc}}" class="avatar-image" src="{{item.avatarSrc}}" mode="aspectFill" data-id="{{item.id}}" binderror="avatarLoadError" /><text wx:else class="avatar-initial">{{item.initial}}</text></view>
+            <text class="select-member-name">{{item.name}}</text><view class="select-mark {{item.selected ? 'selected' : ''}}"><text wx:if="{{item.selected}}">✓</text></view>
+          </view>
+          <button class="primary-button danger-button" bindtap="submitRemove" loading="{{busy}}" disabled="{{busy || invitePreparing || !selectionCount || conflict}}">移除选中的 {{selectionCount}} 位成员</button>
+        </block>
+
+        <block wx:elif="{{dialog === 'group'}}">
+          <view class="avatar-edit-row">
+            <view class="member-avatar edit-avatar"><image wx:if="{{group.avatarSrc}}" class="avatar-image" src="{{group.avatarSrc}}" mode="aspectFill" binderror="groupAvatarLoadError" /><text wx:else class="avatar-initial">{{group.initial}}</text></view>
+            <button class="secondary-button avatar-choose" bindtap="chooseGroupAvatar" disabled="{{busy || invitePreparing || conflict}}">更换群头像</button>
+          </view>
+          <text class="dialog-hint">选择图片后立即保存，图片不超过 2 MiB。</text>
+          <button wx:if="{{avatarPending}}" class="text-button" bindtap="uploadChosenAvatar" disabled="{{busy || invitePreparing || conflict}}">{{busy ? '正在保存头像…' : '重试保存已选头像'}}</button>
+          <text class="field-label">群名称</text>
+          <input class="dialog-input" value="{{nameDraft}}" maxlength="120" placeholder="请输入群名称" bindinput="updateNameDraft" disabled="{{busy || conflict}}" />
+          <text class="dialog-hint">最多 60 个字。</text>
+          <button class="primary-button" bindtap="submitGroup" loading="{{busy}}" disabled="{{busy || invitePreparing || conflict || avatarPending}}">保存群名称</button>
+        </block>
+
+        <block wx:elif="{{dialog === 'nickname'}}">
+          <text class="field-label">本群昵称</text>
+          <input class="dialog-input" value="{{nicknameDraft}}" maxlength="120" placeholder="不填写则使用你的账户昵称" bindinput="updateNicknameDraft" disabled="{{busy}}" />
+          <text class="dialog-hint">仅在此群展示，最多 60 个字。留空可恢复账户昵称。</text>
+          <button class="primary-button" bindtap="submitNickname" loading="{{busy}}" disabled="{{busy}}">保存本群昵称</button>
+        </block>
+
+        <block wx:elif="{{dialog === 'transfer'}}">
+          <text class="dialog-hint">{{leaveAfter ? '选择新群主，转让成功后你将退出此群。' : '选择新群主，转让成功后你仍是群成员。'}}</text>
+          <view wx:for="{{transferMembers}}" wx:key="id" class="select-member-row" data-id="{{item.id}}" bindtap="selectTransferMember">
+            <view class="member-avatar select-avatar"><image wx:if="{{item.avatarSrc}}" class="avatar-image" src="{{item.avatarSrc}}" mode="aspectFill" data-id="{{item.id}}" binderror="avatarLoadError" /><text wx:else class="avatar-initial">{{item.initial}}</text></view>
+            <text class="select-member-name">{{item.name}}</text><view class="select-mark {{item.transferSelected ? 'selected' : ''}}"><text wx:if="{{item.transferSelected}}">✓</text></view>
+          </view>
+          <button class="primary-button" bindtap="submitTransfer" loading="{{busy}}" disabled="{{busy || invitePreparing || !transferId || conflict}}">{{leaveAfter ? '转让群主并退出' : '转让群主'}}</button>
+        </block>
+        <view wx:if="{{actionError}}" class="action-error">{{actionError}}</view>
+      </scroll-view>
+    </view>
+  </view>
+</view>

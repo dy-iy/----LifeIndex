@@ -1,4 +1,4 @@
-<page-meta page-style="{{agentOpen || selectedLesson || editor === 'semester' || editor === 'course' || editor === 'structured' ? 'overflow: hidden;' : ''}}"/>
+<page-meta page-style="{{agentOpen || selectedLesson || editor === 'semester' || editor === 'structured' ? 'overflow: hidden;' : ''}}"/>
 <view class="page class-page timetable-page timetable-surface {{semester ? 'has-semester' : ''}}">
   <view class="title-row"><view class="page-title">课表</view><image class="title-art" src="{{art.schedule}}" mode="aspectFit"/></view>
   <view wx:if="{{!semester}}" class="prototype-note"><view class="prototype-dot"></view><text>课表保存至个人账户，计时页将自动识别当前课程。</text></view>
@@ -6,13 +6,13 @@
   <block wx:else>
     <view wx:if="{{message}}" class="saved-message">{{message}}</view>
     <view wx:if="{{error}}" class="error-panel"><view class="error">{{error}}</view><button size="mini" class="text-button" disabled="{{loading || saving}}" bindtap="reload">重新加载课表</button></view>
-    <view wx:if="{{loading}}" class="loading-copy">正在读取个人课表…</view>
+    <view wx:if="{{loading}}" class="loading-copy">正在读取学期…</view>
     <view wx:if="{{semester}}" class="semester-head">
-      <picker class="{{(saving) ? 'picker-disabled' : ''}}" range="{{semesters}}" range-key="name" value="{{semesterIndex}}" disabled="{{saving}}" bindchange="selectSemester"><view class="picker-trigger semester-picker"><text class="picker-value">{{semester.name}}</text><view class="picker-chevron" aria-hidden="true"></view></view></picker>
+      <picker class="{{(loading || saving) ? 'picker-disabled' : ''}}" range="{{semesters}}" range-key="name" value="{{semesterIndex}}" disabled="{{loading || saving}}" bindchange="selectSemester"><view class="picker-trigger semester-picker"><text class="picker-value">{{semester.name}}</text><view class="picker-chevron" aria-hidden="true"></view></view></picker>
       <view class="semester-actions"><text class="section-link" data-edit="{{true}}" bindtap="openSemester">设置</text><text class="section-link" bindtap="openSemester">＋ 新学期</text></view>
-      <view class="small muted semester-meta">共 {{semester.total_weeks}} 周</view>
+      <view class="small muted semester-meta">学期 {{semester.number}} · 共 {{semester.total_weeks}} 周</view>
     </view>
-    <view wx:elif="{{!loading && !error}}" class="empty-card"><view class="empty-title">从课表截图开始</view><view class="empty-copy">截图和文字会直接整理、保存。可以先收集课程，再设置学期日期。</view><view class="arrange-actions"><button size="mini" class="primary-button" bindtap="openAgent">课表 Agent</button><button size="mini" class="secondary-button" bindtap="openSemester">＋ 设置学期</button></view></view>
+    <view wx:elif="{{!loading && !error}}" class="empty-card"><view class="empty-title">先设置你的学期</view><view class="empty-copy">填写学期名称和日期后，即可导入课表、设置作息和编辑课程。</view><button class="primary-button" bindtap="openSemester">＋ 设置学期</button></view>
 
     <view wx:if="{{editor === 'lesson'}}" class="course-editor">
       <view class="row-between"><text class="section-title">调整这一次课程</text><text class="section-link" bindtap="closeEditor">收起</text></view>
@@ -29,22 +29,26 @@
     <block wx:if="{{semester}}">
       <view class="section-head schedule-heading"><view><text class="eyebrow">WEEKLY PLANNER</text><text class="section-title">把一周安排好</text></view><view class="view-switch"><text class="{{viewMode === 'week' ? 'active' : ''}}" data-mode="week" bindtap="changeView">周课表</text><text class="{{viewMode === 'day' ? 'active' : ''}}" data-mode="day" bindtap="changeView">日程</text></view></view>
       <view class="planner-toolbar"><view class="week-navigation"><button size="mini" class="week-arrow" disabled="{{loading || saving || !canPreviousWeek}}" data-step="-1" bindtap="shiftWeek" aria-label="上一周">‹</button><picker class="{{(loading || saving) ? 'picker-disabled' : ''}}" range="{{weekOptions}}" range-key="label" value="{{weekIndex}}" disabled="{{loading || saving}}" bindchange="selectWeek"><view class="picker-trigger week-picker"><text class="picker-value">第 {{weekNumber || 1}} 周</text><view class="picker-chevron" aria-hidden="true"></view></view></picker><button size="mini" class="week-arrow" disabled="{{loading || saving || !canNextWeek}}" data-step="1" bindtap="shiftWeek" aria-label="下一周">›</button></view><button size="mini" class="today-button" disabled="{{loading || saving}}" bindtap="currentWeek">回到本周</button></view>
-      <view class="week-caption"><text>{{grid.weekStart}} — {{grid.weekEnd}}</text><text>{{loading ? '读取中…' : '本周 ' + grid.scheduledCount + ' 次课'}}</text></view>
-      <week-timetable wx:if="{{viewMode === 'week' && grid}}" grid="{{grid}}" disabled="{{loading || saving}}" bind:selectslot="openGridSlot" bind:selectlesson="inspectLesson"/>
+      <view wx:if="{{lessonsLoading}}" class="loading-copy">正在读取本周课次…</view>
+      <view wx:if="{{lessonsError}}" class="error-panel"><view class="error">{{lessonsError}}</view><button size="mini" class="text-button" disabled="{{loading || lessonsLoading || saving}}" bindtap="retryLessons">重新读取课次</button></view>
+      <view wx:if="{{coursesLoading}}" class="loading-copy">正在读取课程安排…</view>
+      <view wx:if="{{coursesError}}" class="error-panel"><view class="error">{{coursesError}}</view><button size="mini" class="text-button" disabled="{{loading || coursesLoading || saving}}" bindtap="retryCourses">重新读取课程安排</button></view>
+      <view class="week-caption"><text>{{grid.weekStart}} — {{grid.weekEnd}}</text><text>{{loading || lessonsLoading ? '读取中…' : lessonsError ? '课次读取失败' : '本周 ' + grid.scheduledCount + ' 次课'}}</text></view>
+      <week-timetable wx:if="{{viewMode === 'week' && grid}}" grid="{{grid}}" disabled="{{loading || lessonsLoading || saving}}" show-empty="{{!loading && !error && !lessonsLoading && !lessonsError}}" bind:selectlesson="inspectLesson"/>
       <block wx:if="{{viewMode === 'day'}}">
       <picker class="{{(loading || saving) ? 'picker-disabled' : ''}}" mode="date" value="{{selectedDate}}" start="{{semester.start_date}}" end="{{semester.end_date}}" disabled="{{loading || saving}}" bindchange="changeDate"><view class="picker-trigger day-date-picker"><text class="picker-value">{{selectedDate}}</text><text class="picker-detail">选择日期</text><view class="picker-chevron" aria-hidden="true"></view></view></picker>
       <view class="week-strip"><view wx:for="{{weekDays}}" wx:key="date" class="week-day {{selectedDate === item.date ? 'selected' : ''}} {{item.disabled ? 'outside-term' : ''}}" data-date="{{item.date}}" data-disabled="{{item.disabled}}" bindtap="chooseDay" role="button" aria-label="{{item.date}} 周{{item.label}}"><text class="week-prefix">周{{item.label}}</text><text class="week-name">{{item.number}}</text><view class="week-dot {{item.hasCourse ? 'has-course' : ''}}"></view></view></view>
-      <view wx:if="{{!loading && !visibleLessons.length}}" class="schedule-empty"><text class="empty-number serif">— : —</text><view class="empty-title">{{viewMode === 'week' ? '本周暂无课程' : '当天暂无课程'}}</view><view class="empty-copy">留一点空白，也可以安排新的课程。</view></view>
+      <view wx:if="{{!loading && !error && !lessonsLoading && !lessonsError && !visibleLessons.length}}" class="schedule-empty"><text class="empty-number serif">— : —</text><view class="empty-title">{{viewMode === 'week' ? '本周暂无课程' : '当天暂无课程'}}</view><view class="empty-copy">留一点空白，也可以安排新的课程。</view></view>
       <view wx:for="{{visibleLessons}}" wx:key="id" class="course-ticket {{item.status !== 'scheduled' ? 'inactive-ticket' : ''}}"><view class="ticket-top"><text class="eyebrow">{{item.local_date}} · 第 {{item.actualWeek}} 周</text><text class="pill">{{item.statusLabel}}{{item.hasOverlap ? ' · 重叠' : ''}}</text></view><view class="course-name">{{item.name}}</view><view class="course-time serif">{{item.start_time}}<text> — </text>{{item.end_time}}</view><view wx:if="{{item.location}}" class="small muted form-help">{{item.location}}</view><view wx:if="{{item.note}}" class="small muted">{{item.note}}</view><view class="ticket-divider"></view><view class="row-between"><text class="small muted">{{item.duration_minutes}} 分钟{{item.is_override ? ' · 已单独调整' : ''}}</text><text wx:if="{{item.canAdjust}}" class="ticket-edit" data-id="{{item.id}}" bindtap="openLesson">调课 / 请假 / 停课 ↗</text></view></view>
       </block>
-      <view class="arrange-actions"><button size="mini" class="primary-button" disabled="{{saving || loading}}" bindtap="openCourse">＋ 手动排课</button><button size="mini" class="secondary-button" bindtap="openAgent">Agent自动导入</button></view>
+      <view class="agent-import-action"><button class="primary-button agent-import-button" disabled="{{loading || saving}}" bindtap="openAgent">Agent自动导入</button></view>
     </block>
+    <block wx:if="{{semester}}">
     <view class="section-head" bindtap="toggleCourses"><text class="section-title">课程信息 · {{structuredCourses.length}} 门</text><view class="course-list-toggle"><text>{{courseListOpen ? '收起' : '管理'}}</text><view class="picker-chevron {{courseListOpen ? 'picker-chevron--up' : ''}}" aria-hidden="true"></view></view></view>
     <block wx:if="{{courseListOpen}}">
-      <view wx:if="{{semester && unlinkedThreads.length}}" class="view-switch structured-scope"><text class="{{!showStructuredUnlinked ? 'active' : ''}}" data-scope="semester" bindtap="selectStructuredScope">当前学期</text><text class="{{showStructuredUnlinked ? 'active' : ''}}" data-scope="thread" bindtap="selectStructuredScope">未关联课程</text></view>
-      <picker wx:if="{{(!semester || showStructuredUnlinked) && unlinkedThreads.length}}" class="structured-thread-picker" range="{{unlinkedThreads}}" range-key="title" value="{{unlinkedThreadIndex}}" disabled="{{saving || loading}}" bindchange="selectUnlinkedThread"><view class="picker-trigger date-picker"><text class="picker-value">{{unlinkedThreads[unlinkedThreadIndex].title || '未关联学期的对话'}}</text><view class="picker-chevron" aria-hidden="true"></view></view></picker>
-      <view wx:if="{{(!semester || showStructuredUnlinked) && structuredDocument}}" class="unlinked-note"><text>课程已保存，关联学期后会按周次排入课表。</text><view class="arrange-actions"><button wx:if="{{semester}}" size="mini" class="secondary-button" disabled="{{saving || loading}}" bindtap="bindStructuredToSemester">关联到 {{semester.name}}</button><button size="mini" class="secondary-button" disabled="{{saving || loading}}" bindtap="createSemesterForStructured">新建学期并关联</button></view><button wx:if="{{semester}}" size="mini" class="text-button" bindtap="openAgent">继续整理这个对话 →</button></view>
-      <view wx:if="{{!structuredCourses.length && !loading}}" class="small muted">尚无课程信息。上传截图或直接描述课程即可保存。</view>
+      <view wx:if="{{structuredLoading}}" class="loading-copy">正在读取课程信息…</view>
+      <view wx:if="{{structuredError}}" class="error-panel"><view class="error">{{structuredError}}</view><button size="mini" class="text-button" disabled="{{loading || structuredLoading || saving}}" bindtap="retryStructured">重新读取课程信息</button></view>
+      <view wx:if="{{!structuredCourses.length && !loading && !error && !structuredLoading && !structuredError}}" class="small muted">本学期尚无课程信息。上传截图或直接描述课程即可保存。</view>
       <view wx:for="{{structuredCourses}}" wx:for-item="course" wx:key="id" class="structured-course">
         <view class="row-between"><text class="template-name">{{course.nameLabel}}</text><text class="section-link" data-id="{{course.id}}" bindtap="openStructuredCourse">编辑</text></view>
         <view wx:if="{{course.noSchedules}}" class="small muted">安排未知 · 可以随时补充</view>
@@ -53,7 +57,8 @@
           <text wx:if="{{schedule.missingLabel}}" class="missing-information">{{schedule.missingLabel}} · 先保存在课程列表</text>
         </view>
       </view>
-      <button wx:if="{{structuredDocument}}" size="mini" class="text-button structured-add" disabled="{{saving || loading}}" bindtap="openStructuredCourse">＋ 添加课程信息</button>
+      <button wx:if="{{structuredDocument}}" size="mini" class="text-button structured-add" disabled="{{saving || loading || structuredLoading}}" bindtap="openStructuredCourse">＋ 添加课程信息</button>
+    </block>
     </block>
   </block>
 </view>
@@ -97,47 +102,9 @@
     </view>
   </view>
 </view>
-<view wx:if="{{loggedIn && editor === 'course'}}" class="course-editor-overlay timetable-surface {{courseKeyboardHeight ? 'keyboard-open' : ''}}" style="bottom: {{courseKeyboardHeight}}px;">
-  <view class="course-editor-backdrop" catchtap="closeEditor" catchtouchmove="noop"></view>
-  <view class="course-dialog" role="dialog" aria-modal="true" aria-label="{{courseForm.id ? '编辑课程' : '添加课程'}}" catchtap="noop">
-    <view class="course-dialog-header row-between" catchtouchmove="noop">
-      <view><text class="eyebrow">安排一堂课</text><text class="course-dialog-title">{{courseForm.id ? '编辑课程' : '添加课程'}}</text></view>
-      <button size="mini" class="detail-close" bindtap="closeEditor" disabled="{{saving}}" aria-label="关闭课程填写窗口">×</button>
-    </view>
-    <view class="course-dialog-body">
-      <scroll-view class="course-dialog-scroll" scroll-y="{{true}}" scroll-top="{{courseScrollTop}}" scroll-with-animation="{{false}}" bindscroll="onCourseDialogScroll" bindtouchstart="onCourseDialogTouchStart" enhanced="{{true}}" show-scrollbar="{{false}}">
-        <view class="course-dialog-content">
-        <view wx:if="{{courseForm.placementDate}}" class="placement-note">
-          <view>已选 {{courseForm.placementDate}} · 周{{days[courseForm.weekdayIndex]}}</view>
-          <view class="placement-options"><button size="mini" class="placement-button {{courseForm.start_week === courseForm.end_week ? 'chosen' : ''}}" data-repeat="{{false}}" bindtap="setPlacementRepeat" disabled="{{saving}}">仅这一周</button><button size="mini" class="placement-button {{courseForm.start_week !== courseForm.end_week ? 'chosen' : ''}}" data-repeat="{{true}}" bindtap="setPlacementRepeat" disabled="{{saving}}">从本周起每周</button></view>
-          <text class="small muted">下方可继续调整周次、单双周和时间。</text>
-        </view>
-        <text class="field-label">课程名称</text><input always-embed="{{true}}" id="course-field-name" cursor="{{courseInputCursors['course-field-name']}}" adjust-position="{{false}}" bindfocus="onCourseFieldFocus" bindblur="onCourseFieldBlur" bindkeyboardheightchange="onCourseKeyboardHeightChange" class="field-input" value="{{courseForm.name}}" data-field="name" bindinput="inputField" maxlength="100" placeholder="例如：高等数学" disabled="{{saving}}"/>
-        <text class="field-label">星期与周次</text><picker class="{{(saving) ? 'picker-disabled' : ''}}" range="{{days}}" value="{{courseForm.weekdayIndex}}" data-field="weekdayIndex" bindchange="inputField" disabled="{{saving}}"><view class="picker-trigger date-picker"><text class="picker-value">每周{{days[courseForm.weekdayIndex]}}</text><view class="picker-chevron" aria-hidden="true"></view></view></picker>
-        <view class="time-fields form-gap"><input always-embed="{{true}}" id="course-field-start_week" cursor="{{courseInputCursors['course-field-start_week']}}" adjust-position="{{false}}" bindfocus="onCourseFieldFocus" bindblur="onCourseFieldBlur" bindkeyboardheightchange="onCourseKeyboardHeightChange" class="field-input" type="number" value="{{courseForm.start_week}}" data-field="start_week" bindinput="inputField" placeholder="起始周" disabled="{{saving}}"/><text class="muted">至</text><input always-embed="{{true}}" id="course-field-end_week" cursor="{{courseInputCursors['course-field-end_week']}}" adjust-position="{{false}}" bindfocus="onCourseFieldFocus" bindblur="onCourseFieldBlur" bindkeyboardheightchange="onCourseKeyboardHeightChange" class="field-input" type="number" value="{{courseForm.end_week}}" data-field="end_week" bindinput="inputField" placeholder="结束周" disabled="{{saving}}"/><text class="muted">周</text></view>
-        <picker class="{{(saving) ? 'picker-disabled' : ''}}" range="{{patterns}}" value="{{courseForm.patternIndex}}" data-field="patternIndex" bindchange="inputField" disabled="{{saving}}"><view class="picker-trigger date-picker form-gap"><text class="picker-value">{{patterns[courseForm.patternIndex]}}上课</text><view class="picker-chevron" aria-hidden="true"></view></view></picker>
-        <view class="small muted form-help">单双周按学期第 1 周起算。首尾周的日期必须落在学期内。</view>
-        <text class="field-label">上课时间</text><view class="view-switch"><text class="{{courseForm.timeMode === 'time' ? 'active' : ''}}" data-mode="time" bindtap="changeTimeMode">按时刻</text><text class="{{courseForm.timeMode === 'period' ? 'active' : ''}}" data-mode="period" bindtap="changeTimeMode">按节次</text></view>
-        <view wx:if="{{courseForm.timeMode === 'time'}}" class="time-fields form-gap"><picker class="{{(saving) ? 'picker-disabled' : ''}}" mode="time" value="{{courseForm.start_time}}" data-field="start_time" bindchange="inputField" disabled="{{saving}}"><view class="picker-trigger time-picker"><text class="picker-value">{{courseForm.start_time}}</text><view class="picker-chevron" aria-hidden="true"></view></view></picker><text class="muted">—</text><picker class="{{(saving) ? 'picker-disabled' : ''}}" mode="time" value="{{courseForm.end_time}}" data-field="end_time" bindchange="inputField" disabled="{{saving}}"><view class="picker-trigger time-picker"><text class="picker-value">{{courseForm.end_time}}</text><view class="picker-chevron" aria-hidden="true"></view></view></picker></view>
-        <block wx:else><view class="time-fields form-gap"><input always-embed="{{true}}" id="course-field-startPeriod" cursor="{{courseInputCursors['course-field-startPeriod']}}" adjust-position="{{false}}" bindfocus="onCourseFieldFocus" bindblur="onCourseFieldBlur" bindkeyboardheightchange="onCourseKeyboardHeightChange" class="field-input" type="number" value="{{courseForm.startPeriod}}" data-field="startPeriod" bindinput="inputField" placeholder="开始节次" disabled="{{saving}}"/><text class="muted">至</text><input always-embed="{{true}}" id="course-field-endPeriod" cursor="{{courseInputCursors['course-field-endPeriod']}}" adjust-position="{{false}}" bindfocus="onCourseFieldFocus" bindblur="onCourseFieldBlur" bindkeyboardheightchange="onCourseKeyboardHeightChange" class="field-input" type="number" value="{{courseForm.endPeriod}}" data-field="endPeriod" bindinput="inputField" placeholder="结束节次" disabled="{{saving}}"/></view><view class="small muted form-help">{{semester.periods.length ? '使用学期设置中的节次时间。' : '尚未配置节次，请切换为按时刻录入；之后可在学期设置中添加节次。'}}</view></block>
-        <text class="field-label">地点 <text class="muted">可选</text></text><input always-embed="{{true}}" id="course-field-location" cursor="{{courseInputCursors['course-field-location']}}" adjust-position="{{false}}" bindfocus="onCourseFieldFocus" bindblur="onCourseFieldBlur" bindkeyboardheightchange="onCourseKeyboardHeightChange" class="field-input" value="{{courseForm.location}}" data-field="location" bindinput="inputField" maxlength="200" placeholder="教学楼、教室或线上地址" disabled="{{saving}}"/>
-        <view wx:if="{{courseForm.id}}" class="rule-note">课程安排会同步更新；已有计时和复盘历史独立保存。正在计时或暂停的课次需先结束计时。</view>
-        </view>
-      </scroll-view>
-    </view>
-    <view class="course-dialog-footer" catchtouchmove="noop">
-      <view wx:if="{{formError}}" class="error">{{formError}}</view>
-      <button size="mini" wx:if="{{conflict}}" class="text-button" bindtap="rebaseVersion" disabled="{{saving}}">读取最新版本，保留输入</button>
-      <view class="course-dialog-actions">
-        <button size="mini" class="secondary-button" bindtap="closeEditor" disabled="{{saving}}">取消</button>
-        <button size="mini" class="primary-button" loading="{{saving}}" disabled="{{saving}}" bindtap="saveCourse">{{saving ? '正在保存…' : '保存课程'}}</button>
-      </view>
-    </view>
-  </view>
-</view>
 <view wx:if="{{loggedIn && editor === 'structured'}}" class="course-editor-overlay timetable-surface {{courseKeyboardHeight ? 'keyboard-open' : ''}}" style="bottom: {{courseKeyboardHeight}}px;">
   <view class="course-editor-backdrop" catchtap="closeEditor" catchtouchmove="noop"></view>
-  <view class="course-dialog" role="dialog" aria-modal="true" aria-label="编辑课程信息" catchtap="noop">
+  <view class="course-dialog" role="dialog" aria-modal="true" aria-label="{{structuredForm.id ? '编辑课程信息' : '添加课程信息'}}" catchtap="noop">
     <view class="course-dialog-header row-between" catchtouchmove="noop"><view><text class="eyebrow">随时补充与修改</text><text class="course-dialog-title">{{structuredForm.id ? '编辑课程信息' : '添加课程信息'}}</text></view><button size="mini" class="detail-close" bindtap="closeEditor" disabled="{{saving}}" aria-label="关闭编辑">×</button></view>
     <view class="course-dialog-body"><scroll-view class="course-dialog-scroll" scroll-y="{{true}}" scroll-top="{{courseScrollTop}}" scroll-with-animation="{{false}}" bindscroll="onCourseDialogScroll" bindtouchstart="onCourseDialogTouchStart" enhanced="{{true}}" show-scrollbar="{{false}}"><view class="course-dialog-content">
       <view class="rule-note">所有信息均可留空。清空已有字段会保存为未知；完整的安排会自动进入周课表。</view>
@@ -156,7 +123,7 @@
       <button size="mini" class="text-button structured-add" disabled="{{saving}}" bindtap="addStructuredSchedule">＋ 添加上课安排</button>
       <view wx:if="{{structuredForm.id}}" class="rule-note">修改或移除安排会同步到课表；已有计时和复盘历史独立保存。正在计时或暂停的课次需先结束计时。</view>
     </view></scroll-view></view>
-    <view class="course-dialog-footer" catchtouchmove="noop"><view wx:if="{{formError}}" class="error">{{formError}}</view><button wx:if="{{conflict}}" size="mini" class="text-button" disabled="{{saving}}" bindtap="rebaseStructuredVersion">读取最新版本，保留修改</button><view class="course-dialog-actions"><button size="mini" class="secondary-button" disabled="{{saving}}" bindtap="closeEditor">取消</button><button size="mini" class="primary-button" loading="{{saving}}" disabled="{{saving}}" bindtap="saveStructuredCourse">{{saving ? '正在保存…' : '保存课程信息'}}</button></view></view>
+    <view class="course-dialog-footer" catchtouchmove="noop"><view wx:if="{{formError}}" class="error">{{formError}}</view><button wx:if="{{conflict}}" size="mini" class="text-button" disabled="{{saving}}" bindtap="rebaseStructuredVersion">读取最新版本，保留修改</button><view class="course-dialog-actions"><button wx:if="{{structuredForm.id}}" size="mini" class="course-delete-button" loading="{{structuredDeleting}}" disabled="{{saving}}" bindtap="deleteStructuredCourse">{{structuredDeleting ? '正在删除…' : '删除'}}</button><button size="mini" class="primary-button" loading="{{saving && !structuredDeleting}}" disabled="{{saving}}" bindtap="saveStructuredCourse">{{saving && !structuredDeleting ? '正在保存…' : '保存课程信息'}}</button></view></view>
   </view>
 </view>
 <view wx:if="{{selectedLesson}}" class="lesson-overlay timetable-surface" catchtouchmove="noop">
@@ -181,4 +148,4 @@
     </view>
   </view>
 </view>
-<timetable-assistant wx:if="{{agentOpen}}" id="timetable-assistant" semester-id="{{agentSemesterId}}" thread-id="{{agentThreadId}}" bind:close="closeAgent" bind:threadchange="onAgentThreadChange" bind:applied="onAgentApplied"/>
+<timetable-assistant wx:if="{{agentOpen && semester}}" id="timetable-assistant" semester-id="{{agentSemesterId}}" bind:close="closeAgent" bind:applied="onAgentApplied"/>

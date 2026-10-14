@@ -7,6 +7,7 @@ const metrics = require("./review-metrics");
 const focus = require("./review-focus");
 const scoring = require("./review-scoring");
 const reviewSignal = require("./review-signal");
+const { PARTICIPATION_OPTIONS, UNTIMED_REASONS, LEGACY_QUESTIONS, untimedReasonLabel, displayRecord } = require("./review-presentation");
 const EVALUATION_LABELS = { queued: "正在评估", running: "正在评估", needs_input: "已保存 · 可补充或结束", hold: "已保存 · 评分暂缓",
   failed: "评估失败", succeeded: "已结算", superseded: "已被新版本替代", invalid_answer: "待修改" };
 const TEXT_STEPS = {
@@ -16,10 +17,6 @@ const TEXT_STEPS = {
 };
 
 // 沿用后端参与情况枚举；参考弹窗的插画只负责展示，不改变保存内容。
-const PARTICIPATION_OPTIONS = [{ value: "followed", label: "基本跟上", icon: "book" }, { value: "partial", label: "只听了一部分", icon: "waves" },
-  { value: "not_learning", label: "到了，但基本没听", icon: "cloud" }, { value: "not_attended", label: "未到课", icon: "chair" }, { value: "low_content", label: "水课", icon: "water" }];
-const UNTIMED_REASONS = [{ value: "forgotten", label: "忘记计时", icon: "waves" }, { value: "not_attended", label: "没去上课", icon: "chair" }];
-const untimedReasonLabel = (value) => (UNTIMED_REASONS.find((item) => item.value === value) || {}).label || "未选择";
 
 function reviewSteps(participation, untimed = false, reason = "unspecified") {
   if (untimed) {
@@ -50,17 +47,7 @@ function initialData() {
     wizardPageNumbers: [], wizardPageNumber: 1, wizardTextTitle: "", wizardTextPlaceholder: "",
     historyScroll: 0, submitDisabledReason: "", revisionDisabledReason: "", clarificationDisabledReason: "",
     participationOptions: PARTICIPATION_OPTIONS,
-    questions: [
-      { number: "01", title: "学到了什么？", placeholder: "用自己的话写下一个关键点" },
-      { number: "02", title: "如何理解或应用？", placeholder: "举例、说明用途，或提出具体疑问" },
-      { number: "03", title: "给自己的专注情况打星", placeholder: "点击星星评分" },
-    ] };
-}
-function displayRecord(record) {
-  const { segments, ...fields } = record;
-  const seconds = Math.max(0, Math.floor(Number(record.effective_seconds) || 0));
-  return Object.assign({}, fields, { durationLabel: `${Math.floor(seconds / 60)} 分 ${seconds % 60} 秒`,
-    label: `${record.local_date} · ${record.name} · ${record.start_time}–${record.end_time}` });
+    questions: LEGACY_QUESTIONS.map(item => Object.assign({}, item)) };
 }
 
 

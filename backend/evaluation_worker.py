@@ -294,6 +294,8 @@ class Worker:
             from agents.memory import remember_evaluation
             if job.prompt_version != review_v7.QUALITY_VERSION:
                 remember_evaluation(db, job)
+            from group_review_messages import enqueue_completed_review
+            enqueue_completed_review(db, job, now)
             db.commit()
         return {}
 
@@ -323,6 +325,8 @@ class Worker:
         from agents.memory import remember_evaluation
         if job.prompt_version != review_v7.QUALITY_VERSION:
             remember_evaluation(db, job)
+        from group_review_messages import enqueue_completed_review
+        enqueue_completed_review(db, job, now)
         db.commit()
         return {}
 
@@ -349,6 +353,8 @@ class Worker:
         from agents.memory import remember_evaluation
         if job.prompt_version != review_v7.QUALITY_VERSION:
             remember_evaluation(db, job)
+        from group_review_messages import enqueue_completed_review
+        enqueue_completed_review(db, job, now)
         db.commit()
         return {}
 

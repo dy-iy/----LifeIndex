@@ -33,10 +33,13 @@ def get_db(request: Request):
     if factory is None:
         raise HTTPException(503, "数据库尚未配置。")
     with factory() as session:
-        if request.method == "GET" and (request.url.path.startswith("/api/indices/class")
+        if request.method == "GET" and (request.url.path == "/api/groups"
+                or request.url.path.startswith("/api/groups/")
+                or request.url.path.startswith("/api/indices/class")
                 or request.url.path == "/api/learning/incomplete"
                 or request.url.path.startswith("/api/timetable-agent/threads")
                 or request.url.path == "/api/timetables/structured"
+                or request.url.path == "/api/timetables/state"
                 or request.url.path.startswith("/api/reviews/")):
             # Start the snapshot before authentication issues its first SELECT.
             session.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY"))
@@ -51,8 +54,14 @@ class Input(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
 
 
-def mutate(db, user, request, key, body, status, action):
-    """Serialize writes per user; mutation response and business changes commit together."""
+def mutate(db, user, request, key, body, status, action, *, no_key_update=False, render_response=None):
+    """Commit a receipt with the write; optionally render it against current permissions.
+
+    Group writes use a non-key user lock to allow foreign-key checks during owner
+    transfer. ``render_response(receipt, replayed)`` must not mutate business state;
+    it can omit data the caller is no longer authorized to read. The persisted
+    receipt can therefore avoid credentials and stale permission-bearing data.
+    """
     if not key.strip():
         raise HTTPException(422, "Idempotency-Key 不能为空。")
     payload = body.model_dump(mode="json", exclude_unset=True) if isinstance(body, BaseModel) else body
@@ -61,20 +70,28 @@ def mutate(db, user, request, key, body, status, action):
         ensure_ascii=False, sort_keys=True, separators=(",", ":"),
     ).encode()).hexdigest()
     # Refresh the user after locking so semester defaults use the latest saved timezone.
-    db.scalar(select(User).where(User.id == user.id).with_for_update().execution_options(populate_existing=True))
+    db.scalar(select(User).where(User.id == user.id).with_for_update(key_share=no_key_update)
+              .execution_options(populate_existing=True))
     previous = db.get(TimetableMutation, (user.id, key))
     if previous is not None:
         if previous.request_hash != digest:
             raise HTTPException(409, "该请求标识已用于其他操作，请刷新后重试。")
+        response = previous.response_body
+        if render_response is not None:
+            response = render_response(response, True)
         db.commit()
         return Response(status_code=204) if previous.response_status == 204 else JSONResponse(
-            status_code=previous.response_status, content=previous.response_body,
+            status_code=previous.response_status, content=response,
         )
     result = action()
     db.add(TimetableMutation(user_id=user.id, key=key, request_hash=digest,
                              response_status=status, response_body=result))
+    response = result
+    if render_response is not None:
+        db.flush()
+        response = render_response(result, False)
     db.commit()
-    return Response(status_code=204) if status == 204 else JSONResponse(status_code=status, content=result)
+    return Response(status_code=204) if status == 204 else JSONResponse(status_code=status, content=response)
 
 
 def owned(db, model, user_id, item_id):

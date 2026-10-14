@@ -3,7 +3,6 @@ from db import IdempotencyKey, Input, Version, check_version, mutate, owned
 import uuid
 from datetime import timedelta
 from io import BytesIO
-from typing import Literal
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from PIL import Image, ImageOps, UnidentifiedImageError
@@ -20,7 +19,7 @@ MAX_IMAGE_BYTES = 2 * 1024 * 1024
 
 
 class ThreadCreate(Input):
-    semester_id: uuid.UUID | None = None
+    semester_id: uuid.UUID
     title: str = Field(default="课表对话", min_length=1, max_length=100)
 
 
@@ -36,11 +35,6 @@ class MessageCreate(Input):
         if len(set(self.image_ids)) != len(self.image_ids):
             raise ValueError("请勿重复选择同一图片。")
         return self
-
-
-class Decision(Input):
-    version: Version
-    decision: Literal["apply", "cancel"]
 
 
 class Retry(Input):
@@ -89,21 +83,26 @@ def touch(thread):
     thread.updated_at = utcnow()
 
 
+def scoped_thread(db, user_id, thread_id, semester_id):
+    thread = owned(db, ScheduleThread, user_id, thread_id)
+    if thread.is_archived or thread.semester_id != semester_id:
+        raise HTTPException(404, "未找到当前学期的课表对话。")
+    owned(db, Semester, user_id, semester_id)
+    return thread
+
 
 @router.get("/threads")
-def list_threads(user: CurrentUser, db: Db, semester_id: uuid.UUID | None = None):
-    query = select(ScheduleThread).where(ScheduleThread.user_id == user.id)
-    if semester_id is not None:
-        owned(db, Semester, user.id, semester_id)
-        query = query.where(ScheduleThread.semester_id == semester_id)
+def list_threads(user: CurrentUser, db: Db, semester_id: uuid.UUID):
+    owned(db, Semester, user.id, semester_id)
+    query = select(ScheduleThread).where(ScheduleThread.user_id == user.id,
+        ScheduleThread.semester_id == semester_id, ScheduleThread.is_archived.is_(False))
     return [summary(item) for item in db.scalars(query.order_by(ScheduleThread.updated_at.desc(), ScheduleThread.id).limit(100)).all()]
 
 
 @router.post("/threads", status_code=201)
 def create_thread(body: ThreadCreate, request: Request, user: CurrentUser, db: Db, key: IdempotencyKey):
     def action():
-        if body.semester_id is not None:
-            owned(db, Semester, user.id, body.semester_id)
+        owned(db, Semester, user.id, body.semester_id)
         thread = ScheduleThread(user_id=user.id, semester_id=body.semester_id, title=body.title)
         db.add(thread)
         db.flush()
@@ -112,17 +111,19 @@ def create_thread(body: ThreadCreate, request: Request, user: CurrentUser, db: D
 
 
 @router.get("/threads/{thread_id}")
-def get_thread(thread_id: uuid.UUID, user: CurrentUser, db: Db, known_version: int | None = Query(default=None, ge=1)):
-    thread = owned(db, ScheduleThread, user.id, thread_id)
+def get_thread(thread_id: uuid.UUID, user: CurrentUser, db: Db, semester_id: uuid.UUID,
+               known_version: int | None = Query(default=None, ge=1)):
+    thread = scoped_thread(db, user.id, thread_id, semester_id)
     if known_version == thread.version:
         return {"id": str(thread.id), "version": thread.version, "unchanged": True}
     return detail(db, thread)
 
 
 @router.post("/threads/{thread_id}/messages", status_code=202)
-def post_message(thread_id: uuid.UUID, body: MessageCreate, request: Request, user: CurrentUser, db: Db, key: IdempotencyKey):
+def post_message(thread_id: uuid.UUID, body: MessageCreate, request: Request, user: CurrentUser, db: Db,
+                 key: IdempotencyKey, semester_id: uuid.UUID):
     def action():
-        thread = owned(db, ScheduleThread, user.id, thread_id)
+        thread = scoped_thread(db, user.id, thread_id, semester_id)
         check_version(thread, body.version)
         previous = latest_run(db, thread.id)
         if previous and previous.status in BUSY:
@@ -153,8 +154,8 @@ def post_message(thread_id: uuid.UUID, body: MessageCreate, request: Request, us
     return mutate(db, user, request, key, body, 202, action)
 
 
-def selected_run(db, user, thread_id, run_id, version):
-    thread = owned(db, ScheduleThread, user.id, thread_id)
+def selected_run(db, user, thread_id, run_id, version, semester_id):
+    thread = scoped_thread(db, user.id, thread_id, semester_id)
     check_version(thread, version)
     run = owned(db, ScheduleRun, user.id, run_id)
     latest = latest_run(db, thread.id)
@@ -163,15 +164,11 @@ def selected_run(db, user, thread_id, run_id, version):
     return thread, run
 
 
-@router.post("/threads/{thread_id}/runs/{run_id}/confirm", status_code=202)
-def confirm_run(thread_id: uuid.UUID, run_id: uuid.UUID, body: Decision, request: Request, user: CurrentUser, db: Db, key: IdempotencyKey):
-    raise HTTPException(410, "课表助手已改为直接保存，不再使用预览确认；旧版预览任务已被替代。")
-
-
 @router.post("/threads/{thread_id}/runs/{run_id}/retry", status_code=202)
-def retry_run(thread_id: uuid.UUID, run_id: uuid.UUID, body: Retry, request: Request, user: CurrentUser, db: Db, key: IdempotencyKey):
+def retry_run(thread_id: uuid.UUID, run_id: uuid.UUID, body: Retry, request: Request, user: CurrentUser, db: Db,
+              key: IdempotencyKey, semester_id: uuid.UUID):
     def action():
-        thread, run = selected_run(db, user, thread_id, run_id, body.version)
+        thread, run = selected_run(db, user, thread_id, run_id, body.version, semester_id)
         if run.status != "failed":
             raise HTTPException(409, "只能重试技术处理失败的请求。")
         if run.decision is not None or (run.plan and "operations" in run.plan):
@@ -210,13 +207,13 @@ def normalize_schedule_image(data):
         raise HTTPException(400, "无法读取图片，请重新选择。") from None
 
 
-def save_image(db, auth_id, token_hash, thread_id, raw):
+def save_image(db, auth_id, token_hash, thread_id, raw, semester_id):
     # No public URL; ownership is checked again after reading and normalizing the upload.
     auth = db.scalar(select(AuthSession).where(AuthSession.id == auth_id).with_for_update().execution_options(populate_existing=True))
     if auth is None or auth.revoked_at or auth.expires_at <= utcnow() or auth.token_hash != token_hash:
         raise unauthorized()
     db.scalar(select(User).where(User.id == auth.user_id).with_for_update())
-    owned(db, ScheduleThread, auth.user_id, thread_id)
+    scoped_thread(db, auth.user_id, thread_id, semester_id)
     # Retain successful source images for seven days without consuming pending
     # upload slots. Failed or active uses still need their attachments for retry.
     reference = ScheduleRun.image_ids.contains(func.jsonb_build_array(cast(ScheduleImage.id, Text)))
@@ -228,9 +225,13 @@ def save_image(db, auth_id, token_hash, thread_id, raw):
         ScheduleRun.user_id == auth.user_id, ScheduleRun.thread_id == ScheduleImage.thread_id,
         ScheduleRun.status.not_in(["applied", "completed", "superseded", "cancelled"]), reference,
     ).correlate(ScheduleImage).exists()
+    active_thread = select(ScheduleThread.id).where(
+        ScheduleThread.id == ScheduleImage.thread_id, ScheduleThread.user_id == ScheduleImage.user_id,
+        ScheduleThread.user_id == auth.user_id, ScheduleThread.is_archived.is_(False),
+    ).correlate(ScheduleImage).exists()
     count = db.scalar(select(func.count()).select_from(ScheduleImage).where(
         ScheduleImage.user_id == auth.user_id, ScheduleImage.expires_at > utcnow(), ScheduleImage.data.is_not(None),
-        ~finished | pending))
+        active_thread, ~finished | pending))
     if count >= 20:
         raise HTTPException(429, "待处理图片较多，请先完成已有课表对话。")
     image = ScheduleImage(user_id=auth.user_id, thread_id=thread_id, data=raw,
@@ -244,8 +245,8 @@ def save_image(db, auth_id, token_hash, thread_id, raw):
 
 @router.post("/threads/{thread_id}/images", status_code=201,
              openapi_extra={"requestBody": {"required": True, "content": {"application/octet-stream": {"schema": {"type": "string", "format": "binary"}}}}})
-async def upload_image(thread_id: uuid.UUID, request: Request, auth: CurrentSession, db: Db):
-    owned(db, ScheduleThread, auth.user_id, thread_id)
+async def upload_image(thread_id: uuid.UUID, request: Request, auth: CurrentSession, db: Db, semester_id: uuid.UUID):
+    scoped_thread(db, auth.user_id, thread_id, semester_id)
     kind = request.headers.get("content-type", "application/octet-stream").split(";", 1)[0].lower()
     if kind not in {"application/octet-stream", "image/jpeg", "image/png", "image/webp"}:
         raise HTTPException(415, "课表图片仅支持 JPEG、PNG 或 WebP。")
@@ -255,4 +256,4 @@ async def upload_image(thread_id: uuid.UUID, request: Request, auth: CurrentSess
             raise HTTPException(413, "每张课表图片不能超过 2 MiB，请压缩或裁剪后重试。")
         data.extend(chunk)
     normalized = await run_in_threadpool(normalize_schedule_image, bytes(data))
-    return await run_in_threadpool(save_image, db, auth.id, auth.token_hash, thread_id, normalized)
+    return await run_in_threadpool(save_image, db, auth.id, auth.token_hash, thread_id, normalized, semester_id)

@@ -20,15 +20,23 @@ function identity() {
 }
 session.subscribe(identity);
 function isCurrent(value) { const next = identity(); return next.owner === value.owner && next.generation === value.generation; }
-function remember(scope, value) { if (identity().owner) drafts[scope] = clone(value); }
-function recall(scope) { identity(); return clone(drafts[scope] || null); }
+function remember(scope, value) { if (scope && identity().owner) drafts[scope] = clone(value); }
+function recall(scope) { identity(); return scope ? clone(drafts[scope] || null) : null; }
 function imageNotice() { identity(); return imageNoticeAccepted; }
 function acceptImageNotice() { if (identity().owner) imageNoticeAccepted = true; }
+function semesterScope(semesterId) {
+  if (typeof semesterId !== "string" || !semesterId.trim()) throw new Error("请先设置学期，再使用课表助手。");
+  return `semester_id=${encodeURIComponent(semesterId)}`;
+}
 function operation(action) {
-  if (action.kind === "create") return { path: ROOT, data: action.data };
+  const scope = semesterScope(action.semesterId);
+  if (action.kind === "create") {
+    if (!action.data || action.data.semester_id !== action.semesterId) throw new Error("对话学期与当前学期不一致，请重新打开课表助手。");
+    return { path: ROOT, data: action.data };
+  }
   const base = `${ROOT}/${encodeURIComponent(action.threadId)}`;
-  if (action.kind === "send") return { path: `${base}/messages`, data: action.data };
-  if (action.kind === "confirm" || action.kind === "retry") return { path: `${base}/runs/${encodeURIComponent(action.runId)}/${action.kind}`, data: action.data };
+  if (action.kind === "send") return { path: `${base}/messages?${scope}`, data: action.data };
+  if (action.kind === "retry") return { path: `${base}/runs/${encodeURIComponent(action.runId)}/retry?${scope}`, data: action.data };
   throw new Error("无法识别这次操作，请重新进入课表助手。");
 }
 function fingerprint(action) { const op = operation(action); return JSON.stringify([identity().owner, op.path, op.data]); }
@@ -41,9 +49,13 @@ function execute(action) {
   return backend.request({ path: op.path, method: "POST", data: op.data, header: { "Idempotency-Key": keys[fingerprintValue] } });
 }
 function acknowledge(action) { delete keys[fingerprint(action)]; }
-function list() { return backend.request({ path: ROOT }); }
-function get(id, version) { return backend.request({ path: `${ROOT}/${encodeURIComponent(id)}${version ? `?known_version=${version}` : ""}` }); }
-async function upload(threadId, filePath) {
+function list(semesterId) {
+  const scope = semesterScope(semesterId);
+  return backend.request({ path: `${ROOT}?${scope}` });
+}
+function get(id, version, semesterId) { return backend.request({ path: `${ROOT}/${encodeURIComponent(id)}?${semesterScope(semesterId)}${version ? `&known_version=${version}` : ""}` }); }
+async function upload(threadId, filePath, semesterId) {
+  const scope = semesterScope(semesterId);
   const owner = identity();
   if (!owner.owner) throw new Error("请先到「我的」使用微信登录。");
   if (!filePath || typeof wx.getFileSystemManager !== "function") throw new Error("无法读取图片，请重新选择或更新微信后重试。");
@@ -58,6 +70,6 @@ async function upload(threadId, filePath) {
     oversizeMessage: "每张图片不能超过 2 MB，请压缩或裁剪后重试；文字输入已保留。",
   });
   if (!isCurrent(owner)) throw new Error("登录状态已改变，请重新选择图片。");
-  return backend.request({ path: `${ROOT}/${encodeURIComponent(threadId)}/images`, method: "POST", data, header: { "content-type": "application/octet-stream" } });
+  return backend.request({ path: `${ROOT}/${encodeURIComponent(threadId)}/images?${scope}`, method: "POST", data, header: { "content-type": "application/octet-stream" } });
 }
 module.exports = { identity, isCurrent, remember, recall, imageNotice, acceptImageNotice, execute, acknowledge, list, get, upload };

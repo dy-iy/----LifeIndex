@@ -12,7 +12,7 @@ from pathlib import Path
 CONTEXT_VERSION = "context-v1"
 CONTEXT_CODE_SHA256 = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
 LEGACY_CONTEXT = "legacy-context"
-TEXT_LIMITS = {"quality": 48000, "long": 48000, "short": 48000, "schedule": 256 * 1024}
+TEXT_LIMITS = {"quality": 48000, "long": 48000, "short": 48000}
 RETRIEVAL_LIMIT = 16000
 RECORD_FIELDS = frozenset({"course", "question_version", "answers", "review_version", "session_version",
     "planned_seconds", "effective_seconds", "elapsed_seconds", "is_makeup", "source", "submitted_at", "starts_at", "ends_at"})
@@ -111,38 +111,18 @@ def compile_context(profile, payload, *, system, input_source_count=0, limit=Non
     def over():
         return measure() > cap
 
-    # Old assistant prose has the lowest priority. The user's latest text,
-    # authoritative timetable, pending plan and all current grading evidence
-    # are never truncated or summarized by another model.
-    if profile == "schedule":
-        for row in payload["history"]:
-            if not over():
-                break
-            if row.get("reply"):
-                row["reply"] = ""
-                removed("assistant_replies")
+    # Historical retrieval is optional; current grading evidence is preserved.
     sources = payload["retrieval"]["sources"]
     while over() and any(item["authority"] == "user_history" for item in sources):
         index = max(i for i, item in enumerate(sources) if item["authority"] == "user_history")
         sources.pop(index)
         removed("retrieved_history")
-    if profile == "schedule":
-        memory = payload["conversation_memory"]
-        # These arrays are reverse-chronological and chronological respectively.
-        for rows, index, label, minimum in [
-            (memory["confirmed_history"], -1, "older_memory", 0),
-            (payload["history"], 0, "older_turns", 3),
-            (memory["recent_user_statements"], 0, "older_statements", 3),
-        ]:
-            while over() and len(rows) > minimum:
-                rows.pop(index)
-                removed(label)
     total = measure()
     if total > cap:
         raise ContextError("当前必要资料超过处理范围，请缩小本次任务；原始输入已保留。")
     manifest = {"version": CONTEXT_VERSION, "code_sha256": CONTEXT_CODE_SHA256, "profile": profile, "limit_bytes": cap,
         "system_bytes": system_bytes, "payload_bytes": byte_size(payload), "total_text_bytes": total,
-        "initial_text_bytes": initial, "output_reserve_tokens": 12000 if profile == "schedule" else (4000 if profile == "quality" else 1200),
+        "initial_text_bytes": initial, "output_reserve_tokens": 4000 if profile == "quality" else 1200,
         "omitted": dropped, "input_source_count": input_source_count,
         "source_count": len(sources), "sources": [{key: item[key] for key in ("id", "version", "authority", "sha256")} for item in sources],
         "context_sha256": digest({"system": system, "payload": payload})}
@@ -166,29 +146,3 @@ def evaluation_context(role, snapshot, clarification, retrieval, quality, *, sys
     if role == "quality":
         result.manifest["excluded_historical_sources"] = sum(item["authority"] == "user_history" for item in retrieval.get("sources", []))
     return result
-
-
-def schedule_context(state, *, system, limit=None):
-    raw_memory = state.get("conversation_memory", {})
-    if not isinstance(raw_memory, dict) or any(not isinstance(raw_memory.get(key, []), list)
-            for key in ("confirmed_history", "recent_user_statements")):
-        raise ContextError("对话记忆格式不正确，已保留任务。")
-    history = deepcopy(state.get("history", []))
-    if not isinstance(history, list) or any(not isinstance(row, dict) for row in history):
-        raise ContextError("历史对话格式不正确，已保留任务。")
-    pending = raw_memory.get("pending_proposal")
-    if "pending_proposal" not in raw_memory:
-        latest = next((row for row in reversed(history) if row.get("unapplied_plan")), None)
-        pending = {"plan": latest["unapplied_plan"]} if latest else None
-    # Preserve pending operations once, not repeated copies in every turn.
-    history = [{key: value for key, value in row.items() if key in {"input", "confirmation", "reply", "status"}}
-               for row in history]
-    memory = {"pending_proposal": deepcopy(pending), "confirmed_history": deepcopy(raw_memory.get("confirmed_history", [])),
-              "recent_user_statements": deepcopy(raw_memory.get("recent_user_statements", []))}
-    current = {key: deepcopy(value) for key, value in state.get("context", {}).items()
-               if key in {"today", "timezone", "semester", "semesters", "week_dates", "courses", "lessons"}}
-    payload = {"context": current, "history": history, "conversation_memory": memory,
-        "retrieval": select_sources(state.get("retrieval", {}), "schedule", include_history=True),
-        "route": state.get("route", "plan"), "input_text": state.get("input_text", "")}
-    return compile_context("schedule", payload, system=system,
-                           input_source_count=len(state.get("retrieval", {}).get("sources", [])), limit=limit)

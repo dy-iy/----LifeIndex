@@ -16,6 +16,7 @@ Component({
       type: Boolean,
       value: false
     },
+    showZoom: { type: Boolean, value: true },
     busy: {
       type: Boolean,
       value: false

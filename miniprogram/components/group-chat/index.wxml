@@ -1,0 +1,70 @@
+<view class="group-chat" style="padding-bottom: {{keyboardHeight}}px;">
+  <view class="message-scroll-shell">
+    <scroll-view class="message-scroll" scroll-y="{{true}}" scroll-into-view="{{scrollTarget}}"
+      scroll-with-animation="{{scrollAnimated}}" upper-threshold="80" lower-threshold="80"
+      bindscrolltoupper="loadOlderMessages" bindscroll="messageScroll" bindscrolltolower="messageScrollBottom">
+      <view class="message-list">
+        <view wx:if="{{messageLoading && !messages.length}}" class="message-state">正在加载聊天记录…</view>
+        <view wx:elif="{{!messageReady && messageError}}" class="message-state message-state-error" role="alert">
+          <text>{{messageError}}</text>
+          <button class="message-retry" bindtap="retryMessages">重试</button>
+        </view>
+        <view wx:else>
+          <view wx:if="{{historyLoading}}" class="message-history-state">正在加载更早的消息…</view>
+          <view wx:elif="{{historyError}}" class="message-history-state message-state-error" role="alert">
+            <text>{{historyError}}</text>
+            <button class="message-history-retry" bindtap="loadOlderMessages">重新加载</button>
+          </view>
+          <button wx:elif="{{hasOlder}}" class="message-history-button" bindtap="loadOlderMessages">查看更早的消息</button>
+          <view wx:if="{{messageReady && !messages.length}}" class="message-empty">还没有消息，开始聊聊吧</view>
+          <view wx:if="{{messageReady && messageError}}" class="message-sync-error" role="alert">
+            <text>{{messageError}}</text>
+            <button class="message-history-retry" bindtap="retryMessages">重试</button>
+          </view>
+          <view wx:for="{{messages}}" wx:key="id" id="{{item.domId}}" class="message-item">
+            <view wx:if="{{item.timeLabel}}" class="message-time">{{item.timeLabel}}</view>
+            <view class="message-row {{item.is_self ? 'message-row-self' : ''}}">
+              <image wx:if="{{item.avatarSrc}}" class="message-avatar" src="{{item.avatarSrc}}" mode="aspectFill"
+                data-id="{{item.id}}" data-src="{{item.avatarSrc}}" binderror="messageAvatarError" />
+              <view wx:else class="message-avatar message-avatar-fallback" aria-hidden="true">{{item.initial}}</view>
+              <view class="message-body">
+                <view class="message-name">{{item.sender_name}}</view>
+                <view wx:if="{{item.kind === 'review'}}" class="message-review-card {{item.is_self ? 'message-review-card-self' : ''}}"
+                  data-id="{{item.id}}" bindtap="openReviewMessage" bindlongpress="copyMessage"
+                  aria-role="button" aria-label="{{item.sender_name}}完成了{{item.review_summary.course_name}}的复盘，点击查看结果">
+                  <view class="message-review-heading"><view class="message-review-check" aria-hidden="true">✓</view><text>{{item.reviewTitle}}</text></view>
+                  <text class="message-review-course">{{item.review_summary.course_name}}</text>
+                  <text class="message-review-time">{{item.reviewTimeRange}}</text>
+                  <view class="message-review-duration"><text>有效计时</text><text class="message-review-duration-value">{{item.reviewDuration}}</text></view>
+                  <view class="message-review-footer"><text>查看复盘结果</text><text aria-hidden="true">↗</text></view>
+                </view>
+                <view wx:else class="message-bubble {{item.is_self ? 'message-bubble-self' : ''}} {{item.status === 'failed' ? 'message-bubble-failed' : ''}}"
+                  data-id="{{item.id}}" data-key="{{item.key}}" bindlongpress="copyMessage" bindtap="retryMessage">
+                  <text class="message-content">{{item.content}}</text>
+                </view>
+                <view wx:if="{{item.status === 'sending'}}" class="message-delivery">发送中…</view>
+                <button wx:elif="{{item.status === 'failed'}}" class="message-delivery message-delivery-failed"
+                  data-key="{{item.key}}" bindtap="retryMessage" aria-label="发送失败，点击重试">发送失败，点击重试</button>
+              </view>
+            </view>
+          </view>
+        </view>
+        <view id="messages-bottom" class="message-bottom-anchor" aria-hidden="true"></view>
+      </view>
+    </scroll-view>
+    <button wx:if="{{newMessageCount > 0}}" class="message-new-button" bindtap="jumpToLatest"
+      aria-label="{{newMessageCount}} 条新消息，查看最新消息">{{newMessageCount}} 条新消息 <text class="message-new-arrow">↓</text></button>
+  </view>
+  <view class="message-composer {{keyboardHeight > 0 ? 'message-composer-raised' : ''}}">
+    <view class="message-composer-row">
+      <view class="message-input-wrap">
+        <input class="message-input" type="text" value="{{draft}}" placeholder="发消息…" placeholder-class="message-placeholder"
+          disabled="{{!messageReady}}" adjust-position="{{false}}" maxlength="-1"
+          confirm-type="send" confirm-hold="{{true}}" cursor-spacing="16" aria-label="消息输入框，按发送键或 Enter 发送"
+          bindinput="inputMessage" bindconfirm="sendMessage" bindkeyboardheightchange="keyboardHeightChange"
+          bindfocus="composerFocus" bindblur="composerBlur" />
+      </view>
+    </view>
+    <view wx:if="{{draftLength > 1800}}" class="message-length {{draftLength > 2000 ? 'message-length-error' : ''}}">{{draftLength}} / 2000 字</view>
+  </view>
+</view>

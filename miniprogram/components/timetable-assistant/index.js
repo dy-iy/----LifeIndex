@@ -9,20 +9,19 @@ function initialData() {
   return { loggedIn: false, loading: false, busy: false, uploading: false, error: "", threads: [], threadIndex: 0, thread: null, messages: [], text: "", images: [], processing: false, statusText: "", reply: "", replyText: "", replyExpanded: false, replyExpandable: false, runError: "", unappliedChanges: [], unappliedCount: 0, unappliedExpanded: false, diagnosticRows: [], diagnosticCount: 0, diagnosticsExpanded: false, periodTimeSetupRequired: false, periodTimeSetupTables: [], periodInputFocused: false, scrollTarget: "", canRetry: false, pending: false, needsReload: false, keyboardHeight: 0 };
 }
 Component({
-  properties: { semesterId: { type: String, value: "" }, threadId: { type: String, value: "" } },
+  properties: { semesterId: { type: String, value: "" } },
   data: initialData(),
   lifetimes: {
     attached() {
       // 每次打开创建独立实例，学期范围在这一轮对话中保持不变。
       this._semesterId = this.properties.semesterId || "";
-      this._scope = this._semesterId || "all";
+      this._scope = this._semesterId;
       this._snapshot = agent.identity(); this._epoch = 0;
       this._visible = false; this._disposed = false; this._closing = false;
       this._pageHidden = false; this._choosingImages = false;
       this._pending = null; this._appliedRuns = {};
       this.unsubscribe = session.subscribe(() => { if (!this._disposed) this.syncIdentity(); });
       this.restore();
-      if (this.properties.threadId && !this._pending && !this.data.text && !this.data.images.length) this.setData({ thread: { id: this.properties.threadId } });
       return this.resume();
     },
     detached() {
@@ -99,13 +98,14 @@ Component({
       if (!snapshot.owner || !this.data.thread || !this._visible) return;
       const id = this.data.thread.id;
       try {
-        const thread = await agent.get(id, this.data.thread.version);
+        const thread = await agent.get(id, this.data.thread.version, this._semesterId);
         if (!this.active(snapshot, epoch) || !this.data.thread || this.data.thread.id !== id) return;
         if (!thread.unchanged) this.displayThread(thread);
         this.schedulePoll();
       } catch (error) { if (this.active(snapshot, epoch)) this.setData({ error: `${error.message} 点击“重新读取”恢复处理状态。` }); }
     },
     displayThread(thread) {
+      if (!this._semesterId || thread.semester_id !== this._semesterId) throw new Error("该对话不属于当前学期，请重新打开课表助手。");
       const run = thread.run || null;
       const input = run && (thread.messages || []).find((message) => message.id === `${run.id}:user`);
       const result = presentResult(run && run.result, input && input.text);
@@ -126,16 +126,15 @@ Component({
       const summaryThread = { id: thread.id, semester_id: thread.semester_id, title: thread.title, version: thread.version, updated_at: thread.updated_at, has_more_messages: thread.has_more_messages };
       const threads = thread.id ? [summaryThread].concat(this.data.threads.filter((item) => item.id !== thread.id)) : this.data.threads;
       thread = { ...summaryThread, run: run ? { id: run.id, status: run.status } : null };
-      this.setData({ thread, threads, threadIndex: 0, messages, needsReload: false, processing: Boolean(run && RUNNING.includes(run.status)), statusText: run ? STATUS[run.status] || "正在读取处理状态" : "", replyExpanded, replyExpandable: reply.length > 200, replyText: !replyExpanded && reply.length > 200 ? reply.slice(0, 200) + "…" : reply, canRetry: Boolean(run && run.status === "failed"), reply: messages.some((message) => !message.isUser && message.text === reply) ? "" : reply, runError: displayText(run && run.error),
+      this.setData({ thread, threads, threadIndex: 0, messages, needsReload: false, processing: Boolean(run && RUNNING.includes(run.status)), statusText: run ? run.result && run.result.scope_rejected === true ? "本次修改未应用，内容已保留" : STATUS[run.status] || "正在读取处理状态" : "", replyExpanded, replyExpandable: reply.length > 200, replyText: !replyExpanded && reply.length > 200 ? reply.slice(0, 200) + "…" : reply, canRetry: Boolean(run && run.status === "failed"), reply: messages.some((message) => !message.isUser && message.text === reply) ? "" : reply, runError: displayText(run && run.error),
         unappliedChanges: unappliedExpanded ? result.unapplied : result.unapplied.slice(0, 5), unappliedCount: result.unapplied.length, unappliedExpanded,
         diagnosticRows: diagnosticsExpanded ? result.diagnostics : result.diagnostics.slice(0, 5), diagnosticCount: result.diagnostics.length, diagnosticsExpanded,
         periodTimeSetupRequired: result.periodTimeSetup.required, periodTimeSetupTables: result.periodTimeSetup.tables });
       this.remember();
-      if (thread.id) this.triggerEvent("threadchange", { threadId: thread.id, semesterId: thread.semester_id || "" });
-      if (run && run.status === "applied" && run.id && !this._appliedRuns[run.id]) {
+      if (run && run.status === "applied" && run.id && !this._appliedRuns[run.id] && (!run.result || run.result.saved !== false)) {
         this._appliedRuns[run.id] = true;
-        if (!run.result || run.result.saved !== false) timetableChange.publish(this._snapshot, { runId: run.id, threadId: thread.id });
-        this.triggerEvent("applied", { runId: run.id, threadId: thread.id, semesterId: thread.semester_id || this._semesterId || "" });
+        timetableChange.publish(this._snapshot, { runId: run.id, threadId: thread.id, semesterId: this._semesterId });
+        this.triggerEvent("applied", { runId: run.id, threadId: thread.id, semesterId: this._semesterId });
       }
     },
     toggleMessage(event) {
@@ -162,24 +161,25 @@ Component({
     onPeriodInputBlur() { this.setData({ periodInputFocused: false }); },
     async reload() {
       const snapshot = this.syncIdentity(); if (!snapshot.owner || !this._visible) return;
+      if (!this._semesterId) { this.setData({ error: "请先设置学期，再使用课表助手。" }); return; }
       this.stopPolling(); const epoch = ++this._epoch;
       this.setData({ loading: true, busy: false, uploading: false, error: "" });
       try {
         if (this._pending && !await this.perform(this._pending, snapshot, epoch)) return;
-        const threads = await agent.list(); if (!this.active(snapshot, epoch)) return;
-        const choices = threads.filter((thread) => this._semesterId ? thread.semester_id === this._semesterId : !thread.semester_id);
+        const choices = await agent.list(this._semesterId); if (!this.active(snapshot, epoch)) return;
         let chosen = choices.find((thread) => this.data.thread && thread.id === this.data.thread.id) || choices[0] || null;
-        // 初始化线程确认后可能刚关联学期；已有选择仍通过详情接口鉴权恢复。
-        if (!chosen && this.data.thread && this.data.thread.id && (!this.data.thread.semester_id || this.data.thread.semester_id === this._semesterId)) chosen = this.data.thread;
+        if (!chosen && this.data.thread && this.data.thread.id && this.data.thread.semester_id === this._semesterId) chosen = this.data.thread;
         this.setData({ threads: choices, threadIndex: Math.max(0, choices.findIndex((thread) => chosen && thread.id === chosen.id)) });
         if (chosen) {
-          const thread = await agent.get(chosen.id); if (!this.active(snapshot, epoch)) return;
+          const thread = await agent.get(chosen.id, null, this._semesterId); if (!this.active(snapshot, epoch)) return;
           this.displayThread(thread); this.schedulePoll();
-        } else this.displayThread({ id: null, semester_id: this._semesterId || null, title: "新对话", messages: [], run: null });
+        } else this.displayThread({ id: null, semester_id: this._semesterId, title: "新对话", messages: [], run: null });
       } catch (error) { if (this.active(snapshot, epoch)) this.setData({ error: error.message || "无法读取对话，请稍后重试。" }); }
       finally { if (this.active(snapshot, epoch)) this.setData({ loading: false }); }
     },
     async perform(action, snapshot = this._snapshot, epoch = this._epoch) {
+      if (!this._semesterId || action.semesterId && action.semesterId !== this._semesterId) { this.setData({ error: "操作学期已变化，请重新打开课表助手。" }); return null; }
+      action = { ...action, semesterId: this._semesterId };
       this._pending = action; this.setData({ pending: true, busy: true, error: "" }); this.remember(); this.stopPolling();
       try {
         const thread = await agent.execute(action);
@@ -199,7 +199,7 @@ Component({
     },
     async ensureThread(snapshot, epoch) {
       if (this.data.thread && this.data.thread.id) return this.data.thread;
-      const data = this._semesterId ? { semester_id: this._semesterId } : {};
+      const data = { semester_id: this._semesterId };
       return this.perform({ kind: "create", data }, snapshot, epoch);
     },
     inputText(event) { if (this.data.busy || this.data.pending) return; this.setData({ text: event.detail.value }); this.remember(); },
@@ -221,7 +221,7 @@ Component({
       this._choosingImages = true;
       try {
         if (!agent.imageNotice()) {
-          const choice = await new Promise((resolve) => wx.showModal({ title: "识别课表截图", content: "图片和对话说明将通过服务器发送给 DeepSeek，用于整理你的课表。识别结果将直接保存，你可以随时修改。处理完成后删除图片，未完成的图片保留最多 7 天。", confirmText: "选择图片", success: resolve, fail: () => resolve({ confirm: false }) }));
+          const choice = await new Promise((resolve) => wx.showModal({ title: "识别课表截图", content: "图片和对话说明将通过服务器发送给火山方舟豆包，用于整理你的课表。识别结果将直接保存，你可以随时修改。处理完成后删除图片，未完成的图片保留最多 7 天。", confirmText: "选择图片", success: resolve, fail: () => resolve({ confirm: false }) }));
           if (!choice.confirm || !this.active(snapshot, epoch)) return;
           agent.acceptImageNotice();
         }
@@ -237,7 +237,7 @@ Component({
         const files = result.tempFiles.slice(0, 3 - this.data.images.length);
         for (let index = 0; index < files.length; index += 1) {
           const file = files[index];
-          const saved = await agent.upload(thread.id, file.tempFilePath);
+          const saved = await agent.upload(thread.id, file.tempFilePath, this._semesterId);
           if (!this.active(snapshot, epoch)) return;
           this.setData({ images: this.data.images.concat(Object.assign({}, saved, { path: file.tempFilePath })) }); this.remember();
         }
@@ -274,7 +274,7 @@ Component({
       const snapshot = this.syncIdentity(); if (!snapshot.owner) return;
       const semesterId = this._semesterId;
       this.stopPolling(); this._epoch += 1; this.setData({ text: "", images: [] });
-      return this.perform({ kind: "create", data: semesterId ? { semester_id: semesterId } : {} }, snapshot, this._epoch);
+      return this.perform({ kind: "create", data: { semester_id: semesterId } }, snapshot, this._epoch);
     },
     goLogin() { this.closeAssistant(); wx.switchTab({ url: "/pages/settings/settings" }); },
     goTimetable() { this.closeAssistant(); },

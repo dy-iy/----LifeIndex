@@ -44,6 +44,9 @@ class User(Base):
     __table_args__ = (
         UniqueConstraint("wechat_app_id", "wechat_open_id", name="uq_users_wechat_identity"),
         UniqueConstraint("avatar_id", name="uq_users_avatar_id"),
+        ForeignKeyConstraint(["id", "active_semester_id"], ["semesters.user_id", "semesters.id"],
+                             use_alter=True, name="fk_users_active_semester"),
+        CheckConstraint("semester_state_version >= 1", name="ck_users_semester_state_version"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -53,6 +56,8 @@ class User(Base):
     avatar_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
     avatar_data: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True, deferred=True)
     timezone: Mapped[str] = mapped_column(String(64), default="Asia/Shanghai", server_default="Asia/Shanghai")
+    active_semester_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    semester_state_version: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
     review_tracking_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
@@ -86,6 +91,8 @@ class Semester(Base):
     __tablename__ = "semesters"
     __table_args__ = (
         UniqueConstraint("user_id", "id", name="uq_semesters_user_id_id"),
+        UniqueConstraint("user_id", "number", name="uq_semesters_user_number"),
+        CheckConstraint("number > 0", name="ck_semesters_number"),
         CheckConstraint("end_date >= start_date AND end_date - start_date < 370", name="ck_semesters_dates"),
         CheckConstraint("first_week_monday <= start_date AND start_date - first_week_monday < 7", name="ck_semesters_first_week"),
         CheckConstraint("EXTRACT(ISODOW FROM first_week_monday) = 1", name="ck_semesters_monday"),
@@ -94,6 +101,7 @@ class Semester(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"))
+    number: Mapped[int] = mapped_column(Integer)
     name: Mapped[str] = mapped_column(String(100))
     start_date: Mapped[date] = mapped_column(Date)
     end_date: Mapped[date] = mapped_column(Date)
@@ -260,11 +268,13 @@ class ScheduleThread(Base):
         UniqueConstraint("user_id", "id", name="uq_schedule_threads_owner"),
         ForeignKeyConstraint(["user_id", "semester_id"], ["semesters.user_id", "semesters.id"], name="fk_schedule_thread_semester"),
         CheckConstraint("version > 0", name="ck_schedule_thread_version"),
-        Index("ix_schedule_threads_owner_updated", "user_id", "updated_at"),
+        CheckConstraint("semester_id IS NOT NULL OR is_archived", name="ck_schedule_threads_semester_scope"),
+        Index("ix_schedule_threads_owner_semester_updated", "user_id", "semester_id", "updated_at"),
     )
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"))
     semester_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    is_archived: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     title: Mapped[str] = mapped_column(String(100), default="课表对话")
     version: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
@@ -280,12 +290,14 @@ class TimetableDocument(Base):
         ForeignKeyConstraint(["user_id", "semester_id"], ["semesters.user_id", "semesters.id"], ondelete="CASCADE", name="fk_timetable_documents_semester"),
         ForeignKeyConstraint(["user_id", "thread_id"], ["schedule_threads.user_id", "schedule_threads.id"], ondelete="CASCADE", name="fk_timetable_documents_thread"),
         CheckConstraint("(semester_id IS NULL) <> (thread_id IS NULL)", name="ck_timetable_documents_scope"),
+        CheckConstraint("semester_id IS NOT NULL OR is_archived", name="ck_timetable_documents_semester_scope"),
         CheckConstraint("version > 0", name="ck_timetable_documents_version"),
     )
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"))
     semester_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
     thread_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    is_archived: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     data: Mapped[dict] = mapped_column(JSONB, default=dict, server_default="{}")
     version: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
@@ -391,3 +403,4 @@ import evaluation_models  # noqa: E402,F401
 import index_models  # noqa: E402,F401
 import lifecycle_models  # noqa: E402,F401
 import agents.models  # noqa: E402,F401
+import study_group_models  # noqa: E402,F401

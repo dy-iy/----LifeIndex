@@ -1,0 +1,41 @@
+<view wx:if="{{visible}}" class="review-modal-mask">
+  <view class="review-modal-backdrop" bindtap="close" catchtouchmove="stopTouch"></view>
+  <view class="review-modal" role="dialog" aria-label="{{member ? member.name + '的课后复盘' : '课后复盘'}}" aria-modal="true">
+    <image class="review-modal-nessie" src="/assets/review/nessie.png" mode="aspectFit" aria-hidden="true"/>
+    <view class="review-modal-underlay" aria-hidden="true"></view>
+    <view class="review-modal-panel">
+      <view class="review-panel-layout review-panel-layout-window">
+        <view class="review-sheet-header">
+          <view class="review-sheet-title-wrap">
+            <text class="review-sheet-title">课后复盘</text>
+            <view class="review-sheet-title-stroke" aria-hidden="true"></view>
+            <view class="review-sheet-title-sparks" aria-hidden="true"><view></view><view></view></view>
+          </view>
+          <button class="review-sheet-close" bindtap="close" hover-class="review-sheet-close-pressed" aria-label="关闭复盘窗口"><text>关闭</text><text class="review-sheet-close-symbol" aria-hidden="true">×</text></button>
+        </view>
+        <scroll-view class="review-panel-body" scroll-y="{{true}}" enhanced="{{true}}" show-scrollbar="{{false}}" bounces="{{false}}">
+          <view class="review-panel-embedded">
+            <view wx:if="{{loading}}" class="shared-review-status">正在读取复盘结果…</view>
+            <view wx:elif="{{error}}" class="shared-review-error" role="alert"><text>{{error}}</text><button bindtap="loadReview" hover-class="none">重试</button></view>
+            <block wx:elif="{{view && member}}">
+              <view class="shared-review-member">
+                <image wx:if="{{member.avatarSrc}}" class="shared-review-avatar" src="{{member.avatarSrc}}" mode="aspectFill" data-src="{{member.avatarSrc}}" binderror="avatarError" aria-label="{{member.name}}的头像"/>
+                <view wx:else class="shared-review-avatar shared-review-avatar-fallback" aria-hidden="true">{{member.initial}}</view>
+                <view class="shared-review-member-copy"><text class="shared-review-member-name">{{member.name}}</text><text class="shared-review-course-time">{{view.record.local_date}} · {{view.record.start_time}}–{{view.record.end_time}}</text></view>
+              </view>
+              <view class="review-course">
+                <view class="review-course-tape" aria-hidden="true"></view>
+                <view class="review-course-name">{{view.record.name}}</view>
+                <view class="review-course-meta"><view class="review-course-clock" aria-hidden="true"></view><text>{{view.durationKind}} {{view.record.durationLabel}}</text></view>
+              </view>
+              <review-result review="{{view.result}}" modern="{{view.modern}}"
+                attendance-text="{{view.attendanceText}}" untimed-reason-text="{{view.untimedReasonText}}"
+                focus-score="{{view.focusScore}}" focus-text="{{view.focusText}}"
+                answers="{{view.answers}}" questions="{{view.questions}}" />
+            </block>
+          </view>
+        </scroll-view>
+      </view>
+    </view>
+  </view>
+</view>

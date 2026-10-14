@@ -45,6 +45,33 @@ function svgUrl(svg) {
   }
   return `data:image/svg+xml;base64,${encoded}`;
 }
+function sparkline(points, previousClose, options = {}) {
+  const data = (Array.isArray(points) ? points : []).filter((point) => point
+    && typeof point.time === "string" && Number.isFinite(Date.parse(point.time))
+    && (typeof point.price === "number" || typeof point.price === "string" && point.price.trim() !== "")
+    && Number.isFinite(Number(point.price)) && Number(point.price) > 0)
+    .map((point, order) => ({ time: Date.parse(point.time), price: Number(point.price), order }))
+    .sort((a, b) => a.time - b.time || a.order - b.order);
+  if (!data.length) return "";
+  const dimension = (value, fallback) => Number.isFinite(Number(value)) && Number(value) >= 8 ? Number(value) : fallback;
+  const width = dimension(options.width, 164), height = dimension(options.height, 44), padding = 2;
+  const first = data[0].time, last = data[data.length - 1].time;
+  const low = data.reduce((value, point) => Math.min(value, point.price), Infinity);
+  const high = data.reduce((value, point) => Math.max(value, point.price), -Infinity);
+  // Normalize before calculating the range so even large finite prices stay valid.
+  const scale = Math.max(high, 1), range = (high - low) / scale;
+  const margin = Math.max(range * 0.12, 0.02 / scale, Number.EPSILON * 4);
+  const top = high / scale + margin, bottom = low / scale - margin;
+  const y = (price) => padding + (top - price / scale) / (top - bottom) * (height - padding * 2);
+  const x = (time) => last > first ? padding + (time - first) / (last - first) * (width - padding * 2) : width / 2;
+  let coordinates = data.map((point) => `${x(point.time).toFixed(3)},${y(point.price).toFixed(3)}`);
+  if (data.length === 1) coordinates = [`${padding},${y(data[0].price).toFixed(3)}`, `${width - padding},${y(data[0].price).toFixed(3)}`];
+  const color = COLORS[changeStats(data[data.length - 1].price, previousClose).changeDirection];
+  const left = data.length === 1 ? padding : x(first), right = data.length === 1 ? width - padding : x(last);
+  const line = coordinates.join(" ");
+  const fill = `${left.toFixed(3)},${height - padding} ${line} ${right.toFixed(3)},${height - padding}`;
+  return svgUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none"><polygon points="${fill}" fill="${color}" fill-opacity="0.08"/><polyline points="${line}" fill="none" stroke="${color}" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/></svg>`);
+}
 function renderWindow(chart, scrollRpx = chart.scrollRpx || 0) {
   const left = scrollRpx - chart.viewportWidth, right = scrollRpx + chart.viewportWidth * 2;
   const renderCandles = chart.candles.filter(item => item.x >= left && item.x <= right).map(item => ({
@@ -58,6 +85,8 @@ function chart(values, kind, previousClose, options = {}) {
   const viewportWidth = Math.max(CHART_LEFT + CHART_RIGHT + 100, Number(options.viewportWidth) || CHART_WIDTH);
   const step = Math.max(16, Math.min(52, Number(options.candleStep) || CANDLE_STEP));
   const zoom = Math.max(1, Math.min(8, Number(options.intradayZoom) || 1));
+  const windowMs = Number(options.intradayWindowMs);
+  const fixedWindow = intraday && Number.isFinite(windowMs) && windowMs > 0;
   const times = new Map();
   let data = values.slice();
   const empty = { width: viewportWidth, viewportWidth, candleStep: step, intradayZoom: zoom, zoomable: false, plotLeft: CHART_LEFT,
@@ -75,8 +104,11 @@ function chart(values, kind, previousClose, options = {}) {
     data.sort((a, b) => times.get(a) - times.get(b));
   }
   if (!data.length) return empty;
-  const start = intraday ? times.get(data[0]) : 0, end = intraday ? times.get(data[data.length - 1]) : 0;
-  const width = intraday ? CHART_LEFT + CHART_RIGHT + (viewportWidth - CHART_LEFT - CHART_RIGHT) * (end > start ? zoom : 1)
+  const first = intraday ? times.get(data[0]) : 0, end = intraday ? times.get(data[data.length - 1]) : 0;
+  // A fixed-duration viewport also leaves room before a newly created group's first point.
+  const start = fixedWindow ? Math.min(first, end - windowMs) : first;
+  const width = intraday ? CHART_LEFT + CHART_RIGHT + (viewportWidth - CHART_LEFT - CHART_RIGHT)
+    * (fixedWindow ? (end - start) / windowMs : end > start ? zoom : 1)
     : Math.max(viewportWidth, CHART_LEFT + CHART_RIGHT + data.length * step);
   const left = CHART_LEFT, right = width - CHART_RIGHT;
   const x = (i) => left + step * (i + 0.5);
@@ -125,7 +157,7 @@ function chart(values, kind, previousClose, options = {}) {
     const coordinates = renderedPoints.map((point) => `${point.x.toFixed(3)},${point.y.toFixed(3)}`).join(" ");
     const shape = renderedPoints.length > 1 ? `<polyline points="${coordinates}" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`
       : `<circle cx="${renderedPoints[0].x}" cy="${renderedPoints[0].y}" r="1" fill="#000000"/>`;
-    const lineImage = svgUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="390" viewBox="0 0 ${width} 390">${shape}</svg>`);
+    const lineImage = svgUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="390" viewBox="0 0 ${width} 390" preserveAspectRatio="none">${shape}</svg>`);
     const labels = [];
     for (let i = 0; i < (end > start ? 5 : 1); i++) {
       const labelX = visibleLeft + (visibleRight - visibleLeft) * i / 4;
@@ -134,7 +166,7 @@ function chart(values, kind, previousClose, options = {}) {
       if (!labels.length || labels[labels.length - 1].label !== label) labels.push({ id: `time-${i}`, x: labelX, label });
     }
     const points = renderedPoints.filter(point => point.x >= visibleLeft && point.x <= visibleRight);
-    return Object.assign({}, empty, { width, ticks, points, scrollRpx, zoomable: end > start, latest: renderedPoints[renderedPoints.length - 1],
+    return Object.assign({}, empty, { width, ticks, points, scrollRpx, zoomable: !fixedWindow && end > start, latest: renderedPoints[renderedPoints.length - 1],
       markers: points.filter((point) => point.eventId && point.kind !== "message_before").map(point => ({
         id: point.id, eventId: point.eventId, x: point.x, y: point.y, name: point.name, price: point.price })),
       labels, renderLabels: labels, lineImage, empty: false });
@@ -162,7 +194,7 @@ function chart(values, kind, previousClose, options = {}) {
     historyHintLeft: last.x + 42, zoomable: true, latest: last, empty: false });
   return Object.assign(result, renderWindow(result));
 }
-module.exports = { sign, number, signed, changeStats, priceMeta, dateTime, eventView, chart, renderWindow,
+module.exports = { sign, number, signed, changeStats, priceMeta, dateTime, eventView, chart, renderWindow, sparkline,
   quote: () => read(""), events: (cursor) => read(`/events${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""}`),
   event: (id) => read(`/events/${encodeURIComponent(id)}`),
   candles: (period, before, since) => read(`/candles?period=${encodeURIComponent(period)}${before ? `&before=${encodeURIComponent(before)}` : ""}${since ? `&since=${encodeURIComponent(since)}` : ""}`),

@@ -43,7 +43,6 @@
               <text class="result-note-message">只有开始和结束时间填写完整的课程安排，才可在对应时段被计时功能识别；时间未填完整的安排暂不会被识别。</text>
               <view wx:for="{{periodTimeSetupTables}}" wx:for-item="table" wx:key="key" class="result-note-row"><text class="result-note-title">{{table.label}}</text><text class="result-note-message">{{table.periodsLabel}}</text></view>
               <text class="result-note-message">可在下方输入各节时间，例如：第1节08:00-08:45，第2节08:55-09:40；也可到课程列表编辑具体安排的时间。</text>
-              <text wx:if="{{!thread.semester_id}}" class="result-note-message">尚未关联学期也可以先设置时间，关联学期后再生成课次。</text>
               <button size="mini" class="text-button expand-button" disabled="{{busy || loading || uploading || processing || pending || needsReload}}" bindtap="preparePeriodTimes">填写节次时间</button>
             </view>
             <view wx:if="{{unappliedCount}}" class="result-notes unapplied-notes">

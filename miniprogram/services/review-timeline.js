@@ -79,4 +79,4 @@ function buildTimeline(items, filter, today) {
   return { records, groups };
 }
 
-module.exports = { buildTimeline, todayKey };
+module.exports = { buildTimeline, todayKey, formatDuration };

@@ -6,9 +6,10 @@ from typing import Any
 import httpx
 
 from agents.prompts import load_prompt, prompt_manifest
+from agents.schedule_image_reader import normalize_understanding
 
-MODEL_NAME = "deepseek-flash"
-MODEL_URL = "https://api.deepseek.com/chat/completions"
+MODEL_NAME = "doubao-seed-2-1-pro-260915"
+MODEL_URL = "https://ark.cn-beijing.volces.com/api/v3/chat/completions"
 PROMPT_VERSION = "schedule_v6.txt"
 MAX_OUTPUT_TOKENS = 12000
 MAX_RESPONSE_BYTES = 512 * 1024
@@ -18,6 +19,7 @@ MAX_INPUT_BYTES = 16 * 1024
 MAX_IMAGE_BYTES = 8 * 1024 * 1024
 MAX_TOTAL_IMAGE_BYTES = 24 * 1024 * 1024
 MAX_IMAGES = 3
+MAX_IMAGE_TOKENS = 5120  # Ark's upper bound for detail="xhigh".
 
 
 class ModelError(Exception):
@@ -38,12 +40,6 @@ def _bounded_json(value: Any, limit: int, message: str) -> str:
     if size > limit:
         raise ModelError(message, status_code=422)
     return encoded
-
-
-def validate_plan(value: Any) -> dict:
-    """Compatibility name for the new structured understanding validator."""
-    from agents.schedule_image_reader import normalize_understanding
-    return normalize_understanding(value)
 
 
 def prepare_messages(state: dict, images: list[dict]) -> dict:
@@ -79,15 +75,11 @@ def prepare_messages(state: dict, images: list[dict]) -> dict:
         if image_bytes > MAX_TOTAL_IMAGE_BYTES:
             raise ModelError("本条消息的图片超过处理大小限制，任务输入已保留。", status_code=422)
         content.append({"type": "image_url", "image_url": {
-            "url": f"data:{mime};base64," + base64.b64encode(data).decode("ascii"), "detail": "original"}})
+            "url": f"data:{mime};base64," + base64.b64encode(data).decode("ascii"), "detail": "xhigh"}})
     return {"messages": [{"role": "system", "content": system}, {"role": "user", "content": content}],
             "manifest": {"version": SCHEMA_VERSION, "model": MODEL_NAME, "prompt": prompt_name,
                          "prompt_hash": prompt_manifest([prompt_name])[prompt_name],
                          "image_count": len(images), "image_bytes": image_bytes}}
-
-
-def build_messages(state: dict, images: list[dict]) -> list[dict]:
-    return prepare_messages(state, images)["messages"]
 
 
 def _unique_object(pairs):
@@ -138,7 +130,7 @@ def _invoke(client: httpx.Client, messages: list[dict], api_key: str) -> dict:
             raise ValueError("empty content")
         decoded = json.loads(content, object_pairs_hook=_unique_object)
         try:
-            understanding = validate_plan(decoded)
+            understanding = normalize_understanding(decoded)
         except ModelError as error:
             raise ModelError(error.message, usage=usage) from None
         return {"understanding": understanding, "usage": usage}

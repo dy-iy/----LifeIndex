@@ -1,0 +1,59 @@
+<view class="index-card quote--{{header.direction}}">
+  <view class="card-paper-corner" aria-hidden="true"></view>
+  <view class="card-spark" aria-hidden="true"></view>
+  <view class="card-quote">
+    <view class="card-reading">
+      <text class="card-price card-price--{{header.priceFit}}" style="font-size: {{header.priceSize}}rpx;">{{header.price}}</text>
+      <text class="card-unit">点</text>
+    </view>
+    <view class="card-change">
+      <view class="card-points"><text class="card-points-value change-value--{{header.pointsFit}}" style="font-size: {{header.pointsSize}}rpx;">{{header.points}}</text><text class="change-unit">点</text></view>
+      <text class="card-percent change-value--{{header.percentFit}}" style="font-size: {{header.percentSize}}rpx;">{{header.percent}}</text>
+    </view>
+  </view>
+  <view class="period-tabs">
+    <button wx:for="{{periods}}" wx:key="key" class="period-tab {{safePeriod === item.key ? 'period-tab--active' : ''}}" data-period="{{item.key}}" bindtap="onPeriodTap" hover-class="none" aria-label="{{item.label}}" aria-pressed="{{safePeriod === item.key}}">
+      <text>{{item.label}}</text><view wx:if="{{safePeriod === item.key}}" class="period-underline" aria-hidden="true"></view>
+    </button>
+  </view>
+  <view class="chart-frame">
+    <view class="chart-stage">
+      <scroll-view class="chart-scroll" scroll-x="{{!inspecting}}" scroll-left="{{scrollLeft}}" bindscroll="onScroll" bindscrolltoupper="onScrollStart" upper-threshold="12" enhanced="{{true}}" show-scrollbar="{{false}}">
+        <view class="chart-plot" style="width: {{chart.width}}rpx;" bindtouchstart="onTouchStart" bindtouchmove="onTouchMove" bindtouchend="onTouchEnd" bindtouchcancel="onTouchEnd" bindlongpress="onLongPress" bindtap="onTap">
+          <view wx:for="{{chart.ticks}}" wx:key="slot" class="plot-grid" style="top: {{item.y}}rpx;"></view>
+          <image wx:if="{{chart.lineImage}}" src="{{chart.lineImage}}" class="intraday-line" style="width: {{chart.width}}rpx;" mode="scaleToFill"/>
+          <view class="time-axis" bindtouchstart="onAxisTouchStart" catchtap="onAxisTap" catchlongpress="onAxisTap">
+            <text wx:for="{{chart.renderLabels}}" wx:key="id" class="plot-label" style="left: {{item.x - 42}}rpx;">{{item.label}}</text>
+          </view>
+          <view wx:for="{{chart.renderCandles}}" wx:key="id" class="candle-hit {{selectedId === item.id ? 'candle-selected' : ''}}" style="left: {{item.x - item.step / 2}}rpx; width: {{item.step}}rpx; color: {{item.color}};" aria-label="{{item.date}} 开{{item.open}} 高{{item.high}} 低{{item.low}} 收{{item.close}}">
+            <view class="candle-wick" style="left: {{item.step / 2 - 1}}rpx; top: {{item.top}}rpx; height: {{item.wick}}rpx;"></view>
+            <view class="candle-body {{item.direction}}" style="left: {{(item.step - item.bodyWidth) / 2}}rpx; width: {{item.bodyWidth}}rpx; top: {{item.bodyTop}}rpx; height: {{item.bodyHeight}}rpx;"></view>
+          </view>
+          <block wx:if="{{crosshair}}">
+            <view class="crosshair-v" style="left: {{crosshair.x}}rpx;"></view>
+            <view class="crosshair-h" style="left: {{crosshair.lineLeft}}rpx; width: {{crosshair.lineWidth}}rpx; top: {{crosshair.y}}rpx;"></view>
+            <view wx:if="{{safePeriod === 'intraday'}}" class="crosshair-dot" style="left: {{crosshair.x - 5}}rpx; top: {{crosshair.y - 5}}rpx;"></view>
+            <text class="crosshair-date" style="left: {{crosshair.labelLeft}}rpx; width: {{crosshair.labelWidth}}rpx;">{{crosshair.label}}</text>
+          </block>
+        </view>
+      </scroll-view>
+      <view class="chart-axis"><text wx:for="{{chart.ticks}}" wx:key="slot" class="axis-label {{item.direction}}" style="top: {{item.y}}rpx;">{{item.label}}</text></view>
+      <text wx:if="{{crosshair}}" class="crosshair-price" style="top: {{crosshair.y - 17}}rpx;">{{crosshair.price}}</text>
+      <view wx:if="{{chart.empty}}" class="chart-empty"><text>{{loading ? '读取图表中…' : error ? '图表暂未读取成功' : safePeriod === 'intraday' ? '当天暂无行情' : '暂无行情历史'}}</text></view>
+      <view wx:elif="{{loading}}" class="chart-loading">读取图表中…</view>
+      <view wx:if="{{selectedDetail}}" class="candle-detail">{{selectedDetail}}</view>
+    </view>
+    <view wx:if="{{error}}" class="chart-error" role="alert"><text>{{error}}</text><button size="mini" bindtap="retry" disabled="{{loading}}" hover-class="none">重试</button></view>
+  </view>
+  <view class="chart-tools">
+    <view class="chart-help">
+      <text class="chart-range">{{rangeLabel}}</text>
+      <text class="chart-hint">{{inspecting ? '拖动查看 · 松手 2 秒恢复' : safePeriod === 'intraday' ? '横滑时间轴 · 点击或长按读数' : '点击或长按读数 · 横滑历史'}}</text>
+    </view>
+    <view class="zoom-controls">
+      <button class="zoom-button" data-direction="out" bindtap="changeZoom" disabled="{{loading || touching || !canZoomOut}}" hover-class="zoom-button-pressed" aria-label="缩小图表">−</button>
+      <button class="zoom-button" data-direction="in" bindtap="changeZoom" disabled="{{loading || touching || !canZoomIn}}" hover-class="zoom-button-pressed" aria-label="放大图表">+</button>
+    </view>
+  </view>
+  <view class="card-bottom-curve" aria-hidden="true"></view>
+</view>

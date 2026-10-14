@@ -1,0 +1,15 @@
+@import "../../group-page-theme.wxss";
+
+.group-join-page { min-height: 100vh; }
+.join-content { padding: 40rpx 30rpx 70rpx; padding-bottom: calc(70rpx + env(safe-area-inset-bottom)); }
+.join-card { padding: 48rpx 34rpx; border: 1rpx solid #e4e1d9; border-radius: 20rpx; background: #fffdf7; text-align: center; }
+.join-avatar { display: block; width: 128rpx; height: 128rpx; margin: 0 auto 28rpx; overflow: hidden; border-radius: 50%; background: #e5e9df; }
+.avatar-fallback { display: flex; align-items: center; justify-content: center; color: #557060; font-size: 48rpx; }
+.join-title { color: #253d35; font-size: 34rpx; line-height: 1.5; font-weight: 500; overflow-wrap: anywhere; }
+.join-copy { margin-top: 18rpx; color: #869084; font-size: 26rpx; line-height: 1.7; overflow-wrap: anywhere; }
+.join-button { margin: 36rpx 0 0; padding: 22rpx 30rpx; border-radius: 12rpx; color: #fffdf7; background: #496951; font-size: 29rpx; line-height: 1.5; }
+.join-button[disabled] { color: #8a9187; background: #eeeee7; }
+.join-note { font-size: 24rpx; }
+.join-status { padding: 48rpx 24rpx; color: #869084; font-size: 26rpx; line-height: 1.7; text-align: center; }
+.join-error { margin-top: 22rpx; color: #ad5948; font-size: 25rpx; line-height: 1.7; overflow-wrap: anywhere; }
+.retry-button { display: inline-block; margin: 24rpx 0 0; padding: 15rpx 28rpx; border-radius: 12rpx; color: #496951; background: #eeeee7; font-size: 26rpx; line-height: 1.5; }

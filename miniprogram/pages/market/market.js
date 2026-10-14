@@ -7,10 +7,13 @@ const { onShareAppMessage } = require("../../services/share");
 const periods = ["intraday", "day", "week", "month"];
 const CROSSHAIR_DISMISS_MS = 2000;
 const CHART_FRAME_MS = 16;
+const INTRADAY_WINDOW_MS = 60 * 60 * 1000;
 // 750 - page padding (40 * 2) - paper padding (12 * 2) - slot inset (1 * 2).
 const CHART_VIEWPORT_RPX = 644;
+const CHART_INSET_RPX = 13;
 function marketChart(values, kind, previousClose, options) {
-  return index.chart(values, kind, previousClose, Object.assign({}, options, { viewportWidth: CHART_VIEWPORT_RPX }));
+  return index.chart(values, kind, previousClose, Object.assign({ intradayWindowMs: INTRADAY_WINDOW_MS }, options,
+    { viewportWidth: CHART_VIEWPORT_RPX }));
 }
 const CHART_VIEW_FIELDS = ["width", "viewportWidth", "ticks", "markers", "renderLabels", "renderCandles",
   "candleCount", "historyHintLeft", "lineImage", "zoomable", "empty"];
@@ -51,7 +54,8 @@ function initialData() { const data = { art, periods, tab: 0, tabs: ["分时", "
   priceLabel: "—", pointsLabel: "—", percentLabel: "—", meta: index.priceMeta([], null),
   chart: chartView(marketChart([], "intraday")), businessDate: "", nextBefore: null, selectedCandleId: "",
   marketStateLabel: "", quoteTimeLabel: "", crosshair: null,
-  chartInspecting: false, chartScrollLeft: 0, chartTouching: false, chartPinching: false, candleStep: 28, intradayZoom: 1 }; data.header = quoteHeader(data); return data; }
+  chartInspecting: false, chartScrollLeft: 0, chartTouching: false, candleStep: 28,
+  intradayWindowMinutes: 60 }; data.header = quoteHeader(data); return data; }
 Page({
   onShareAppMessage,
   data: initialData(),
@@ -112,6 +116,7 @@ Page({
       this._loadId += 1; this._chartId += 1; this._candles = []; this._intraday = null;
       this._chartRect = null; this._chartScrollPx = 0; this._chartNativeScrollPx = 0; this._chartScrollSync = null;
       this._chart = null; this._quote = null; this._selectedPoint = null; this._selectedCandle = null; this._chartInfo = null;
+      this._chartGestureId = (this._chartGestureId || 0) + 1; this._chartQueryPending = null;
       this.cancelChartFrames();
       this.cancelChartDismiss(); clearTimeout(this._chartScaleTimer); this._chartScaleTimer = null; this._chartTouchActive = false;
       const tab = this.data.tab; this.setView(initialData()); this.setView({ tab });
@@ -138,7 +143,7 @@ Page({
     if (this._poll && this._poll.unref) this._poll.unref();
   },
   async refreshLive() {
-    if (this._liveBusy || this.data.loading || this.data.chartLoading || this.data.chartTouching || this.data.chartPinching || !this.data.loggedIn) return;
+    if (this._liveBusy || this.data.loading || this.data.chartLoading || this.data.chartTouching || !this.data.loggedIn) return;
     this._liveBusy = true;
     try {
       await this.loadChart(false, true);
@@ -158,7 +163,7 @@ Page({
     if (!this.data.loggedIn) return;
     const snapshot = this._snapshot, id = ++this._chartId;
     const current = () => this.active(snapshot) && id === this._chartId
-      && !(refresh && (this.data.chartTouching || this.data.chartPinching));
+      && !(refresh && this.data.chartTouching);
     this.setView({ chartLoading: !refresh, chartError: "" });
     try {
       const last = this._candles && this._candles[this._candles.length - 1];
@@ -181,7 +186,7 @@ Page({
         }
         if (refresh && sameValue(this._intraday, result)) return;
         const newDay = this._intraday && this._intraday.date !== result.date;
-        if (newDay) { this.setView({ intradayZoom: 1 }); this.clearChartSelection(); }
+        if (newDay) { this.setView({ intradayWindowMinutes: 60 }); this.clearChartSelection(); }
         const chartMeta = index.priceMeta([result.open, result.high, result.low, result.previous_close], result.previous_close);
         if (result.date === this.data.businessDate && result.open) this.setView({ meta: chartMeta });
         const scale = this.chartScale(), old = this.chartModel();
@@ -210,10 +215,22 @@ Page({
     const info = wx.getWindowInfo ? wx.getWindowInfo() : wx.getSystemInfoSync ? wx.getSystemInfoSync() : { windowWidth: 375 };
     this._windowScale = info.windowWidth / 750; return this._windowScale;
   },
+  queryChartRect(callback) {
+    if (!wx.createSelectorQuery) { callback(null); return; }
+    wx.createSelectorQuery().in(this).select(".chart-scroll").boundingClientRect(rect => {
+      if (rect && rect.width) { callback(rect); return; }
+      // Some clients cannot select the chart inside the panel's slot.
+      wx.createSelectorQuery().in(this).select(".ip-chart-section").boundingClientRect(section => {
+        if (!section || !section.width) { callback(null); return; }
+        const scale = section.width / (CHART_VIEWPORT_RPX + CHART_INSET_RPX * 2);
+        callback({ left: section.left + CHART_INSET_RPX * scale, width: CHART_VIEWPORT_RPX * scale });
+      }).exec();
+    }).exec();
+  },
   intradayChart(scrollRpx) {
     const result = this._intraday;
     return marketChart(result.points, "intraday", result.previous_close,
-      Object.assign({}, result, { intradayZoom: this.data.intradayZoom, scrollRpx }));
+      Object.assign({}, result, { intradayWindowMs: this.data.intradayWindowMinutes * 60000, scrollRpx }));
   },
   applyChart(chart, extra = {}, preserve = false, older = false) {
     this.cancelChartFrames();
@@ -239,7 +256,7 @@ Page({
       ? { target: this._chartScrollPx, phase: "layout", rendered: false, rescale: older } : null;
     this._chartScrollSync = sync;
     const selection = selectedPoint || selectedCandle;
-    if (!selection) { this.cancelChartDismiss(); if (!this.data.chartTouching && !this.data.chartPinching) this._chartTouchActive = false; }
+    if (!selection) { this.cancelChartDismiss(); if (!this.data.chartTouching) this._chartTouchActive = false; }
     this.setView(Object.assign({ chart, selectedPoint, selectedCandle, chartInfo: selection || chart.latest,
       chartInspecting: Boolean(selection) && this.data.chartInspecting,
       crosshair: selection ? this.makeCrosshair(selection, chart, scale) : null }, extra), () => {
@@ -250,9 +267,9 @@ Page({
   },
   restoreChartScroll(sync = this._chartScrollSync) {
     const current = () => sync && sync.rendered && this._chartScrollSync === sync && this._visible && !this._disposed;
-    if (!current() || this.data.chartPinching || this.data.chartInspecting) return;
+    if (!current() || this.data.chartInspecting) return;
     const commit = () => {
-      if (!current() || this.data.chartPinching || this.data.chartInspecting) return;
+      if (!current() || this.data.chartInspecting) return;
       sync.phase = "scroll";
       this.setView({ chartScrollLeft: sync.target }, () => {
         if (current() && Math.abs((this._chartNativeScrollPx || 0) - sync.target) <= 0.5) this.finishChartScroll(sync);
@@ -296,8 +313,7 @@ Page({
         }
       }, 32);
     }
-    clearTimeout(this._chartScaleTimer);
-    if (!this.data.chartInspecting) this._chartScaleTimer = setTimeout(() => this.rescaleChart(), 80);
+    if (!this.data.chartInspecting && !this._chartScaleTimer) this._chartScaleTimer = setTimeout(() => this.rescaleChart(), 80);
   },
   rescaleChart() {
     clearTimeout(this._chartScaleTimer); this._chartScaleTimer = null;
@@ -311,36 +327,40 @@ Page({
       { candleStep: this.data.candleStep, scrollRpx: (this._chartScrollPx || 0) / this.chartScale() }), {}, true);
   },
   changeChartZoom(event) {
-    if (this.data.loading || this.data.chartLoading) return;
+    if (this.data.loading || this.data.chartLoading || this.data.chartTouching) return;
     const direction = event.detail && event.detail.direction;
     const delta = direction ? ({ in: 1, out: -1 })[direction] : Number(event.currentTarget.dataset.delta);
     if (!Number.isFinite(delta)) return;
     if (this.data.chartInspecting) this.clearChartSelection();
-    if (this.data.tab === 0) this.zoomIntraday(this.data.intradayZoom + delta);
+    if (this.data.tab === 0) this.zoomIntraday(this.data.intradayWindowMinutes * (delta > 0 ? 0.5 : 2));
     else this.zoomCandles(this.data.candleStep + delta * 8);
   },
   zoomIntraday(value) {
-    if (this.data.tab !== 0 || !this._intraday || !this.chartModel().zoomable || !Number.isFinite(value)) return;
-    const zoom = Math.max(1, Math.min(8, Math.round(value))), old = this.chartModel();
-    if (zoom === this.data.intradayZoom) return;
-    const scale = this.chartScale(), scroll = (this._chartScrollPx || 0) / scale;
+    if (this.data.tab !== 0 || !this._intraday || this.chartModel().empty || !Number.isFinite(value)) return;
+    const minutes = Math.max(15, Math.min(240, value));
+    if (minutes === this.data.intradayWindowMinutes) return;
+    const old = this.chartModel(), scale = this.chartScale(), scroll = (this._chartScrollPx || 0) / scale;
     const atLatest = scroll >= old.width - old.viewportWidth - 2;
-    const anchor = this._selectedPoint ? this._selectedPoint.x : atLatest ? old.latest.x
-      : scroll + (old.plotLeft + old.viewportWidth - old.plotRight) / 2;
-    const nextX = old.plotLeft + (anchor - old.plotLeft) / (old.width - old.plotLeft - old.plotRight)
-      * (old.viewportWidth - old.plotLeft - old.plotRight) * zoom;
-    this.setView({ intradayZoom: zoom });
-    const chart = this.intradayChart(scroll + nextX - anchor);
+    const innerWidth = old.viewportWidth - old.plotLeft - old.plotRight;
+    const center = (old.plotLeft + old.viewportWidth - old.plotRight) / 2;
+    const anchorTime = old.latest.timestamp + (scroll + center - old.latest.x)
+      * this.data.intradayWindowMinutes * 60000 / innerWidth;
+    this.setView({ intradayWindowMinutes: minutes });
+    let chart = this.intradayChart();
+    if (!atLatest) {
+      const nextX = chart.latest.x + (anchorTime - chart.latest.timestamp) * innerWidth / (minutes * 60000);
+      chart = this.intradayChart(nextX - center);
+    }
     this._chartScrollPx = chart.scrollRpx * scale;
     this.applyChart(chart, {}, true);
   },
-  zoomCandles(value, anchor) {
+  zoomCandles(value) {
     if (!this.data.tab || !this._candles || !this._candles.length || !Number.isFinite(value)) return;
     const step = Math.max(16, Math.min(52, Math.round(value))), old = this.chartModel();
     if (step === this.data.candleStep) return;
     const scale = this.chartScale(), scroll = (this._chartScrollPx || 0) / scale;
     const atLatest = scroll >= old.width - old.viewportWidth - 2;
-    const anchorX = anchor === undefined ? atLatest ? old.candles[old.candles.length - 1].x : scroll + old.viewportWidth / 2 : anchor;
+    const anchorX = atLatest ? old.candles[old.candles.length - 1].x : scroll + old.viewportWidth / 2;
     const point = old.candles.reduce((a, b) => Math.abs(a.x - anchorX) <= Math.abs(b.x - anchorX) ? a : b);
     const nextX = old.plotLeft + (old.candles.indexOf(point) + 0.5) * step;
     this._chartScrollPx = Math.max(0, scroll + nextX - point.x) * scale;
@@ -367,11 +387,12 @@ Page({
     if (!this._chartTouchActive) this.scheduleChartDismiss();
   },
   clearChartSelection() {
-    this.cancelChartDismiss(); this._chartTouchActive = false; this._pinch = null;
+    this._chartGestureId = (this._chartGestureId || 0) + 1; this._chartQueryPending = null;
+    this.cancelChartDismiss(); this._chartTouchActive = false;
     this.cancelChartFrames();
     clearTimeout(this._chartScaleTimer); this._chartScaleTimer = null;
     this.setView({ selectedPoint: null, selectedCandle: null, chartInfo: this.chartModel().latest, crosshair: null,
-      chartInspecting: false, chartTouching: false, chartPinching: false }, () => this.restoreChartScroll());
+      chartInspecting: false, chartTouching: false }, () => this.restoreChartScroll());
     this._chartRect = null; this._chartGesture = null;
   },
   cancelChartDismiss() { clearTimeout(this._chartDismissTimer); this._chartDismissTimer = null; },
@@ -389,19 +410,29 @@ Page({
       if (!this._chartTouchActive && this._visible && !this._disposed) this.clearChartSelection();
     }, CROSSHAIR_DISMISS_MS);
   },
+  startChartAxisTouch() {
+    if (this.data.chartInspecting) this.clearChartSelection();
+  },
+  tapChartAxis() { this.scheduleChartDismiss(); },
   startChartTouch(event) {
     const touch = event.touches && event.touches[0];
     if (!touch) return;
+    this._chartGestureId = (this._chartGestureId || 0) + 1; this._chartQueryPending = null;
+    clearTimeout(this._chartScaleTimer); this._chartScaleTimer = null;
     if (!this._chartTouchActive && this._chartScrollSync) {
       // A fresh gesture owns the actual window; obsolete render callbacks must not move it.
       this._chartScrollSync = null;
       this._chartScrollPx = this._chartNativeScrollPx || 0;
       this.rescaleChart();
+    } else if (!this._chartTouchActive
+      && Math.abs(this.chartModel().scrollRpx * this.chartScale() - (this._chartScrollPx || 0)) > 0.5) {
+      // Hit-test the window currently shown, even immediately after a swipe.
+      this.rescaleChart();
     }
     this._chartTouchActive = true; this.cancelChartDismiss();
-    this._chartGesture = { x: touch.clientX, y: touch.clientY, moved: false };
+    this._chartGesture = { x: touch.clientX, y: touch.clientY, moved: event.touches.length !== 1 };
     this._chartTouch = touch; this.setView({ chartTouching: true });
-    if (event.touches.length > 1 && this.data.tab) return this.pinchChart(event);
+    if (event.touches.length !== 1) { this.cancelChartMove(); return; }
     if (this.data.chartInspecting) this.touchChart(event);
   },
   moveChartTouch(event) {
@@ -409,36 +440,19 @@ Page({
     if (!touch) return;
     this._chartTouch = touch;
     if (this._chartGesture && Math.hypot(touch.clientX - this._chartGesture.x, touch.clientY - this._chartGesture.y) > 8) this._chartGesture.moved = true;
-    if (event.touches.length > 1 && this.data.tab) return this.pinchChart(event);
-    if (this._pinch) return;
+    if (event.touches.length !== 1) {
+      if (this._chartGesture) this._chartGesture.moved = true;
+      this._chartGestureId = (this._chartGestureId || 0) + 1; this._chartQueryPending = null;
+      this.cancelChartMove(); return;
+    }
     if (this.data.chartInspecting) this.touchChart(event);
   },
   tapChart() {
-    if (this._pinch || this._chartGesture && this._chartGesture.moved || !this._chartTouch) return;
+    if (this._chartGesture && this._chartGesture.moved || !this._chartTouch) return;
     this.touchChart({ changedTouches: [this._chartTouch] }, true);
   },
-  pinchChart(event) {
-    if (this.chartModel().empty) return;
-    const [a, b] = event.touches, distance = Math.hypot(b.clientX - a.clientX, b.clientY - a.clientY);
-    if (!distance) return;
-    this.cancelChartDismiss();
-    if (!this._pinch) {
-      this._pinch = { distance, step: this.data.candleStep };
-      if (this._chartGesture) this._chartGesture.moved = true;
-      this.setView({ chartPinching: true, chartInspecting: false, crosshair: null, selectedPoint: null,
-        selectedCandle: null, chartInfo: this.chartModel().latest });
-      const chart = this.chartModel();
-      if (!this._chartRect && wx.createSelectorQuery) wx.createSelectorQuery().in(this).select('.chart-scroll').boundingClientRect(rect => {
-        if (this._visible && this._pinch && this.chartModel() === chart) this._chartRect = rect;
-      }).exec();
-      return;
-    }
-    const scale = this.chartScale(), left = this._chartRect ? this._chartRect.left : 53 * scale;
-    const anchor = ((a.clientX + b.clientX) / 2 - left + (this._chartScrollPx || 0)) / scale;
-    this.zoomCandles(this._pinch.step * distance / this._pinch.distance, anchor);
-  },
   inspectChart(event) {
-    if (this.chartModel().empty || this._pinch || this._chartGesture && this._chartGesture.moved) return;
+    if (this.chartModel().empty || event.touches && event.touches.length > 1 || this._chartGesture && this._chartGesture.moved) return;
     this.touchChart(event, true);
   },
   endChartTouch(event) {
@@ -446,20 +460,25 @@ Page({
     this._chartRect = null;
     this._chartTouchActive = Boolean(event && event.touches && event.touches.length);
     if (event && event.changedTouches && event.changedTouches[0]) this._chartTouch = event.changedTouches[0];
-    this.setView({ chartTouching: this._chartTouchActive, chartPinching: this._chartTouchActive && this.data.chartPinching },
+    this.setView({ chartTouching: this._chartTouchActive },
       () => this.restoreChartScroll());
-    if (!this._chartTouchActive) this._pinch = null;
     this.scheduleChartDismiss();
   },
   touchChart(event, force = false) {
+    if (event.touches && event.touches.length > 1) return;
     const touch = event.touches && event.touches[0] || event.changedTouches && event.changedTouches[0];
     if (!touch) return;
     if (event.touches && event.touches.length) { this._chartTouchActive = true; this.cancelChartDismiss(); }
     if (this.chartModel().empty || (!this.data.chartInspecting && !force)) return;
-    const chart = this.chartModel();
+    const snapshot = this._snapshot, tab = this.data.tab, businessDate = this.data.businessDate,
+      gestureId = this._chartGestureId;
     this._chartTouch = touch;
     const select = (rect) => {
-      if (!rect || !rect.width || !this._visible || this.chartModel() !== chart) return;
+      if (!rect || !rect.width || !this._visible || this._disposed || !timer.isCurrent(snapshot)
+        || this.data.tab !== tab || this.data.businessDate !== businessDate
+        || gestureId !== this._chartGestureId) return;
+      const chart = this.chartModel();
+      if (chart.empty) return;
       this._chartRect = rect;
       const x = (this._chartTouch.clientX - rect.left) / rect.width * chart.viewportWidth + (this._chartScrollPx || 0) / this.chartScale();
       if (force) { this.cancelChartMove(); this.selectPointAt(x); }
@@ -469,9 +488,13 @@ Page({
       }
     };
     if (this._chartRect) select(this._chartRect);
-    else if (wx.createSelectorQuery && !this._chartQueryPending) {
-      this._chartQueryPending = true;
-      wx.createSelectorQuery().in(this).select(".chart-scroll").boundingClientRect((rect) => { this._chartQueryPending = false; select(rect); }).exec();
+    else if (!this._chartQueryPending) {
+      const pending = {};
+      this._chartQueryPending = pending;
+      this.queryChartRect(rect => {
+        if (this._chartQueryPending !== pending) return;
+        this._chartQueryPending = null; select(rect);
+      });
     }
   },
   selectPointAt(x) {

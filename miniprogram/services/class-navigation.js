@@ -4,6 +4,7 @@ const CLASS_ROUTES = Object.freeze([
   "/pages/timetable/timetable",
   "/pages/timer/timer",
   "/pages/review/review",
+  "/pages/chat/chat",
 ]);
 const pageStates = {};
 let switching = null;

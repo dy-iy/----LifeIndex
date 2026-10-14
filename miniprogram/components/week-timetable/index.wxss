@@ -31,7 +31,6 @@ view, text { box-sizing: border-box; }
 .outside-column { background: #f3f0e9; }
 .grid-cell { position: absolute; left: 0; width: 100%; border-bottom: 1rpx solid #eee6da; }
 .break-cell { background: #f6f2eb; }
-.slot-pressed { background: #eee1f3; }
 .lesson-block { position: absolute; z-index: 2; padding: 3rpx 2rpx; overflow: hidden; }
 /* 六种浅色便签保留课程区分，深字和侧边色线在窄列内仍清晰。 */
 .lesson-inner { position: relative; height: 100%; overflow: hidden; padding: 10rpx 7rpx 8rpx; border-radius: 6rpx 9rpx 7rpx 8rpx; background: #e7eddf; color: #4d654d; box-shadow: inset 0 0 0 1rpx rgba(111, 95, 76, .045); }

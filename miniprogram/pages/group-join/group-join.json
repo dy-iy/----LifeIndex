@@ -1,0 +1,11 @@
+{
+  "navigationStyle": "custom",
+  "navigationBarTitleText": "加入群聊",
+  "navigationBarTextStyle": "black",
+  "navigationBarBackgroundColor": "#fbf7ee",
+  "backgroundColor": "#fbf7ee",
+  "backgroundTextStyle": "dark",
+  "usingComponents": {
+    "group-navigation": "/components/group-navigation/index"
+  }
+}

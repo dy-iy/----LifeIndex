@@ -23,6 +23,9 @@ from diagnostics import log_failure
 from review_flow import QUESTION_VERSION as REVIEW_VERSION, QUALITY_VERSION as BRANCH_QUALITY_VERSION, clarification_text
 
 PROMPTS = ("quality_v2.txt", "long_manager_v2.txt", "short_manager_v2.txt")
+# Removing unused timetable context code leaves learning messages unchanged.
+# Accept this exact predecessor only after checking prompts and saved payload hashes.
+PREVIOUS_CONTEXT_SHA256 = "efd77c4c82ef3fbae3f3f31fd62d411d9663f0a32550db2ddf91ef5aba387f12"
 logger = logging.getLogger("lifefund.review.worker")
 
 
@@ -54,7 +57,8 @@ class EvaluationRuntime:
             prompts = (quality_prompt, *PROMPTS[1:])
             manifest = prompt_manifest(prompts + (("context_v1.txt",) if policy == CONTEXT_VERSION else ()))
             if job.agent_context is not None:
-                if policy == CONTEXT_VERSION and job.agent_context.get("context_code_sha256") != CONTEXT_CODE_SHA256:
+                context_code = job.agent_context.get("context_code_sha256")
+                if policy == CONTEXT_VERSION and context_code not in {CONTEXT_CODE_SHA256, PREVIOUS_CONTEXT_SHA256}:
                     raise ModelError("上下文构建版本已经改变，已保留任务，需按原版本恢复。")
                 if job.agent_context["prompts"] != manifest:
                     raise ModelError("提示词版本已经改变，已保留原评分，需按原版本恢复任务。")
@@ -64,6 +68,9 @@ class EvaluationRuntime:
                         scoring_version=job.prompt_version)
                     if saved["context_sha256"] != prepared["manifest"]["context_sha256"]:
                         raise ModelError("上下文构建版本已经改变，已保留任务，需按原版本恢复。")
+                if policy == CONTEXT_VERSION and context_code == PREVIOUS_CONTEXT_SHA256:
+                    job.agent_context = {**job.agent_context, "context_code_sha256": CONTEXT_CODE_SHA256}
+                    db.commit()
                 return job.agent_context
             snapshot = job.input_snapshot
             retrieval = learning_knowledge(db, job.user_id, snapshot,

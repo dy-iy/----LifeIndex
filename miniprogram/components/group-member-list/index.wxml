@@ -1,0 +1,24 @@
+<view class="member-list">
+  <view wx:for="{{rows}}" wx:key="id" class="member-row">
+    <view class="member-identity">
+      <image wx:if="{{item.avatarSrc}}" class="member-avatar" src="{{item.avatarSrc}}" mode="aspectFill" data-id="{{item.id}}" data-src="{{item.avatarSrc}}" binderror="avatarError" aria-label="{{item.name}}的头像"/>
+      <view wx:else class="member-avatar member-avatar-fallback" aria-hidden="true">{{item.initial}}</view>
+      <text class="member-name" aria-label="{{item.name}}{{item.isSelf ? '（我）' : ''}}">{{item.name}}</text>
+    </view>
+    <view class="member-class"><text class="status-label class-status--{{item.classStatus}}">{{item.classLabel}}</text></view>
+    <view class="member-timer"><text class="status-label timer-status--{{item.timerStatus}}">{{item.timerLabel}}</text></view>
+    <view class="member-course">
+      <text class="course-name" aria-label="{{item.courseName}}">{{item.courseName}}</text>
+      <text wx:if="{{item.courseTime}}" class="course-time">{{item.courseTime}}</text>
+    </view>
+    <view class="member-index index--{{item.direction}}" aria-label="{{item.chartLabel}}">
+      <image wx:if="{{item.chartSrc}}" class="member-sparkline" src="{{item.chartSrc}}" mode="scaleToFill" aria-hidden="true"/>
+      <view wx:else class="member-sparkline-empty" aria-hidden="true">—</view>
+      <view class="member-quote"><text class="member-price">{{item.price}}</text><text wx:if="{{item.percent}}" class="member-percent">{{item.percent}}</text></view>
+    </view>
+  </view>
+  <view wx:if="{{!rows.length && !error}}" class="member-empty">{{loading ? '正在读取成员状态…' : '暂无成员状态'}}</view>
+  <view wx:if="{{error}}" class="member-error" role="alert">
+    <text>{{error}}</text><button bindtap="retry" disabled="{{loading}}" hover-class="none">重试</button>
+  </view>
+</view>

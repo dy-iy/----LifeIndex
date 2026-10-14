@@ -1,0 +1,50 @@
+:host { display: block; width: 100%; height: 100%; min-height: 0; }
+.group-chat { display: flex; flex-direction: column; box-sizing: border-box; height: 100%; min-height: 0; overflow: hidden; color: #253d35; }
+.message-scroll-shell { position: relative; flex: 1; min-height: 0; overflow: hidden; }
+.message-scroll { width: 100%; height: 100%; }
+.message-list { box-sizing: border-box; padding: 16rpx 24rpx 28rpx; }
+.message-state { display: flex; flex-direction: column; align-items: center; padding: 64rpx 24rpx; color: #8a9187; font-size: 26rpx; line-height: 1.7; text-align: center; }
+.message-state-error { color: #ad5948; }
+.message-retry { margin: 24rpx 0 0; padding: 12rpx 32rpx; border-radius: 12rpx; color: #496951; background: #eeeee7; font-size: 25rpx; line-height: 1.6; }
+.message-history-state { display: flex; align-items: center; justify-content: center; gap: 16rpx; padding: 12rpx 0 28rpx; color: #8a9187; font-size: 23rpx; line-height: 1.6; text-align: center; }
+.message-history-state.message-state-error { color: #ad5948; }
+.message-history-button { margin: 0 auto 20rpx; padding: 8rpx 24rpx; color: #72816f; background: transparent; font-size: 23rpx; line-height: 1.7; }
+.message-history-retry { flex-shrink: 0; margin: 0; padding: 0; color: #496951; background: transparent; font-size: 23rpx; line-height: 1.7; }
+.message-empty { padding: 76rpx 24rpx; color: #8a9187; font-size: 26rpx; line-height: 1.7; text-align: center; }
+.message-sync-error { display: flex; align-items: center; justify-content: center; gap: 16rpx; padding: 12rpx 8rpx 24rpx; color: #ad5948; font-size: 23rpx; line-height: 1.6; text-align: center; }
+.message-item { padding-bottom: 28rpx; }
+.message-time { margin: 12rpx 0 28rpx; color: #93988d; font-size: 22rpx; line-height: 1.6; text-align: center; }
+.message-row { display: flex; align-items: flex-start; gap: 16rpx; }
+.message-row-self { flex-direction: row-reverse; }
+.message-avatar { display: block; flex-shrink: 0; width: 76rpx; height: 76rpx; overflow: hidden; border-radius: 50%; background: #e5e9df; }
+.message-avatar-fallback { display: flex; align-items: center; justify-content: center; color: #557060; font-size: 30rpx; }
+.message-body { display: flex; flex-direction: column; align-items: flex-start; min-width: 0; max-width: calc(100% - 156rpx); }
+.message-row-self .message-body { align-items: flex-end; }
+.message-name { box-sizing: border-box; max-width: 100%; margin: 0 2rpx 9rpx; overflow: hidden; color: #858f82; font-size: 22rpx; line-height: 1.4; text-overflow: ellipsis; white-space: nowrap; }
+.message-bubble { box-sizing: border-box; max-width: 100%; padding: 19rpx 24rpx; border: 1rpx solid #e9e6dd; border-radius: 4rpx 18rpx 18rpx 18rpx; background: #fffdf8; }
+.message-bubble-self { border-color: #d8e3cb; border-radius: 18rpx 4rpx 18rpx 18rpx; background: #e1eccf; }
+.message-bubble-failed { border-color: #dba798; }
+.message-content { font-size: 29rpx; line-height: 1.65; white-space: pre-wrap; word-break: break-all; overflow-wrap: anywhere; }
+.message-review-card { box-sizing: border-box; width: 442rpx; max-width: 100%; padding: 24rpx 26rpx 0; overflow: hidden; border: 1rpx solid #dedccd; border-radius: 4rpx 22rpx 22rpx 22rpx; background: #fffdf6; box-shadow: 0 7rpx 20rpx rgba(69, 85, 57, .05); }
+.message-review-card-self { border-color: #d4dfc8; border-radius: 22rpx 4rpx 22rpx 22rpx; background: #f1f6e8; }
+.message-review-heading { display: flex; align-items: center; gap: 12rpx; color: #63845b; font-size: 25rpx; font-weight: 600; line-height: 1.6; }
+.message-review-check { display: flex; align-items: center; justify-content: center; width: 32rpx; height: 32rpx; border-radius: 50%; color: #fffdf6; background: #789766; font-size: 22rpx; }
+.message-review-course { display: block; margin: 18rpx 0 9rpx; overflow: hidden; color: #293f33; font-size: 32rpx; font-weight: 600; line-height: 1.45; word-break: break-all; }
+.message-review-time { display: block; color: #8b9582; font-size: 22rpx; line-height: 1.65; overflow-wrap: anywhere; }
+.message-review-duration { display: flex; align-items: center; justify-content: space-between; gap: 12rpx; margin: 23rpx 0 22rpx; color: #7e8b75; font-size: 23rpx; line-height: 1.5; }
+.message-review-duration-value { color: #4e6e43; font-size: 28rpx; font-weight: 600; font-variant-numeric: tabular-nums; }
+.message-review-footer { display: flex; align-items: center; justify-content: space-between; gap: 12rpx; padding: 16rpx 0 18rpx; border-top: 1rpx dashed #d9dece; color: #6b8461; font-size: 23rpx; line-height: 1.5; }
+.message-delivery { margin: 10rpx 2rpx 0; color: #92998b; font-size: 21rpx; line-height: 1.5; }
+.message-delivery-failed { padding: 0; border-radius: 0; color: #ad5948; background: transparent; font-size: 21rpx; text-align: right; }
+.message-bottom-anchor { width: 100%; height: 1px; }
+.message-new-button { position: absolute; z-index: 2; right: 28rpx; bottom: 20rpx; margin: 0; padding: 14rpx 22rpx; border: 1rpx solid #dce3d3; border-radius: 36rpx; color: #496951; background: #fffdf8; box-shadow: 0 4rpx 16rpx rgba(53, 73, 45, .07); font-size: 24rpx; line-height: 1.4; }
+.message-new-arrow { margin-left: 8rpx; }
+.message-composer { flex-shrink: 0; box-sizing: border-box; padding: 18rpx 24rpx 20rpx; padding-bottom: calc(20rpx + constant(safe-area-inset-bottom)); padding-bottom: calc(20rpx + env(safe-area-inset-bottom)); border-top: 1rpx solid #e4e1d9; background: #f6f3eb; }
+.message-composer-raised { padding-bottom: 20rpx; }
+.message-composer-row { display: flex; align-items: center; gap: 18rpx; width: 100%; }
+.message-input-wrap { flex: 1; box-sizing: border-box; min-width: 0; padding: 17rpx 20rpx; border: 1rpx solid #e4e5db; border-radius: 16rpx; background: #fffdf8; }
+.message-input { display: block; box-sizing: border-box; width: 100%; height: 42rpx; color: #253d35; font-size: 29rpx; line-height: 42rpx; }
+.message-placeholder { color: #a0a598; }
+.message-length { margin-top: 8rpx; color: #92998b; font-size: 21rpx; text-align: right; }
+.message-length-error { color: #ad5948; }
+.message-retry::after, .message-history-button::after, .message-history-retry::after, .message-delivery-failed::after, .message-new-button::after { border: none; }

@@ -102,12 +102,8 @@ page { background: #fbf7ee; color: #183844; }
 .week-caption { display: flex; justify-content: space-between; font-size: 21rpx; color: #879087; margin: 20rpx 0; }
 .day-date-picker { margin-top: 18rpx; padding: 16rpx 20rpx; border: 1rpx solid #e7ddcf; border-radius: 14rpx; background: #fffcf6; font-size: 26rpx; }
 .course-list-toggle { display: flex; align-items: center; flex-shrink: 0; gap: 12rpx; min-height: 64rpx; padding-left: 20rpx; color: #795b93; font-size: 24rpx; }
-.arrange-actions { display: flex; gap: 16rpx; margin-top: 26rpx; }
-.arrange-actions button { flex: 1; min-width: 0; font-size: 24rpx; padding: 24rpx 8rpx; }
-.placement-note { background: #f6eef8; border: 1rpx solid #e2d3eb; color: #715687; border-radius: 16rpx; margin-top: 22rpx; padding: 20rpx; font-size: 24rpx; }
-.placement-options { display: flex; gap: 12rpx; margin: 18rpx 0 12rpx; }
-.course-dialog .placement-options .placement-button { flex: 1; margin: 0; padding: 14rpx 8rpx; line-height: 1.4; border-radius: 24rpx; color: #795b93; font-size: 23rpx; background: #fffcf6; }
-.course-dialog .placement-options .chosen { color: #fffcf6; background: #7954a0; }
+.agent-import-action { margin-top: 26rpx; }
+.timetable-surface .agent-import-button { display: block; width: 100%; margin: 0; padding: 26rpx 30rpx; font-size: 28rpx; line-height: 1.4; }
 .course-editor-overlay { position: fixed; top: 0; bottom: 0; left: 0; right: 0; z-index: 960; display: flex; align-items: center; justify-content: center; padding: 28rpx 32rpx; padding-bottom: calc(28rpx + env(safe-area-inset-bottom)); }
 .course-editor-overlay.keyboard-open { padding-top: 12rpx; padding-bottom: 12rpx; }
 .course-editor-backdrop { position: absolute; inset: 0; background: rgba(27, 40, 31, .36); }
@@ -118,13 +114,14 @@ page { background: #fbf7ee; color: #183844; }
 .course-dialog-body { flex: 1; height: 0; min-height: 0; overflow: hidden; }
 .course-dialog-scroll { height: 100%; }
 .course-dialog-content { padding: 0 28rpx 28rpx; }
-.course-dialog .placement-note { margin-top: 20rpx; }
 .course-dialog-footer { position: relative; z-index: 1; flex-shrink: 0; padding: 22rpx 28rpx; border-top: 1rpx solid #e8dfd3; background: #fffcf6; }
 .course-dialog-footer .error { margin: 0 0 16rpx; }
 .course-dialog-footer .text-button { padding-top: 0; font-size: 23rpx; }
 .course-dialog-actions { display: flex; gap: 16rpx; }
-.course-dialog-actions button { flex: 1; padding: 23rpx 16rpx; font-size: 26rpx; }
+.course-dialog-actions button { display: flex; align-items: center; justify-content: center; flex: 1; min-width: 0; height: 96rpx; margin: 0; padding: 0 16rpx; font-size: 26rpx; line-height: 1.3; }
 .course-dialog-actions .secondary-button { flex: 0 0 30%; }
+.course-dialog-actions .course-delete-button { flex: 0 0 30%; color: #fffaf6; background: #b94c46; border: 1rpx solid #a63e38; border-radius: 16rpx; }
+.course-dialog-actions .course-delete-button[disabled] { color: #aaa0ad; background: #eee7ed; border-color: #e2d8e4; }
 .lesson-overlay { position: fixed; inset: 0; z-index: 950; display: flex; align-items: center; justify-content: center; padding: 36rpx; }
 .lesson-backdrop { position: absolute; inset: 0; background: rgba(27, 40, 31, .36); }
 .lesson-dialog { position: relative; width: 100%; max-width: 680rpx; max-height: calc(100vh - 72rpx); display: flex; flex-direction: column; box-sizing: border-box; border-radius: 20rpx; background: #fffcf6; padding: 28rpx 30rpx 12rpx; box-shadow: 0 20rpx 80rpx rgba(46, 51, 58, .15); }
@@ -153,11 +150,6 @@ page { background: #fbf7ee; color: #183844; }
 .structured-course .template-name { flex: 1; min-width: 0; }
 .structured-schedule { margin-top: 14rpx; padding: 16rpx 18rpx; background: #faf6ee; border-radius: 10rpx; color: #687c70; font-size: 24rpx; line-height: 1.8; overflow-wrap: anywhere; }
 .missing-information { display: block; margin-top: 6rpx; color: #a17a51; font-size: 22rpx; }
-.structured-scope { margin: 6rpx 0 18rpx; }
-.structured-thread-picker { display: block; margin: 12rpx 0 18rpx; }
-.unlinked-note { padding: 18rpx 20rpx; margin-bottom: 18rpx; border: 1rpx solid #e5d7eb; border-radius: 12rpx; background: #f7eff9; font-size: 23rpx; color: #795b93; }
-.unlinked-note .arrange-actions { margin-top: 14rpx; }
-.unlinked-note .arrange-actions button { padding: 16rpx 10rpx; }
 .structured-add { text-align: left; padding-left: 0; margin-top: 12rpx; }
 .structured-schedule-editor { border-top: 1rpx solid #e8dece; margin-top: 28rpx; padding-top: 16rpx; }
 .structured-schedule-editor .section-title { font-size: 26rpx; }
@@ -170,7 +162,6 @@ page { background: #fbf7ee; color: #183844; }
 .timetable-page .semester-meta { margin-top: 2rpx; }
 .timetable-page .semester-picker { min-height: 58rpx; color: #354b4c; }
 .timetable-page .today-button[disabled], .timetable-surface .detail-close[disabled] { background: #f3ede5; color: #b5abb4; }
-.timetable-surface .placement-button[disabled] { background: #eee7ed; color: #aaa0ad; }
 .timetable-page .empty-card, .timetable-page .course-editor { box-shadow: 0 4rpx 12rpx rgba(125, 101, 70, .05); }
 .timetable-page .course-editor { border-radius: 14rpx; }
 .timetable-page .view-switch, .course-dialog .view-switch { border-radius: 12rpx; }

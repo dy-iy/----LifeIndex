@@ -1,4 +1,4 @@
-"""JSONB timetable source of truth and deterministic legacy lesson projection.
+"""JSONB course source of truth and dated lesson projection.
 
 This module never commits: callers own the transaction and account write lock.
 Extraction is tolerant; explicit edits are sparse and preserve JSON null.
@@ -13,10 +13,11 @@ from fastapi import HTTPException
 from sqlalchemy import select
 
 from db import check_version, owned
-from models import CourseTemplate, Lesson, ScheduleThread, Semester, TimetableCourse, TimetableDocument
+from models import CourseTemplate, Lesson, Semester, TimetableCourse, TimetableDocument
 
 SCHEMA_VERSION = "structured-timetable-v1"
 SCHEDULE_FIELDS = ("weekday", "period_table_id", "period_numbers", "start_time", "end_time", "weeks", "teacher", "location")
+SEMESTER_FACT_FIELDS = ("start_date", "end_date", "first_week_monday", "timezone")
 CLOCK = re.compile(r"^(?:[01]\d|2[0-3]):[0-5]\d$")
 
 
@@ -82,24 +83,20 @@ def _normalize_periods(raw):
     return sorted(items, key=lambda item: item["number"])
 
 
-def _scope(user_id, semester_id, thread_id):
-    if (semester_id is None) == (thread_id is None):
-        raise HTTPException(422, "semester_id 和 thread_id 必须且只能提供一个。")
-    return {"user_id": user_id, "semester_id": semester_id, "thread_id": thread_id}
+def _require_semester_document(document):
+    if document.is_archived or document.semester_id is None or document.thread_id is not None:
+        raise HTTPException(409, "历史课表已封存，请先设置并选择学期。")
 
 
-def get_document(db, user_id, semester_id=None, thread_id=None, create=False):
-    scope = _scope(user_id, semester_id, thread_id)
-    if semester_id is not None:
-        semester = owned(db, Semester, user_id, semester_id)
-    else:
-        thread = owned(db, ScheduleThread, user_id, thread_id)
-        if thread.semester_id is not None:
-            return get_document(db, user_id, semester_id=thread.semester_id, create=create)
-    document = db.scalar(select(TimetableDocument).filter_by(**scope))
+def get_document(db, user_id, semester_id, create=False):
+    if semester_id is None:
+        raise HTTPException(422, "请先设置并选择学期。")
+    semester = owned(db, Semester, user_id, semester_id)
+    scope = {"user_id": user_id, "semester_id": semester.id, "thread_id": None}
+    document = db.scalar(select(TimetableDocument).filter_by(**scope, is_archived=False))
     if document is None and create:
         data = {"schema_version": SCHEMA_VERSION, "period_tables": [], "sources": []}
-        if semester_id is not None and semester.periods:
+        if semester.periods:
             data["period_tables"] = [{"id": str(uuid.uuid4()), "weeks": None, "periods": _normalize_periods(semester.periods)}]
             data["display_period_table_id"] = data["period_tables"][0]["id"]
         document = TimetableDocument(**scope, data=data, version=1)
@@ -117,26 +114,25 @@ def course_result(course):
 def document_snapshot(db, document):
     if document is None:
         return {"document": None, "document_id": None, "version": None, "period_tables": [], "courses": []}
+    _require_semester_document(document)
     data = {key: deepcopy(value) for key, value in document.data.items() if key != "sources"}
     courses = db.scalars(select(TimetableCourse).where(
         TimetableCourse.user_id == document.user_id, TimetableCourse.document_id == document.id,
         TimetableCourse.is_deleted.is_(False),
     ).order_by(TimetableCourse.created_at, TimetableCourse.id)).all()
     return {"document": {"id": str(document.id), "version": document.version,
-                          "semester_id": str(document.semester_id) if document.semester_id else None,
-                          "thread_id": str(document.thread_id) if document.thread_id else None, "data": data},
+                          "semester_id": str(document.semester_id), "data": data},
             "document_id": str(document.id), "version": document.version,
-            "semester_id": str(document.semester_id) if document.semester_id else None,
-            "thread_id": str(document.thread_id) if document.thread_id else None,
+            "semester_id": str(document.semester_id),
             "period_tables": data.get("period_tables", []), "courses": [course_result(item) for item in courses]}
 
 
-def structured_snapshot(db, user_id, semester_id=None, thread_id=None):
+def structured_snapshot(db, user_id, semester_id):
     if isinstance(semester_id, TimetableDocument):
         if semester_id.user_id != user_id:
             raise HTTPException(404, "未找到该课表。")
         return document_snapshot(db, semester_id)
-    return document_snapshot(db, get_document(db, user_id, semester_id=semester_id, thread_id=thread_id))
+    return document_snapshot(db, get_document(db, user_id, semester_id=semester_id))
 
 
 def _touch(document):
@@ -192,8 +188,7 @@ def _merge_period_tables(document, tables):
 
 def sync_period_axis(db, user, document, *, previous_tables=None, preferred_id=None):
     """Reuse one current table, preserving configured semester clocks on old data."""
-    if document.semester_id is None:
-        return
+    _require_semester_document(document)
     semester = owned(db, Semester, user.id, document.semester_id)
     data = deepcopy(document.data)
     tables = data.setdefault("period_tables", [])
@@ -210,7 +205,7 @@ def sync_period_axis(db, user, document, *, previous_tables=None, preferred_id=N
             tables.append(table)
             by_id[table["id"]] = table
         elif table is not None and configured and matching is None and previous_tables is None:
-            # Binding an older document must not replace the user's semester settings.
+            # Existing semester settings remain authoritative on older documents.
             table["periods"] = configured
             table["source"] = "manual"
         selected = table["id"] if table else None
@@ -492,6 +487,7 @@ def _patch_data(course, patch, tables=None, default_table_id=None):
     if removals - {item["id"] for item in schedules}:
         raise HTTPException(404, "未找到待移除的课程安排。")
     data["schedules"] = [item for item in schedules if item["id"] not in removals]
+    data["exceptions"] = [item for item in data.get("exceptions", []) if item.get("schedule_id") not in removals]
     for raw in patch.get("schedule_additions", patch.get("add_schedules", [])):
         addition = normalize_schedule(raw, schedule_id=uuid.uuid4())
         if addition.get("period_table_id") is not None and addition["period_table_id"] not in {table["id"] for table in tables or []}:
@@ -519,7 +515,7 @@ def _patch_data(course, patch, tables=None, default_table_id=None):
     return data
 
 
-def _guard_metadata_change(db, user, course, before, after):
+def _guard_metadata_change(db, user, course, before, after, *, now=None):
     """Teacher/period metadata belongs to a live occurrence too."""
     from timetable_lifecycle import assert_not_timing
     previous = {item["id"]: item for item in before.get("schedules", [])}
@@ -537,7 +533,7 @@ def _guard_metadata_change(db, user, course, before, after):
             query = query.where(Lesson.week_number.in_(set(old["weeks"]) & set(schedule["weeks"])))
         affected.update({item.id: item for item in db.scalars(query).all()})
     if affected:
-        assert_not_timing(db, user.id, list(affected.values()), operation="modify")
+        assert_not_timing(db, user.id, list(affected.values()), operation="modify", now=now)
 
 
 def create_structured_course(db, user, document, data):
@@ -545,6 +541,7 @@ def create_structured_course(db, user, document, data):
         document = owned(db, TimetableDocument, user.id, document)
     if document.user_id != user.id:
         raise HTTPException(404, "未找到该课表。")
+    _require_semester_document(document)
     sync_period_axis(db, user, document)
     course = TimetableCourse(user_id=user.id, document_id=document.id,
                              data={"name": _text(data.get("name"), 100), "schedules": [], "exceptions": []}, version=1)
@@ -553,21 +550,25 @@ def create_structured_course(db, user, document, data):
     course.version = 1
     _touch(document)
     db.flush()
-    sync_document(db, user, document)
+    sync_document(db, user, document, course_ids=[course.id])
     return course_result(course)
 
 
-def patch_structured_course(db, user, course_id, patch):
+def patch_structured_course(db, user, course_id, patch, *, now=None, delete_if_empty=False,
+                            touch_lesson_id=None, strict=False):
     patch = patch.model_dump(mode="json", exclude_unset=True) if hasattr(patch, "model_dump") else patch
     course = owned(db, TimetableCourse, user.id, course_id)
     if course.is_deleted:
         raise HTTPException(404, "未找到该课程。")
     check_version(course, patch.get("version"))
     document = owned(db, TimetableDocument, user.id, course.document_id)
+    _require_semester_document(document)
     sync_period_axis(db, user, document)
     data = _patch_data(course, patch, document.data.get("period_tables", []), document.data.get("display_period_table_id"))
-    _guard_metadata_change(db, user, course, course.data, data)
+    _guard_metadata_change(db, user, course, course.data, data, now=now)
     course.data = data
+    if delete_if_empty and not data.get("schedules"):
+        course.is_deleted = True
     audit = deepcopy(document.data)
     audit.setdefault("sources", []).append({"type": "manual_course_patch", "course_id": str(course.id),
                                             "recorded_at": _now().isoformat(), "patch": deepcopy(patch)})
@@ -575,93 +576,64 @@ def patch_structured_course(db, user, course_id, patch):
     _course_touch(course)
     _touch(document)
     db.flush()
-    diagnostics = sync_document(db, user, document)
+    diagnostics = sync_document(db, user, document, course_ids=[course.id], now=now, strict=strict,
+                                touch_lesson_id=touch_lesson_id)
     return {**course_result(course), "diagnostics": diagnostics}
 
 
-def associate_document(db, user, document, semester_id):
-    semester = owned(db, Semester, user.id, semester_id)
-    if document.user_id != user.id:
-        raise HTTPException(404, "未找到该课表。")
-    if document.semester_id is not None and document.semester_id != semester.id:
-        raise HTTPException(409, "该课表已关联其他学期。")
-    original_thread_id = document.thread_id
-    target = get_document(db, user.id, semester_id=semester.id)
-    if target is None:
-        document.semester_id, document.thread_id = semester.id, None
-        target = document
-        if semester.periods:
-            data = deepcopy(target.data)
-            table = _current_period_table(data)
-            if table is None:
-                table = {"id": str(uuid.uuid4()), "weeks": None}
-                data.setdefault("period_tables", []).append(table)
-            table.update(source="manual", periods=_normalize_periods(semester.periods))
-            data["display_period_table_id"] = table["id"]
-            target.data = data
-        _touch(target)
-    elif target.id != document.id:
-        data = deepcopy(target.data)
-        data["sources"] = [*data.get("sources", []), *document.data.get("sources", [])]
-        target.data = data
-        # Retain old tables internally; projection binds schedules to the current clocks.
-        known = {item["id"] for item in data.get("period_tables", [])}
-        data["period_tables"].extend(item for item in document.data.get("period_tables", []) if item["id"] not in known)
-        target.data = deepcopy(data)
-        for course in db.scalars(select(TimetableCourse).where(TimetableCourse.user_id == user.id, TimetableCourse.document_id == document.id)).all():
-            course.document_id = target.id
-        _touch(target)
-        db.flush()
-        db.delete(document)
-    if original_thread_id is not None:
-        thread = owned(db, ScheduleThread, user.id, original_thread_id)
-        thread.semester_id = semester.id
-        thread.version += 1
-        thread.updated_at = _now()
+def delete_structured_course(db, user, course_id, version, *, now=None):
+    """Delete one logical course and every occurrence projected from it."""
+    course = owned(db, TimetableCourse, user.id, course_id)
+    if course.is_deleted:
+        raise HTTPException(404, "未找到该课程。")
+    check_version(course, version)
+    document = owned(db, TimetableDocument, user.id, course.document_id)
+    _require_semester_document(document)
+    audit = deepcopy(document.data)
+    audit.setdefault("sources", []).append({"type": "manual_course_delete", "course_id": str(course.id),
+                                            "version": version, "recorded_at": _now().isoformat(),
+                                            "data": deepcopy(course.data)})
+    document.data = audit
+    course.is_deleted = True
+    _course_touch(course)
+    _touch(document)
     db.flush()
-    sync_period_axis(db, user, target)
-    sync_document(db, user, target)
-    return target
-
-
-def _apply_semester(db, user, document, raw):
-    if not isinstance(raw, dict):
-        return document
-    data = deepcopy(document.data)
-    data["semester"] = raw
-    document.data = data
-    if raw.get("id") is not None:
-        semester_id = _uuid(raw["id"])
-        if semester_id is None:
-            return document
-        try:
-            with db.begin_nested():
-                owned(db, Semester, user.id, semester_id)
-                return associate_document(db, user, document, semester_id)
-        except HTTPException:
-            return document
-    if document.semester_id is not None or not all(raw.get(key) for key in ("name", "start_date", "end_date")):
-        return document
-    from timetable_actions import SemesterCreate, create_semester_record
-    try:
-        start = date.fromisoformat(raw["start_date"])
-        first = raw.get("first_week_monday") or (start - timedelta(days=start.weekday())).isoformat()
-        body = SemesterCreate(name=raw["name"], start_date=start, end_date=raw["end_date"],
-                              first_week_monday=first, timezone=raw.get("timezone"))
-        # Validation happens before insertion; invalid/incomplete source stays in JSONB.
-        semester = Semester(user_id=user.id, **{**body.model_dump(), "timezone": body.timezone or user.timezone})
-        from timetable_actions import validate_semester
-        validate_semester(semester)
-    except (ValueError, TypeError, HTTPException):
-        return document
-    semester = create_semester_record(db, user, body)
-    return associate_document(db, user, document, semester.id)
+    sync_document(db, user, document, course_ids=[course.id], now=now, strict=True)
 
 
 def apply_understanding(db, user, document, understanding, run_id=None):
     if document.user_id != user.id:
         raise HTTPException(404, "未找到该课表。")
-    raw = understanding if isinstance(understanding, dict) else {}
+    _require_semester_document(document)
+    from agents.schedule_image_reader import validate_operation_controls
+    # Graph resumes and cached results must obey the same controls as fresh
+    # model responses. Keep the pinned versions and document identity intact.
+    validate_operation_controls(understanding)
+    raw = understanding
+    scope_reason = None
+    semester_requests = [raw.get("semester"), *[
+        source["raw"].get("semester") for source in raw.get("sources", [])
+        if source.get("kind") == "llm_extraction" and isinstance(source.get("raw"), dict)]]
+    for requested_semester in semester_requests:
+        if not isinstance(requested_semester, dict) or not any(value is not None for value in requested_semester.values()):
+            continue
+        if (str(requested_semester.get("id")) != str(document.semester_id)
+                or any(value is not None for key, value in requested_semester.items() if key != "id")):
+            scope_reason = "助手只能操作当前学期，学期设置或切换请在页面完成。"
+            break
+    expected_facts = raw.get("expected_semester_facts")
+    if scope_reason is None and expected_facts is not None:
+        semester = owned(db, Semester, user.id, document.semester_id)
+        current_facts = {key: value.isoformat() if isinstance(value := getattr(semester, key), date) else value
+                         for key in SEMESTER_FACT_FIELDS}
+        if not isinstance(expected_facts, dict) or any(expected_facts.get(key) != current_facts[key] for key in SEMESTER_FACT_FIELDS):
+            scope_reason = "学期日期、周次起算或时区已更新，本次课表修改未应用；原始输入和识别结果已保留，请重新发送。"
+    if scope_reason is not None:
+        return {"saved": False, "scope_rejected": True, "document_id": str(document.id), "semester_id": str(document.semester_id),
+                "created_courses": [], "updated_courses": [],
+                "unapplied_changes": [*deepcopy(raw.get("unapplied_changes", [])),
+                    {"reason": scope_reason, "understanding": deepcopy(raw)}],
+                "period_table_changes": [], "diagnostics": [], "structured": document_snapshot(db, document)}
     if raw.get("intent") == "read":
         return {"saved": False, "document_id": str(document.id), "semester_id": str(document.semester_id) if document.semester_id else None,
                 "created_courses": [], "updated_courses": [], "unapplied_changes": raw.get("unapplied_changes", []),
@@ -680,10 +652,6 @@ def apply_understanding(db, user, document, understanding, run_id=None):
             or (expected_document_id is not None and str(expected_document_id) != str(document.id))):
         unapplied.append({"reason": "课表已被其他操作更新，识别结果已保留但未覆盖新版本。", "understanding": deepcopy(raw)})
     else:
-        document = _apply_semester(db, user, document, raw.get("semester"))
-        requested_semester = raw.get("semester", {})
-        if isinstance(requested_semester, dict) and requested_semester.get("id") is not None and str(document.semester_id) != str(requested_semester["id"]):
-            unapplied.append({"reason": "未找到可关联的学期，原课表和关联请求已保留。", "semester": requested_semester})
         sync_period_axis(db, user, document)
         before_tables = deepcopy(document.data.get("period_tables", []))
         aliases = _merge_period_tables(document, raw.get("period_tables", []))
@@ -819,7 +787,7 @@ def apply_understanding(db, user, document, understanding, run_id=None):
 
 
 def _effective_schedule(schedule, tables, default_table_id=None):
-    """Periods own the full clock interval; direct-clock legacy schedules survive."""
+    """Periods own the full clock interval; direct-clock schedules keep their times."""
     result = deepcopy(schedule)
     if not schedule.get("period_numbers"):
         return result
@@ -842,21 +810,13 @@ def _effective_schedule(schedule, tables, default_table_id=None):
     return result
 
 
-def sync_document(db, user, document, *, now=None, course_ids=None):
+def sync_document(db, user, document, *, now=None, course_ids=None, touch_lesson_id=None, strict=False):
     """Project all dates; only an unfinished timer protects a live occurrence.
 
     Build and guard the complete projection before writing any lesson/template.
     Finished learning records are independent snapshots maintained by lifecycle.
     """
-    if document.semester_id is None:
-        query = select(TimetableCourse).where(TimetableCourse.user_id == user.id,
-            TimetableCourse.document_id == document.id, TimetableCourse.is_deleted.is_(True))
-        if course_ids is not None:
-            query = query.where(TimetableCourse.id.in_(course_ids))
-        for course in db.scalars(query).all():
-            db.delete(course)
-        db.flush()
-        return []
+    _require_semester_document(document)
     from timetable_actions import interval, new_lesson, assert_no_overlap
     from timetable_lifecycle import assert_not_timing, remove_lessons
     now = now or _now()
@@ -882,7 +842,7 @@ def sync_document(db, user, document, *, now=None, course_ids=None):
                                                         document.data.get("display_period_table_id"))
                                    for schedule in canonical.get("schedules", [])]
         if canonical != course.data:
-            _guard_metadata_change(db, user, course, course.data, canonical)
+            _guard_metadata_change(db, user, course, course.data, canonical, now=now)
         canonical_data[course.id] = canonical
         for schedule in canonical.get("schedules", []):
             key = (str(course.id), schedule["id"])
@@ -901,6 +861,8 @@ def sync_document(db, user, document, *, now=None, course_ids=None):
                 try:
                     generated[week] = interval(day, schedule["start_time"], schedule["end_time"], semester.timezone)
                 except HTTPException as error:
+                    if strict:
+                        raise
                     diagnostics.append({"course_id": str(course.id), "schedule_id": schedule["id"], "week": week, "message": error.detail})
             template = by_source.get(key)
             lessons = list(existing.get(template.id, [])) if template is not None else []
@@ -931,6 +893,8 @@ def sync_document(db, user, document, *, now=None, course_ids=None):
                 if lesson is not None:
                     deletions[lesson.id] = lesson
                 continue
+            if lesson is not None and lesson.is_override and exception is None:
+                raise HTTPException(409, "单次课程安排缺少结构化来源，请先修复课表数据。")
             if week not in generated and exception is None:
                 if lesson is not None:
                     deletions[lesson.id] = lesson
@@ -940,42 +904,23 @@ def sync_document(db, user, document, *, now=None, course_ids=None):
             starts_at, ends_at = generated.get(week, (lesson.starts_at, lesson.ends_at) if lesson is not None else (None, None))
             values = {"starts_at": starts_at, "ends_at": ends_at, "name": spec["canonical"]["name"],
                       "location": schedule.get("location") or "", "timezone": semester.timezone,
-                      "status": "scheduled", "is_deleted": False}
-            if lesson is not None and lesson.is_override and exception is None:
-                # Retain an old manual occurrence even if it predates JSONB capture.
-                local_start = lesson.starts_at.astimezone(ZoneInfo(lesson.timezone))
-                local_end = lesson.ends_at.astimezone(ZoneInfo(lesson.timezone))
-                exception = {"schedule_id": schedule["id"], "original_week": week,
-                             "date": local_start.date().isoformat(), "start_time": local_start.strftime("%H:%M"),
-                             "end_time": local_end.strftime("%H:%M"), "status": lesson.status,
-                             "note": lesson.note, "is_deleted": lesson.is_deleted}
-                spec["canonical"].setdefault("exceptions", []).append(exception)
-                exceptions[week] = exception
-                if lesson.is_deleted:
-                    deletions[lesson.id] = lesson
-                    continue
+                      "status": "scheduled", "note": "", "is_override": False, "is_deleted": False}
             if exception:
                 tz = ZoneInfo(semester.timezone)
                 generated_start, generated_end = starts_at.astimezone(tz), ends_at.astimezone(tz)
-                previous_start = (lesson.starts_at if lesson is not None and lesson.is_override else starts_at).astimezone(tz)
-                previous_end = (lesson.ends_at if lesson is not None and lesson.is_override else ends_at).astimezone(tz)
                 try:
-                    actual_day = (date.fromisoformat(exception["date"]) if exception.get("date") else
-                                  generated_start.date() if "date" in exception else previous_start.date())
-                    actual_start = exception.get("start_time") or (generated_start if "start_time" in exception else previous_start).strftime("%H:%M")
-                    actual_end = exception.get("end_time") or (generated_end if "end_time" in exception else previous_end).strftime("%H:%M")
+                    actual_day = date.fromisoformat(exception["date"]) if exception.get("date") else generated_start.date()
+                    actual_start = exception.get("start_time") or generated_start.strftime("%H:%M")
+                    actual_end = exception.get("end_time") or generated_end.strftime("%H:%M")
                     if not semester.start_date <= actual_day <= semester.end_date:
                         raise ValueError
                     values["starts_at"], values["ends_at"] = interval(actual_day, actual_start, actual_end, semester.timezone)
                 except (ValueError, TypeError, HTTPException):
+                    if strict:
+                        raise HTTPException(422, "单次调课日期或时间无效，请核对学期日期和起止时间。") from None
                     diagnostics.append({"course_id": str(course.id), "schedule_id": schedule["id"], "week": week,
                                         "message": "单次调课日期或时间无效，原安排已保留。"})
                     continue
-                exception.setdefault("date", actual_day.isoformat())
-                exception.setdefault("start_time", actual_start)
-                exception.setdefault("end_time", actual_end)
-                if lesson is not None and lesson.is_override:
-                    values.update(status=lesson.status, note=lesson.note)
                 if exception.get("status") in ("scheduled", "leave", "cancelled"):
                     values["status"] = exception["status"]
                 if "note" in exception:
@@ -1023,7 +968,7 @@ def sync_document(db, user, document, *, now=None, course_ids=None):
             if lesson is None:
                 lesson = new_lesson(template, semester, week, starts_at, ends_at)
                 db.add(lesson)
-            elif lesson.id in modifications:
+            elif lesson.id in modifications or lesson.id == touch_lesson_id:
                 lesson.version += 1
             for key, value in values.items():
                 setattr(lesson, key, value)
@@ -1042,70 +987,3 @@ def sync_document(db, user, document, *, now=None, course_ids=None):
             f'「{left["name"]}」与「{right["name"]}」存在时间重叠，共 {conflict["occurrence_count"]} 次，已全部保留。',
             "conflict": conflict})
     return diagnostics
-
-
-def _legacy_weeks(course):
-    if course.weeks is not None:
-        return deepcopy(course.weeks)
-    return [week for week in range(course.start_week, course.end_week + 1)
-            if course.week_pattern == "all" or (week % 2 == 1 if course.week_pattern == "odd" else week % 2 == 0)]
-
-
-def capture_legacy_course(db, user, course):
-    """Capture an already-applied manual edit; never reproject here."""
-    if course.user_id != user.id:
-        raise HTTPException(404, "未找到该课程。")
-    document = get_document(db, user.id, semester_id=course.semester_id, create=True)
-    structured = db.scalar(select(TimetableCourse).where(TimetableCourse.user_id == user.id, TimetableCourse.id == course.source_course_id)) if course.source_course_id else None
-    if structured is None:
-        structured = TimetableCourse(user_id=user.id, document_id=document.id, data={"name": course.name, "schedules": [], "exceptions": []}, version=1)
-        db.add(structured)
-        db.flush()
-        course.source_course_id = structured.id
-    schedule_id = str(course.source_schedule_id or uuid.uuid4())
-    course.source_schedule_id = uuid.UUID(schedule_id)
-    data = deepcopy(structured.data)
-    data["name"] = course.name
-    existing = next((item for item in data["schedules"] if item["id"] == schedule_id), None)
-    raw = {"weekday": course.weekday, "weeks": _legacy_weeks(course), "start_time": course.start_time,
-           "end_time": course.end_time, "location": course.location or None}
-    course.weeks = raw["weeks"]
-    if course.is_deleted:
-        data["schedules"] = [item for item in data["schedules"] if item["id"] != schedule_id]
-        if not data["schedules"]:
-            structured.is_deleted = True
-    elif existing is None:
-        data["schedules"].append(normalize_schedule(raw, schedule_id=schedule_id))
-    else:
-        existing.update(raw)
-    structured.data = data
-    _course_touch(structured)
-    _touch(document)
-    db.flush()
-    return structured
-
-
-def capture_legacy_lesson(db, user, lesson):
-    """Persist the original-week identity of a manual single-occurrence edit."""
-    template = db.scalar(select(CourseTemplate).where(CourseTemplate.user_id == user.id, CourseTemplate.id == lesson.course_id))
-    if template is None or lesson.user_id != user.id:
-        raise HTTPException(404, "未找到该课次。")
-    structured = db.scalar(select(TimetableCourse).where(TimetableCourse.user_id == user.id, TimetableCourse.id == template.source_course_id)) if template.source_course_id else None
-    if structured is None:
-        structured = capture_legacy_course(db, user, template)
-    data = deepcopy(structured.data)
-    exceptions = data.setdefault("exceptions", [])
-    current = next((item for item in exceptions if item.get("schedule_id") == str(template.source_schedule_id) and item.get("original_week") == lesson.week_number), None)
-    if current is None:
-        current = {"schedule_id": str(template.source_schedule_id), "original_week": lesson.week_number}
-        exceptions.append(current)
-    local_start = lesson.starts_at.astimezone(ZoneInfo(lesson.timezone))
-    local_end = lesson.ends_at.astimezone(ZoneInfo(lesson.timezone))
-    current.update(date=local_start.date().isoformat(), start_time=local_start.strftime("%H:%M"), end_time=local_end.strftime("%H:%M"),
-                   status=lesson.status, note=lesson.note, is_deleted=lesson.is_deleted)
-    structured.data = data
-    _course_touch(structured)
-    document = owned(db, TimetableDocument, user.id, structured.document_id)
-    _touch(document)
-    db.flush()
-    return structured

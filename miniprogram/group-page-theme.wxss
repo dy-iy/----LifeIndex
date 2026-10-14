@@ -1,0 +1,13 @@
+/* 群聊相关页面沿用上课计时与指数页面的米白纸感背景。 */
+page { background: #fbf7ee; color: #253d35; }
+
+.chat-page,
+.chat-room,
+.settings-page,
+.group-join-page {
+  background-color: #fbf7ee;
+  background-image:
+    radial-gradient(rgba(132, 101, 69, .045) .6px, transparent 1px),
+    linear-gradient(118deg, rgba(255, 255, 255, .35), rgba(246, 235, 213, .12));
+  background-size: 7rpx 7rpx, 100% 100%;
+}

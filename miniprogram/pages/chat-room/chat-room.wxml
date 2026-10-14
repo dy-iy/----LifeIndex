@@ -1,0 +1,34 @@
+<page-meta page-style="{{sharedReviewOpen ? 'overflow: hidden;' : ''}}"/>
+<view class="chat-room" bindtouchstart="startBackSwipe" bindtouchmove="moveBackSwipe" bindtouchend="endBackSwipe" bindtouchcancel="cancelBackSwipe">
+  <view class="room-navigation">
+    <group-navigation title="群聊" group="{{group}}" show-room-tabs="{{true}}" active-room-tab="{{activeRoomTab}}"
+      bind:back="goBack" bind:settings="openSettings" bind:avatarerror="avatarLoadError" bind:tabchange="changeRoomTab" />
+  </view>
+  <view class="room-content">
+    <view wx:if="{{loading && !group}}" class="room-status">正在加载群聊…</view>
+    <view wx:if="{{error}}" class="room-status room-error" role="alert">
+      <view>{{error}}</view>
+      <button class="room-retry" bindtap="reload">重试</button>
+    </view>
+    <block wx:if="{{group}}">
+      <view class="room-chat-panel {{activeRoomTab === 'chat' ? '' : 'room-panel-hidden'}}">
+        <group-chat group-id="{{group.id}}" group="{{group}}" active="{{activeRoomTab === 'chat'}}" bind:accesslost="chatAccessLost" bind:reviewopen="openSharedReview" />
+      </view>
+      <scroll-view wx:if="{{activeRoomTab === 'index'}}" class="room-index-scroll" scroll-y="{{true}}">
+        <view class="room-index" bindtouchstart="stopIndexSwipe">
+          <index-card quote="{{groupIndexQuote}}" chart-data="{{groupIndexChartData}}" period="{{groupIndexPeriod}}"
+            loading="{{groupIndexLoading}}" error="{{groupIndexError}}" bind:periodchange="changeIndexPeriod"
+            bind:retry="retryIndex" bind:interactionchange="indexInteraction" bind:loadolder="loadOlderIndex" />
+          <group-member-list members="{{groupIndexMembers}}" loading="{{groupMembersLoading}}" error="{{groupMembersError}}"
+            bind:retry="retryMemberStatus" />
+        </view>
+      </scroll-view>
+      <view wx:if="{{activeRoomTab === 'checkin'}}" class="room-placeholder">
+        <view class="room-placeholder-title">群打卡</view>
+        <view class="room-placeholder-copy">功能准备中</view>
+      </view>
+    </block>
+  </view>
+</view>
+<shared-review-modal wx:if="{{sharedReviewOpen && group}}" group-id="{{group.id}}" message-id="{{sharedReviewMessageId}}"
+  bind:close="closeSharedReview" bind:accesslost="chatAccessLost" />

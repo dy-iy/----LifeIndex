@@ -14,7 +14,7 @@ let writeFlight = null;
 let readFlight = null;
 
 function emptyState() {
-  return { active: null, recent: [], lessons: [], lessonsReady: false, selectedLesson: null, pendingFinish: null, finishConflicts: [], finishNotice: "", reviewId: null, reviewHandoff: null, reviewHandoffAt: null, error: "", writes: {}, serverTime: null, receivedAt: null };
+  return { active: null, recent: [], lessons: [], lessonsReady: false, pendingFinish: null, finishConflicts: [], finishNotice: "", reviewId: null, reviewHandoff: null, reviewHandoffAt: null, error: "", writes: {}, serverTime: null, receivedAt: null };
 }
 function copy(value) { return value == null ? value : JSON.parse(JSON.stringify(value)); }
 function cacheKey(value = owner) { return `${STORAGE_PREFIX}${encodeURIComponent(value)}`; }
@@ -37,7 +37,6 @@ function loadCache() {
     const next = emptyState();
     next.active = validRecord(saved.active) && saved.active.phase !== "finished" ? copy(saved.active) : null;
     next.recent = Array.isArray(saved.recent) ? saved.recent.filter((item) => validRecord(item) && item.phase === "finished").slice(0, 20).map(copy) : [];
-    // Timetable selections are never authoritative after reopening the app.
     // Only session history and unsent finish intents survive this cache load.
     next.reviewId = typeof saved.reviewId === "string" ? saved.reviewId : null;
     next.reviewHandoff = typeof saved.reviewHandoff === "string" ? saved.reviewHandoff : null;
@@ -68,7 +67,7 @@ function identity() {
     owner = current.owner; generation = current.generation; revision += 1;
     writeFlight = null; readFlight = null;
     if (changedOwner || !owner) state = owner ? loadCache() : emptyState();
-    else state = Object.assign({}, state, { lessons: [], lessonsReady: false, selectedLesson: null });
+    else state = Object.assign({}, state, { lessons: [], lessonsReady: false });
     if (!owner) unreadableCache = false;
   }
   return current;
@@ -77,7 +76,7 @@ session.subscribe(identity);
 function invalidateLessons() {
   const snapshot = identity();
   revision += 1; readFlight = null;
-  const next = Object.assign({}, state, { lessons: [], lessonsReady: false, selectedLesson: null });
+  const next = Object.assign({}, state, { lessons: [], lessonsReady: false });
   if (snapshot.owner && !unreadableCache) commit(next); else state = next;
   return getState();
 }
@@ -150,17 +149,9 @@ function finishOpensReview(operation, record) {
 }
 function getState() {
   identity();
-  return copy({ active: state.active, recent: state.recent, lessons: state.lessons, lessonsReady: state.lessonsReady, selectedLesson: state.selectedLesson,
+  return copy({ active: state.active, recent: state.recent, lessons: state.lessons, lessonsReady: state.lessonsReady,
     pendingFinish: state.pendingFinish, finishNotice: state.finishNotice, finishConflicts: state.finishConflicts,
     reviewId: state.reviewId, reviewHandoff: state.reviewHandoff, error: state.error, serverNow: serverNow() });
-}
-function selectLesson(lesson) {
-  requireOwner();
-  if (lesson && typeof lesson.id !== "string") throw new Error("课程信息无效，请从课表重新选择。");
-  const current = lesson && state.lessonsReady && state.lessons.find((item) => item.id === lesson.id);
-  if (lesson && !current) throw new Error("课程已变化，请同步最新课表后再选择。");
-  commit(Object.assign({}, state, { selectedLesson: copy(current || null), error: "" }), true);
-  return getState();
 }
 function selectReview(recordId) {
   requireOwner();
@@ -226,7 +217,6 @@ function reload() {
       const next = Object.assign({}, state, {
         lessons: result.lessons,
         lessonsReady: true,
-        selectedLesson: state.selectedLesson ? result.lessons.find((lesson) => lesson.id === state.selectedLesson.id) || null : null,
         active: result.active ? anchor(result.active, result.server_now) : null,
         recent: result.recent.map((item) => anchor(item, result.server_now)).filter((item) => item.phase === "finished").slice(0, 20),
         error: unreadableCache ? state.error : "",
@@ -444,4 +434,4 @@ function elapsed(record, now = Date.now()) {
 }
 function preparationSeconds(record, now = Date.now()) { return clockValues(record, now).preparationSeconds; }
 
-module.exports = { identity, isCurrent, getState, selectLesson, selectReview, invalidateLessons, reload, start, pause, resume, finish, retryPendingFinish, elapsed, preparationSeconds, autoFinishAt, serverNow, inTimingWindow, currentLesson, matchesLesson, canResume };
+module.exports = { identity, isCurrent, getState, selectReview, invalidateLessons, reload, start, pause, resume, finish, retryPendingFinish, elapsed, preparationSeconds, autoFinishAt, serverNow, inTimingWindow, currentLesson, matchesLesson, canResume };

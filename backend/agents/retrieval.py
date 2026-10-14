@@ -12,7 +12,7 @@ import math
 import re
 import uuid
 
-from agents.memory import learning_sources, recall_learning, schedule_sources
+from agents.memory import learning_sources, recall_learning
 from rules import RULE_VERSION
 
 MAX_CONTEXT_BYTES = 16000
@@ -26,11 +26,6 @@ def chunk(source_id, version, authority, title, text):
 
 def rules(domain):
     values = {
-        "schedule": [
-            ("deletion", "课程删除", "删除整门课或指定的一次安排：移除未计时、未作课后确认的课次，包含过去和单独调整的误录。已有学习记录保留。删除不等于停课，已删除安排不占时间，不会被模板编辑恢复。"),
-            ("weeks", "周次与假期", "周次以学期 first_week_monday 起算，每周一至周日；直接使用服务器 week_dates。第N周整周无课使用该周起止日期停课。单双周依据原模板周次。"),
-            ("confirmation", "确认与调课", "已有有效具体预览后才能应用；用户已答复的信息不重复询问，整句确认回答是非问题。目标日补源日的课表示移动，不复制，目标日已有课不自动删除。"),
-        ],
         "learning": [
             ("quality", "三项评分", "内容回忆0–40，理解与反思0–40，专注自评0–20，由代码求和。具体、自洽的简短回答和具体疑问可获高分，不能按字数评分。没有教材不能臆测授课范围。"),
             ("evidence", "证据门槛", "每项区分充分、缺失、矛盾。任一缺失或矛盾、置信度小于0.70则最多补问一次，再不足保留记录且不结算。计时只说明时长，专注只依据当次用户自述，不存在手机监控。"),
@@ -59,7 +54,7 @@ def rules(domain):
             ("absence", "参与与无效回答", "未到课自动按完整理由分类，合理或含糊理由、停课免罚，明确无合理缘由缺席沿用负3%及限幅。免罚不表示获批请假。该分支保留固定参与规则，不交经理改写。完全无关回答退回重填，不给虚构总结或信号。"),
         ],
     }
-    version = {"learning_v4": "class-quality-v4", "learning_v5": "class-quality-v5", "learning_v6": "class-summary-v6", "learning_v7": "class-summary-v7"}.get(domain, RULE_VERSION if domain == "learning" else "timetable-v2")
+    version = {"learning_v4": "class-quality-v4", "learning_v5": "class-quality-v5", "learning_v6": "class-summary-v6", "learning_v7": "class-summary-v7"}.get(domain, RULE_VERSION)
     return [chunk(f"rule:{domain}:{key}", version,
                   "product_rule", title, body) for key, title, body in values[domain]]
 
@@ -103,20 +98,6 @@ def retrieve(query, candidates, limit=6):
             continue
         selected.append(item); used += size
     return {"query": query[:300], "sources": selected, "empty": not selected, "retriever_version": "cjk-bm25-v1"}
-
-
-def schedule_knowledge(db, user_id, thread_id, semester_id, query):
-    candidates = rules("schedule")
-    for run in schedule_sources(db, user_id, thread_id, semester_id):
-        if str(run.thread_id) != str(thread_id) and run.status != "applied":
-            continue
-        # Do not include obsolete assistant questions as new requirements.
-        body = json.dumps({"user_statement": run.input_text, "state": run.status,
-                           "applied_operations": (run.plan or {}).get("operations", []) if run.status == "applied" else []},
-                          ensure_ascii=False)
-        candidates.append(chunk(f"schedule:{run.id}", run.updated_at.isoformat(), "user_history",
-                                "过去的课表要求与已执行操作（仅供背景）", body))
-    return retrieve(query, candidates)
 
 
 def learning_knowledge(db, user_id, snapshot, query, *, scoring_version=None):

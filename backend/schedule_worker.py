@@ -26,17 +26,25 @@ from config import Settings
 from db import make_engine, checkpoint_location
 from diagnostics import log_failure
 from models import CourseTemplate, ScheduleImage, ScheduleRun, ScheduleThread, ScheduleModelCall, User
-from agents.memory import remember_schedule
 from agents.prompts import prompt_manifest
-from agents.schedule_image_reader import SCHEMA_VERSION
+from agents.schedule_image_reader import SCHEMA_VERSION, normalize_understanding
 from agents.tools.registry import Scope, record_trace
 from schedule_api import latest_run, touch
 from schedule_budget import reserve, settle
 from schedule_graph import build_graph
-from schedule_model import MODEL_NAME, PROMPT_VERSION, ModelError, prepare_messages, invoke_planner, validate_plan
+from schedule_model import MODEL_NAME, PROMPT_VERSION, ModelError, prepare_messages, invoke_planner
 
 logger = logging.getLogger(__name__)
-CACHE_VERSION = "schedule-understanding-v6"
+CACHE_VERSION = "schedule-understanding-v7"
+SEMESTER_SCOPE_VERSION = "semester-bound-v1"
+
+
+def _context_has_semester(context, semester_id):
+    document = context.get("document") or {}
+    semester = context.get("semester") or {}
+    return (context.get("semester_id") == semester_id
+            and document.get("semester_id") == semester_id
+            and semester.get("id") == semester_id)
 
 
 def setup_checkpoints(database_url):
@@ -65,13 +73,13 @@ def open_checkpointer(database_url, run_id):
 
 def model_context(db, user_id, document, snapshot):
     """Project current facts; the audit trail is never fed back into inference."""
-    from schedule_plan import context_snapshot
+    from schedule_context import context_snapshot
     facts = context_snapshot(db, user_id, document.semester_id)
     source = snapshot.get("document", {})
     data = source.get("data", {})
     projected = {**snapshot, "document": {
-        key: value for key, value in source.items() if key in {"id", "version", "semester_id", "thread_id"}}}
-    projected["document"]["data"] = {key: deepcopy(data[key]) for key in ("period_tables", "display_period_table_id", "semester") if key in data}
+        key: value for key, value in source.items() if key in {"id", "version", "semester_id"}}}
+    projected["document"]["data"] = {key: deepcopy(data[key]) for key in ("period_tables", "display_period_table_id") if key in data}
     projected["courses"] = [{"id": item["id"], "version": item["version"], "data": {
         key: deepcopy(item.get("data", {}).get(key)) for key in ("name", "schedules", "exceptions")}}
         for item in snapshot.get("courses", []) if not item.get("is_deleted")]
@@ -169,6 +177,9 @@ def period_time_setup(result, state):
 
 
 def saved_reply(result, state):
+    if result.get("scope_rejected") or (result.get("saved") is False and state.get("plan", {}).get("intent") != "read"):
+        reasons = [str(item.get("reason")) for item in result.get("unapplied_changes", []) if item.get("reason")]
+        return "本次课表修改未应用。" + " ".join(dict.fromkeys(reasons))
     if state.get("plan", {}).get("intent") == "read":
         timeframe = _read_range(state)
         if timeframe:
@@ -253,8 +264,9 @@ class Worker:
         with self.factory() as db:
             run = db.get(ScheduleRun, run_id)
             thread = db.get(ScheduleThread, run.thread_id)
-            if thread is None or thread.user_id != run.user_id:
+            if thread is None or thread.user_id != run.user_id or thread.is_archived or thread.semester_id is None:
                 raise HTTPException(404, "未找到当前课表对话。")
+            db.scalar(select(User).where(User.id == run.user_id).with_for_update())
             # Include user words only. Assistant guesses never become evidence;
             # previously applied actions are labelled and cannot be replayed.
             rows = db.scalars(select(ScheduleRun).where(ScheduleRun.user_id == run.user_id,
@@ -270,17 +282,19 @@ class Worker:
                                        "period_table_change", "period_table_changes", "source_text"}}
                             for change in (item.result or {}).get("unapplied_changes", []) if isinstance(change, dict)]}
                        for item in rows if item.id != run.id]
-            document = get_document(db, run.user_id, semester_id=thread.semester_id,
-                                    thread_id=None if thread.semester_id else thread.id, create=True)
+            document = get_document(db, run.user_id, semester_id=thread.semester_id, create=True)
             context = model_context(db, run.user_id, document, structured_snapshot(db, run.user_id, document))
             db.commit()
             return {"run_id": str(run.id), "thread_id": str(thread.id), "user_id": str(run.user_id),
                     "schedule_prompt": PROMPT_VERSION,
-                    "semester_id": str(thread.semester_id) if thread.semester_id else None,
+                    "semester_id": str(thread.semester_id), "semester_scope": SEMESTER_SCOPE_VERSION,
                     "input_text": run.input_text, "image_ids": list(run.image_ids),
                     "context": context, "history": history, "period_time_setup_pending": setup_pending}
 
     def interpret(self, state):
+        if (state.get("semester_scope") != SEMESTER_SCOPE_VERSION or not state.get("semester_id")
+                or not _context_has_semester(state.get("context", {}), state.get("semester_id"))):
+            raise ModelError("任务所属学期已变化，原始输入已保留。", status_code=409)
         identifiers = state.get("image_ids", [])
         if len(identifiers) > 3 or len(set(identifiers)) != len(identifiers):
             raise ModelError("每条消息最多处理三张不同的课表图片。", status_code=422)
@@ -316,14 +330,14 @@ class Worker:
         record_trace(self.factory, Scope(uuid.UUID(state["user_id"]), uuid.UUID(state["run_id"]), CACHE_VERSION, "context"),
                      "context_schedule", "succeeded", time.monotonic(),
                      {**prepared["manifest"], "context_hash": digest, "cache_hit": False})
-        key = os.getenv("DEEPSEEK_API_KEY", "").strip()
+        key = os.getenv("ARK_API_KEY", "").strip()
         if not key:
             raise ModelError("课表助手尚未配置模型服务，任务输入已保留。", status_code=503)
         call_id = reserve(self.factory, state["user_id"], state["run_id"], messages, self.settings, input_hash=digest)
         result = None
         try:
             result = self.planner(messages, api_key=key)
-            understanding = validate_plan(result.get("understanding", result.get("plan")))
+            understanding = normalize_understanding(result.get("understanding"))
             # Versions are pinned to the context sent to the LLM, never re-read
             # after inference. Missing model versions cannot disable concurrency.
             versions = {item["id"]: item["version"] for item in state["context"].get("courses", [])}
@@ -346,42 +360,47 @@ class Worker:
         return understanding
 
     def apply(self, state, lease_owner):
-        from timetable_structured import get_document, apply_understanding
+        from timetable_structured import SEMESTER_FACT_FIELDS, get_document, apply_understanding
         with self.factory() as db:
             user = db.scalar(select(User).where(User.id == uuid.UUID(state["user_id"])).with_for_update())
             run = db.scalar(select(ScheduleRun).where(ScheduleRun.id == uuid.UUID(state["run_id"])).with_for_update())
             if run is None or user is None or run.user_id != user.id or str(run.thread_id) != state["thread_id"]:
                 raise HTTPException(404, "未找到当前课表任务。")
+            thread = db.get(ScheduleThread, run.thread_id)
+            expected = state.get("context", {}).get("document") or {}
+            if (thread is None or thread.is_archived or thread.semester_id is None
+                    or state.get("semester_scope") != SEMESTER_SCOPE_VERSION
+                    or state.get("semester_id") != str(thread.semester_id)
+                    or not _context_has_semester(state.get("context", {}), str(thread.semester_id))):
+                raise HTTPException(409, "任务所属学期与当前对话不一致，原始输入已保留。")
             if run.status in {"applied", "completed"}:
                 return run.result
             if run.lease_owner != lease_owner or run.status != "running":
                 raise HTTPException(409, "任务状态已经变化，请读取最新对话。")
-            thread = db.get(ScheduleThread, run.thread_id)
             current = latest_run(db, thread.id)
             if current is None or current.id != run.id:
                 raise HTTPException(409, "任务已被后续对话替代，请读取最新对话。")
-            document = get_document(db, user.id, semester_id=thread.semester_id,
-                                    thread_id=None if thread.semester_id else thread.id, create=True)
+            document = get_document(db, user.id, semester_id=thread.semester_id, create=True)
+            if str(document.id) != str(expected.get("id")):
+                raise HTTPException(409, "任务对应的课表已变化，原始输入已保留。")
             understanding = deepcopy(state["plan"])
-            # A manual association may merge this thread's document into another
-            # document with a coincidentally equal version during inference.
-            # Pin identity again here so older valid caches get the same fence.
+            # These facts are frozen by the server before inference. Neither
+            # a model field nor a resumed cache can supply a newer calendar.
+            semester = state["context"]["semester"]
+            understanding["expected_semester_facts"] = {key: deepcopy(semester.get(key)) for key in SEMESTER_FACT_FIELDS}
+            # The semester and document identity remain pinned through inference.
             understanding["expected_document_id"] = state["context"].get("document", {}).get("id", state["context"].get("document_id"))
             understanding.setdefault("sources", []).append({"kind": "user_message", "run_id": str(run.id),
                 "input": run.input_text, "image_ids": list(run.image_ids)})
             result = apply_understanding(db, user, document, understanding, run_id=run.id)
             result["period_time_setup"] = period_time_setup(result, state)
             result["reply"] = saved_reply(result, state)[:12000]
-            semester_id = result.get("semester_id") or result.get("structured", {}).get("semester_id")
-            if semester_id:
-                thread.semester_id = uuid.UUID(str(semester_id))
-            run.status = "completed" if understanding.get("intent") == "read" else "applied"
+            run.status = "completed" if understanding.get("intent") == "read" or result.get("saved") is False else "applied"
             run.result, run.reply = result, result["reply"]
             run.plan, run.preview = state["plan"], None
             run.lease_owner, run.lease_until, run.error = None, None, ""
             run.updated_at = utcnow()
             touch(thread)
-            remember_schedule(db, run, thread)
             db.commit()
             return result
 
@@ -430,13 +449,25 @@ class Worker:
                 graph = build_graph(saver, self.interpret, lambda state: self.apply(state, lease_owner))
                 config = {"configurable": {"thread_id": str(run_id)}, "recursion_limit": 5}
                 snapshot = graph.get_state(config)
-                if snapshot.values and snapshot.values.get("schedule_prompt") != PROMPT_VERSION:
+                if snapshot.values and (snapshot.values.get("schedule_prompt") != PROMPT_VERSION
+                        or snapshot.values.get("semester_scope") != SEMESTER_SCOPE_VERSION):
                     self.supersede_legacy(run_id, lease_owner)
                     return True
                 with self.factory() as db:
                     run = db.get(ScheduleRun, run_id)
                     if run.lease_owner != lease_owner or run.status in {"applied", "completed"}:
                         return True
+                    thread = db.get(ScheduleThread, run.thread_id)
+                    invalid_scope = thread is None or thread.is_archived or thread.semester_id is None
+                    if snapshot.values and not invalid_scope:
+                        scope = str(thread.semester_id)
+                        invalid_scope = (snapshot.values.get("semester_id") != scope
+                            or not _context_has_semester(snapshot.values.get("context", {}), scope)
+                            or snapshot.values.get("thread_id") != str(thread.id)
+                            or snapshot.values.get("user_id") != str(thread.user_id))
+                if invalid_scope:
+                    self.supersede_legacy(run_id, lease_owner)
+                    return True
                 if snapshot.values and not snapshot.next:
                     result = snapshot.values
                 elif snapshot.values:

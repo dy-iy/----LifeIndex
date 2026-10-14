@@ -25,12 +25,14 @@ class WorkerRuntime:
 
     def _default_jobs(self):
         from evaluation_worker import Worker as EvaluationWorker
+        from group_review_messages import Worker as GroupReviewMessageWorker
         from learning_worker import maintain
         from schedule_worker import Worker as ScheduleWorker
 
         return {
             "schedule": (lambda: ScheduleWorker(self.settings), self._poll),
             "evaluation": (lambda: EvaluationWorker(self.settings), self._poll),
+            "review_messages": (lambda: GroupReviewMessageWorker(self.settings), self._poll),
             "maintenance": (lambda: EvaluationWorker(self.settings), maintain),
         }
 

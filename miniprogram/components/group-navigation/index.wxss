@@ -1,0 +1,17 @@
+.group-navigation { position: fixed; z-index: 100; top: 0; left: 0; box-sizing: border-box; width: 100%; color: #253d35; background: #fbf7ee; }
+.navigation-spacer { width: 100%; }
+.navigation-tabs-height { height: 104rpx; }
+.navigation-tabs { display: flex; align-items: center; gap: 16rpx; box-sizing: border-box; padding: 12rpx 28rpx 18rpx; border-bottom: 2rpx solid #e4e1d9; }
+.navigation-tab { display: flex; align-items: center; justify-content: center; flex: 1; min-width: 0; height: 72rpx; margin: 0; padding: 0; border-radius: 10rpx; color: #8a9187; background: transparent; font-size: 29rpx; line-height: 1.4; font-weight: 400; }
+.navigation-tab::after { border: none; }
+.navigation-tab-active { color: #253d35; background: #e8e8df; font-weight: 500; }
+.navigation-bar { position: relative; box-sizing: border-box; width: 100%; }
+.navigation-back { position: absolute; left: 0; display: flex; align-items: center; justify-content: center; box-sizing: border-box; width: 44px; height: 44px; margin: 0; padding: 0; border-radius: 8rpx; background: transparent; line-height: 1; }
+.back-chevron { width: 13px; height: 13px; margin-left: 6px; border-bottom: 2px solid #253d35; border-left: 2px solid #253d35; transform: rotate(45deg); }
+.navigation-group { position: absolute; left: 44px; box-sizing: border-box; display: flex; align-items: center; min-width: 0; height: 44px; margin: 0; padding: 0 4rpx; border-radius: 12rpx; color: #253d35; background: transparent; line-height: 1.4; text-align: left; }
+.navigation-avatar { display: block; flex-shrink: 0; width: 64rpx; height: 64rpx; overflow: hidden; border-radius: 50%; background: #e5e9df; }
+.navigation-avatar-fallback { display: flex; align-items: center; justify-content: center; color: #557060; font-size: 28rpx; font-weight: 400; }
+.navigation-name { overflow: hidden; min-width: 0; margin-left: 16rpx; font-size: 29rpx; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.navigation-count { flex-shrink: 0; margin-left: 8rpx; font-size: 27rpx; font-weight: 400; }
+.navigation-title { position: absolute; display: flex; align-items: center; justify-content: center; height: 44px; overflow: hidden; font-size: 32rpx; line-height: 1.4; font-weight: 500; text-align: center; text-overflow: ellipsis; white-space: nowrap; pointer-events: none; }
+.navigation-pressed { background: #eeece4; }

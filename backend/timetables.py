@@ -10,19 +10,21 @@ from pydantic import Field
 
 from auth import CurrentUser, Db
 from db import IdempotencyKey, Input, Version, mutate, owned, check_version
-from models import CourseTemplate, Lesson, Semester
+from models import CourseTemplate, Lesson, Semester, TimetableCourse, TimetableDocument
 import timetable_actions as actions
-from timetable_actions import SemesterCreate, SemesterPatch, CourseCreate, CoursePatch, LessonPatch, SemesterResponse, CourseResponse, LessonResponse, semester_result, course_result, lesson_result, validate_semester, assert_no_overlap
+from timetable_actions import SemesterCreate, SemesterPatch, LessonPatch, SemesterResponse, CourseResponse, LessonResponse, semester_result, course_result, lesson_result, validate_semester, assert_no_overlap
 
 router = APIRouter()
 
 
 class StructuredCourseCreate(Input):
+    semester_id: uuid.UUID
     document_id: uuid.UUID
     data: dict[str, Any]
 
 
 class StructuredCoursePatch(Input):
+    semester_id: uuid.UUID
     version: Version
     name: str | None = Field(default=None, max_length=100)
     schedule_updates: list[dict[str, Any]] = Field(default_factory=list, max_length=100)
@@ -30,48 +32,68 @@ class StructuredCoursePatch(Input):
     schedule_removals: list[uuid.UUID] = Field(default_factory=list, max_length=100)
 
 
-class StructuredBind(Input):
+class TimetableStatePatch(Input):
     version: Version
     semester_id: uuid.UUID
 
 
 @router.get("/api/timetables/structured")
-def get_structured(user: CurrentUser, db: Db, semester_id: uuid.UUID | None = None,
-                   thread_id: uuid.UUID | None = None):
+def get_structured(user: CurrentUser, db: Db, semester_id: uuid.UUID):
     from timetable_structured import structured_snapshot
-    if (semester_id is None) == (thread_id is None):
-        raise HTTPException(422, "请指定学期或未关联学期的对话。")
-    return structured_snapshot(db, user.id, semester_id=semester_id, thread_id=thread_id)
+    return structured_snapshot(db, user.id, semester_id=semester_id)
+
+
+def _scoped_document(db, user, document_id, semester_id):
+    document = owned(db, TimetableDocument, user.id, document_id)
+    if document.is_archived or document.semester_id != semester_id or document.thread_id is not None:
+        raise HTTPException(404, "未找到当前学期的课表。")
+    owned(db, Semester, user.id, semester_id)
+    return document
+
+
+def _scoped_structured_course(db, user, course_id, semester_id):
+    course = owned(db, TimetableCourse, user.id, course_id)
+    _scoped_document(db, user, course.document_id, semester_id)
+    return course
+
+
+def _scoped_record(db, user, model, record_id, semester_id):
+    item = owned(db, model, user.id, record_id)
+    if item.semester_id != semester_id:
+        raise HTTPException(404, "未找到当前学期的记录。")
+    return item
 
 
 @router.post("/api/timetables/structured/courses", status_code=201)
 def create_structured(body: StructuredCourseCreate, request: Request, user: CurrentUser, db: Db,
                       key: IdempotencyKey):
     from timetable_structured import create_structured_course
+    def action():
+        document = _scoped_document(db, user, body.document_id, body.semester_id)
+        return create_structured_course(db, user, document, body.data)
     return mutate(db, user, request, key, body, 201,
-                  lambda: create_structured_course(db, user, body.document_id, body.data))
+                  action)
 
 
 @router.patch("/api/timetables/structured/courses/{course_id}")
 def patch_structured(course_id: uuid.UUID, body: StructuredCoursePatch, request: Request,
                      user: CurrentUser, db: Db, key: IdempotencyKey):
     from timetable_structured import patch_structured_course
-    return mutate(db, user, request, key, body, 200,
-                  lambda: patch_structured_course(db, user, course_id, body.model_dump(mode="json", exclude_unset=True)))
-
-
-@router.post("/api/timetables/structured/documents/{document_id}/bind")
-def bind_structured(document_id: uuid.UUID, body: StructuredBind, request: Request,
-                    user: CurrentUser, db: Db, key: IdempotencyKey):
-    from models import TimetableDocument
-    from timetable_structured import associate_document, structured_snapshot
     def action():
-        document = owned(db, TimetableDocument, user.id, document_id)
-        check_version(document, body.version)
-        owned(db, Semester, user.id, body.semester_id)
-        associate_document(db, user, document, body.semester_id)
-        return structured_snapshot(db, user.id, semester_id=body.semester_id)
+        _scoped_structured_course(db, user, course_id, body.semester_id)
+        patch = body.model_dump(mode="json", exclude_unset=True, exclude={"semester_id"})
+        return patch_structured_course(db, user, course_id, patch)
     return mutate(db, user, request, key, body, 200, action)
+
+
+@router.delete("/api/timetables/structured/courses/{course_id}", status_code=204)
+def delete_structured(course_id: uuid.UUID, request: Request, user: CurrentUser, db: Db,
+                      key: IdempotencyKey, version: Annotated[int, Query(ge=1)], semester_id: uuid.UUID):
+    from timetable_structured import delete_structured_course
+    def action():
+        _scoped_structured_course(db, user, course_id, semester_id)
+        delete_structured_course(db, user, course_id, version, now=actions.utcnow())
+    return mutate(db, user, request, key, {"version": version}, 204, action)
 
 
 def _capture_periods(db, user, semester):
@@ -109,12 +131,40 @@ def list_semesters(user: CurrentUser, db: Db):
     ).order_by(Semester.start_date.desc(), Semester.id)).all()]
 
 
+def state_result(db, user):
+    from semester_state import get_active_semester
+    active = get_active_semester(db, user)
+    return {"version": user.semester_state_version,
+            "active_semester_id": str(active.id) if active is not None else None,
+            "semesters": list_semesters(user, db)}
+
+
+@router.get("/api/timetables/state")
+def get_state(user: CurrentUser, db: Db):
+    return state_result(db, user)
+
+
+@router.patch("/api/timetables/state")
+def patch_state(body: TimetableStatePatch, request: Request, user: CurrentUser, db: Db, key: IdempotencyKey):
+    from semester_state import set_active_semester
+    from timetable_structured import get_document
+    def action():
+        if body.version != user.semester_state_version:
+            raise HTTPException(409, "当前学期状态版本已变化，请重新加载后再选择。")
+        semester = set_active_semester(db, user, body.semester_id)
+        get_document(db, user.id, semester.id, create=True)
+        return state_result(db, user)
+    return mutate(db, user, request, key, body, 200, action)
+
+
 @router.post("/api/timetables/semesters", response_model=SemesterResponse, status_code=201)
 def create_semester(body: SemesterCreate, request: Request, user: CurrentUser, db: Db, key: IdempotencyKey):
     from timetable_actions import create_semester_record
+    from semester_state import set_active_semester
     def action():
         item = create_semester_record(db, user, body)
         _capture_periods(db, user, item)
+        set_active_semester(db, user, item.id)
         return semester_result(item)
     return mutate(db, user, request, key, body, 201, action)
 
@@ -152,31 +202,12 @@ def list_courses(semester_id: uuid.UUID, user: CurrentUser, db: Db):
     ).order_by(CourseTemplate.weekday, CourseTemplate.start_time, CourseTemplate.id)).all()]
 
 
-@router.post("/api/timetables/courses", response_model=CourseResponse, status_code=201)
-def create_course(body: CourseCreate, request: Request, user: CurrentUser, db: Db, key: IdempotencyKey):
-    from timetable_actions import create_course_record
-    def action():
-        course = create_course_record(db, user, body)
-        assert_no_overlap(db, user.id)
-        return course_result(course)
-    return mutate(db, user, request, key, body, 201, action)
-
-
-@router.patch("/api/timetables/courses/{course_id}", response_model=CourseResponse)
-def patch_course(course_id: uuid.UUID, body: CoursePatch, request: Request, user: CurrentUser, db: Db, key: IdempotencyKey):
-    from timetable_actions import update_course_record
-    def action():
-        course = update_course_record(db, user, course_id, body, now=actions.utcnow())
-        assert_no_overlap(db, user.id)
-        return course_result(course)
-    return mutate(db, user, request, key, body, 200, action)
-
-
 @router.delete("/api/timetables/courses/{course_id}", status_code=204)
 def delete_course(course_id: uuid.UUID, request: Request, user: CurrentUser, db: Db, key: IdempotencyKey,
-                  version: Annotated[int, Query(ge=1)]):
+                  version: Annotated[int, Query(ge=1)], semester_id: uuid.UUID):
     from timetable_actions import delete_course_record
     def action():
+        _scoped_record(db, user, CourseTemplate, course_id, semester_id)
         delete_course_record(db, user, course_id, version, now=actions.utcnow())
         return None
     return mutate(db, user, request, key, {"version": version}, 204, action)
@@ -202,9 +233,11 @@ def list_lessons(semester_id: uuid.UUID, date_from: date, date_to: date, user: C
 
 
 @router.patch("/api/lessons/{lesson_id}", response_model=LessonResponse)
-def patch_lesson(lesson_id: uuid.UUID, body: LessonPatch, request: Request, user: CurrentUser, db: Db, key: IdempotencyKey):
+def patch_lesson(lesson_id: uuid.UUID, body: LessonPatch, request: Request, user: CurrentUser, db: Db,
+                 key: IdempotencyKey, semester_id: uuid.UUID):
     from timetable_actions import update_lesson_record
     def action():
+        _scoped_record(db, user, Lesson, lesson_id, semester_id)
         item = update_lesson_record(db, user, lesson_id, body, now=actions.utcnow())
         assert_no_overlap(db, user.id)
         return lesson_result(item)
@@ -213,9 +246,10 @@ def patch_lesson(lesson_id: uuid.UUID, body: LessonPatch, request: Request, user
 
 @router.delete("/api/lessons/{lesson_id}", status_code=204)
 def delete_lesson(lesson_id: uuid.UUID, request: Request, user: CurrentUser, db: Db, key: IdempotencyKey,
-                  version: Annotated[int, Query(ge=1)]):
+                  version: Annotated[int, Query(ge=1)], semester_id: uuid.UUID):
     from timetable_actions import delete_lesson_record
     def action():
+        _scoped_record(db, user, Lesson, lesson_id, semester_id)
         delete_lesson_record(db, user, lesson_id, version, now=actions.utcnow())
         return None
     return mutate(db, user, request, key, {"version": version}, 204, action)

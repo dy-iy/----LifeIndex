@@ -1,0 +1,32 @@
+<view class="group-join-page">
+  <group-navigation title="加入群聊" bind:back="goBack" />
+  <view class="join-content">
+    <view wx:if="{{!hasInvite}}" class="join-status">{{error}}</view>
+    <view wx:elif="{{!loggedIn}}" class="join-card login-card">
+      <view class="join-title">好友邀请你加入群聊</view>
+      <view class="join-copy">登录后查看群资料，确认加入。</view>
+      <button class="join-button" bindtap="login" loading="{{busy === 'login'}}" disabled="{{!!busy}}">微信登录</button>
+      <view wx:if="{{error}}" class="join-error" role="alert">{{error}}</view>
+    </view>
+    <view wx:elif="{{loading}}" class="join-status">正在查看邀请…</view>
+    <view wx:elif="{{preview}}" class="join-card">
+      <image wx:if="{{avatarSrc}}" class="join-avatar" src="{{avatarSrc}}" mode="aspectFill" data-src="{{avatarSrc}}" binderror="avatarLoadError" />
+      <view wx:else class="join-avatar avatar-fallback">{{initial}}</view>
+      <view class="join-title">{{preview.group.name}}</view>
+      <view class="join-copy">{{preview.group.member_count}} / {{preview.group.max_members}} 位成员</view>
+      <view wx:if="{{preview.inviter_name}}" class="join-copy">{{preview.inviter_name}} 邀请你加入</view>
+      <view class="join-copy join-note">邀请有效期为 1 小时</view>
+      <button class="join-button" bindtap="join" loading="{{busy === 'join'}}" disabled="{{!!busy || (!preview.already_member && !preview.can_join)}}">{{preview.already_member ? '打开群聊' : (preview.can_join ? '加入群聊' : '暂时无法加入')}}</button>
+      <view wx:if="{{!preview.already_member && !preview.can_join}}" class="join-copy join-note">{{preview.reason || '群成员已满，或你已加入 20 个群。'}}</view>
+      <view wx:if="{{error}}" class="join-error" role="alert">{{error}}</view>
+    </view>
+    <view wx:elif="{{expired}}" class="join-status">
+      <view class="join-title">邀请已过期</view>
+      <view class="join-copy">请联系好友重新邀请。</view>
+    </view>
+    <view wx:else class="join-status">
+      <view class="join-error" role="alert">{{error}}</view>
+      <button class="retry-button" bindtap="reload">重新查看邀请</button>
+    </view>
+  </view>
+</view>

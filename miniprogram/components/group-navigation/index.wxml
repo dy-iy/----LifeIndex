@@ -1,0 +1,21 @@
+<view class="group-navigation" style="padding-top: {{statusBarHeight}}px;">
+  <view class="navigation-bar" style="height: {{navigationHeight}}px;">
+    <view class="navigation-back" style="top: {{navigationControlTop}}px;" bindtap="goBack" hover-class="navigation-pressed" role="button" aria-label="返回">
+      <view class="back-chevron" aria-hidden="true"></view>
+    </view>
+    <view wx:if="{{group}}" class="navigation-group" style="top: {{navigationControlTop}}px; right: {{navigationRight}}px;" bindtap="openGroup" hover-class="navigation-pressed" role="button" aria-label="{{group.name}}，{{group.member_count}} 位成员，打开群聊设置">
+      <image wx:if="{{group.avatarSrc}}" class="navigation-avatar" src="{{group.avatarSrc}}" mode="aspectFill" data-src="{{group.avatarSrc}}" binderror="avatarLoadError" />
+      <view wx:else class="navigation-avatar navigation-avatar-fallback" aria-hidden="true">{{group.initial}}</view>
+      <view class="navigation-name">{{group.name}}</view>
+      <text class="navigation-count">({{group.member_count}})</text>
+    </view>
+    <view wx:else class="navigation-title" style="top: {{navigationControlTop}}px; left: {{navigationTitleInset}}px; right: {{navigationTitleInset}}px;">{{title}}</view>
+  </view>
+  <view wx:if="{{showRoomTabs}}" class="navigation-tabs navigation-tabs-height">
+    <button wx:for="{{roomTabs}}" wx:key="id" class="navigation-tab {{activeRoomTab === item.id ? 'navigation-tab-active' : ''}}"
+      data-tab="{{item.id}}" bindtap="selectRoomTab" hover-class="none"
+      aria-label="{{item.label}}{{activeRoomTab === item.id ? '，当前选中' : ''}}">{{item.label}}</button>
+  </view>
+</view>
+<view class="navigation-spacer" style="height: {{statusBarHeight + navigationHeight}}px;" aria-hidden="true"></view>
+<view wx:if="{{showRoomTabs}}" class="navigation-spacer navigation-tabs-height" aria-hidden="true"></view>

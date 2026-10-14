@@ -39,7 +39,8 @@ page { background: #fbf7ee; color: #183844; }
 .intraday-line { position: absolute; top: 0; left: 0; height: 390rpx; pointer-events: none; }
 .plot-point-hit { position: absolute; z-index: 2; display: flex; align-items: center; justify-content: center; width: 44rpx; height: 44rpx; pointer-events: none; }
 .plot-point { width: 6rpx; height: 6rpx; border: 1rpx solid #888; border-radius: 50%; background: #888; }
-.plot-label { position: absolute; top: 392rpx; width: 80rpx; color: #7d8884; font-size: 22rpx; line-height: 44rpx; text-align: center; white-space: nowrap; }
+.chart-time-axis { position: absolute; top: 390rpx; right: 0; bottom: 0; left: 0; }
+.plot-label { position: absolute; top: 2rpx; width: 80rpx; color: #7d8884; font-size: 22rpx; line-height: 44rpx; text-align: center; white-space: nowrap; }
 .chart-axis { position: absolute; z-index: 3; top: 0; left: 0; width: 104rpx; height: 390rpx; background: #fff; pointer-events: none; }
 .chart-axis-label { position: absolute; left: 8rpx; color: #7d8884; font-size: 21rpx; line-height: 32rpx; font-variant-numeric: tabular-nums; transform: translateY(-50%); }
 .chart-axis-label.rise { color: #e53935; }

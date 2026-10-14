@@ -1,0 +1,36 @@
+@import "../../group-page-theme.wxss";
+
+.chat-page {
+  min-height: 100vh;
+  padding: 0 28rpx 156rpx;
+  padding-bottom: calc(156rpx + constant(safe-area-inset-bottom));
+  padding-bottom: calc(156rpx + env(safe-area-inset-bottom));
+}
+.group-row { display: flex; align-items: center; min-height: 152rpx; padding: 26rpx 0; border-bottom: 1rpx solid #e4e1d9; }
+.group-row-pressed { background: #eeece4; }
+.group-avatar { display: block; flex-shrink: 0; width: 92rpx; height: 92rpx; overflow: hidden; border-radius: 50%; background: #e5e9df; }
+.group-avatar-fallback { display: flex; align-items: center; justify-content: center; color: #557060; font-size: 38rpx; font-weight: 500; }
+.group-info { flex: 1; min-width: 0; margin-left: 24rpx; }
+.group-name { overflow: hidden; color: #253d35; font-size: 32rpx; line-height: 1.45; text-overflow: ellipsis; white-space: nowrap; }
+.group-quote { display: flex; flex-direction: column; align-items: flex-end; flex-shrink: 0; margin-left: 24rpx; color: #737b80; font-family: Georgia, "Times New Roman", serif; text-align: right; font-variant-numeric: tabular-nums; }
+.group-index { display: block; font-size: 36rpx; font-weight: 700; line-height: 1.2; white-space: nowrap; }
+.group-change { display: block; margin-top: 12rpx; font-size: 25rpx; font-weight: 600; line-height: 1.3; white-space: nowrap; }
+.group-quote--rise { color: #e53935; }
+.group-quote--fall { color: #15945e; }
+.list-status { padding: 52rpx 0 30rpx; color: #8a9187; font-size: 26rpx; line-height: 1.7; text-align: center; }
+.list-error { padding: 24rpx 0; color: #ad5948; font-size: 24rpx; line-height: 1.6; }
+.retry-button { display: inline; margin: 0 0 0 18rpx; padding: 8rpx 12rpx; color: #496951; font-size: 24rpx; line-height: 1.6; background: transparent; }
+.create-group-button { display: flex; align-items: center; justify-content: center; width: 100%; min-height: 112rpx; margin: 0; padding: 24rpx 0; border-bottom: 1rpx solid #e4e1d9; border-radius: 0; color: #496951; background: transparent; font-size: 29rpx; line-height: 1.5; font-weight: 400; }
+.create-plus { margin-right: 10rpx; font-size: 37rpx; line-height: 1; font-weight: 300; }
+.create-group-button[disabled] { color: #8a9187; background: transparent; }
+
+.modal-mask { position: fixed; z-index: 1000; top: 0; right: 0; bottom: 0; left: 0; display: flex; align-items: center; justify-content: center; padding: 36rpx; background: rgba(20, 31, 26, .32); }
+.create-modal { width: 100%; max-width: 620rpx; padding: 36rpx 32rpx 28rpx; border-radius: 20rpx; background: #fffdf7; }
+.modal-title { margin-bottom: 30rpx; color: #253d35; font-size: 34rpx; font-weight: 500; text-align: center; }
+.name-label { display: block; margin-bottom: 14rpx; color: #69796b; font-size: 25rpx; }
+.name-input { width: 100%; height: 88rpx; padding: 0 22rpx; border: 1rpx solid #dcded4; border-radius: 8rpx; color: #253d35; background: #fbf9f2; font-size: 29rpx; }
+.create-error { margin-top: 16rpx; color: #ad5948; font-size: 24rpx; line-height: 1.6; }
+.modal-actions { display: flex; gap: 20rpx; margin-top: 32rpx; }
+.modal-actions button { flex: 1; margin: 0; padding: 21rpx 16rpx; border-radius: 8rpx; font-size: 28rpx; line-height: 1.5; }
+.cancel-button { color: #5d6b61; background: #eeeee7; }
+.confirm-button { color: #fffdf7; background: #496951; }

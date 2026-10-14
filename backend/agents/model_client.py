@@ -1,7 +1,8 @@
 """Bounded asynchronous JSON transport shared by independent model roles."""
 import json
 import httpx
-from schedule_model import MODEL_URL, MODEL_NAME, ModelError, _unique_object, _usage
+from evaluation_model import MODEL_URL, MODEL_NAME
+from schedule_model import ModelError, _unique_object, _usage
 
 
 async def invoke_json(messages, *, api_key, max_tokens, client=None):

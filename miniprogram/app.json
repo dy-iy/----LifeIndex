@@ -5,7 +5,11 @@
     "pages/review/review",
     "pages/settings/settings",
     "pages/timer/timer",
-    "pages/market/market"
+    "pages/market/market",
+    "pages/chat/chat",
+    "pages/chat-room/chat-room",
+    "pages/group-settings/group-settings",
+    "pages/group-join/group-join"
   ],
   "window": {
     "backgroundColor": "#f5f1e7",

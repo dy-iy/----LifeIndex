@@ -41,7 +41,7 @@ function request({ path, method = "GET", data, header = {}, timeout = 15000, aut
 function checkHealth() { return request({ path: "/health", auth: false }); }
 function avatarUrl(path) {
   // 头像只从自己的服务读取，避免把任意资料字段作为外部图片地址。
-  return typeof path === "string" && /^\/api\/avatars\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(path)
+  return typeof path === "string" && /^\/api\/(?:avatars|group-avatars)\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(path)
     ? `${BASE_URL}${path}` : "";
 }
 module.exports = { request, checkHealth, avatarUrl };

@@ -65,7 +65,7 @@ function presentResult(raw, sourceText = "") {
     });
     ["schedule_removals", "remove_schedule_ids"].forEach((key) => values(change[key]).forEach((id, index) => lines.push(`移除安排：${targetLabel({ schedule_id: id }, index)}`)));
     const semester = describeFields(change.semester);
-    if (semester) lines.push(`关联学期：${semester.replace("课程名称：", "学期名称：")}`);
+    if (semester) lines.push(`当前学期设置：${semester.replace("课程名称：", "学期名称：")}`);
     return lines;
   }
   function periodTableLabel() { return "学期作息时间"; }
@@ -123,7 +123,7 @@ function presentResult(raw, sourceText = "") {
       describeChange(value).forEach((detail) => fields.push(`${label}：${detail}`));
     });
     const semester = describeFields(understanding.semester);
-    if (semester) fields.push(`关联学期：${semester.replace("课程名称：", "学期名称：")}`);
+    if (semester) fields.push(`当前学期设置：${semester.replace("课程名称：", "学期名称：")}`);
     return { key: `unapplied-${index}`, title: tableOnly ? "作息时间修改未应用" : object(knownCourse && knownCourse.data).name || text(change.course_name || change.name) || (preserved.length || periodChanges.length ? "识别结果未应用" : `修改 ${index + 1}`),
       reason: resultText(text(item.reason) || text(change.reason) || text(rawChange) || "无法确定修改目标，已保留这次修改内容。"),
       sourceText: text(item.source_text) || text(change.source_text) || text(sourceText), targets, fields: Array.from(new Set(fields)) };
