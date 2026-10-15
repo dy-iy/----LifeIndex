@@ -136,12 +136,12 @@ function chart(values, kind, previousClose, options = {}) {
     return { slot: i, y: PLOT_TOP + i * PLOT_HEIGHT / 4, label: number(price), direction: intraday ? changeStats(price, previousClose).changeDirection : "flat" };
   });
   if (intraday) {
-    // Preserve actual extrema and all messages while bounding the bridge payload.
+    // Preserve actual extrema, messages and reward jumps while bounding the bridge payload.
     const selected = new Set(), buckets = new Map();
     data.forEach((item, i) => {
       const key = Math.floor(atX(item) / 2), bucket = buckets.get(key) || [];
       bucket.push(i); buckets.set(key, bucket);
-      if (item.event_id || item.kind === "message_before") selected.add(i);
+      if (item.event_id || ["message_before", "reward_before", "reward"].includes(item.kind)) selected.add(i);
     });
     buckets.forEach((indices) => {
       selected.add(indices[0]); selected.add(indices[indices.length - 1]);

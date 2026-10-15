@@ -326,7 +326,7 @@ def transition(db, user, session_id, body, operation):
         if not current_lesson_matches(db, item):
             raise HTTPException(409, "该课程已删除或修改，原计时仅保留为历史记录，不能继续计时。")
         if not resume_available(item, review, now):
-            raise HTTPException(409, "该记录已提交复盘、属于人工补记或已超出计时时段，不能继续计时。")
+            raise HTTPException(409, "该记录已提交、属于人工补记或已超出计时时段，不能继续计时。")
         close_expired_sessions(db, user.id, now)
         if db.scalar(select(StudySession.id).where(
             StudySession.user_id == user.id, StudySession.id != item.id,

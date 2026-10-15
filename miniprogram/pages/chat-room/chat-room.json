@@ -12,6 +12,7 @@
     "group-chat": "/components/group-chat/index",
     "index-card": "/components/index-card/index",
     "group-member-list": "/components/group-member-list/index",
-    "shared-review-modal": "/components/shared-review-modal/index"
+    "shared-review-modal": "/components/shared-review-modal/index",
+    "campfire-checkin": "/components/campfire-checkin/index"
   }
 }

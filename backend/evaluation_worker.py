@@ -87,7 +87,7 @@ class Worker:
             if job is None:
                 return None
             if not current_input(db, job):
-                job.status, job.error = "superseded", "复盘或课后记录已更新，本次评估已停止。"
+                job.status, job.error = "superseded", "记录或课后记录已更新，本次评估已停止。"
                 job.version += 1
                 job.lease_owner = job.lease_until = None
                 job.updated_at = now
@@ -99,7 +99,7 @@ class Worker:
             job.version += 1
             job.updated_at = now
             if job.attempts > 3:
-                job.status, job.error = "failed", "任务多次中断，已保存复盘与评估，可稍后重试。"
+                job.status, job.error = "failed", "任务多次中断，已保存记录与评估，可稍后重试。"
                 if job.prompt_version in {review_v5.QUALITY_VERSION, review_v6.QUALITY_VERSION, review_v7.QUALITY_VERSION}:
                     job.error = "评估失败，请重试。" + job.error
                 job.lease_owner = job.lease_until = None
@@ -130,7 +130,7 @@ class Worker:
         if job.status != "running" or job.lease_owner != owner:
             raise ModelError("评估状态已变化，本次处理已停止。")
         if not current_input(db, job):
-            raise ModelError("复盘或课后记录已更新，本次评估已停止。")
+            raise ModelError("记录或课后记录已更新，本次评估已停止。")
         return job
 
     def settle_call(self, call_id, tokens, response=None):
@@ -166,9 +166,9 @@ class Worker:
                 db.add(usage)
             estimated = token_upper_bound(messages) * self.settings.evaluation_input_rate + max_output_tokens * self.settings.evaluation_output_rate
             if usage.request_count >= self.settings.ai_daily_request_limit:
-                raise ModelError("今天的评估调用次数已用完，复盘已保存，可明天重试。", status_code=429)
+                raise ModelError("今天的评估调用次数已用完，记录已保存，可明天重试。", status_code=429)
             if usage.reserved_micro + usage.charged_micro + estimated > self.settings.evaluation_daily_budget_micro:
-                raise ModelError("今天的评估预算不足，复盘已保存，可明天重试。", status_code=429)
+                raise ModelError("今天的评估预算不足，记录已保存，可明天重试。", status_code=429)
             usage.reserved_micro += estimated
             usage.request_count += 1
             call = EvaluationCall(user_id=job.user_id, job_id=job.id, input_hash=request_hash, stage=stage, usage_date=now.date(),
@@ -228,7 +228,7 @@ class Worker:
             except Exception as error:
                 log_failure(logger, "Legacy evaluation provider failed job_id=%s", error, job_id)
                 self.settle_call(call_id, {})
-                raise ModelError("评估服务暂时不可用，已保留复盘，请重试。") from None
+                raise ModelError("评估服务暂时不可用，已保留记录，请重试。") from None
             self.settle_call(call_id, answer.get("usage", {}), assessment)
         with self.factory() as db:
             job = self.locked_job(db, job_id, owner)
@@ -395,7 +395,7 @@ class Worker:
             valid = current_input(db, job)
             retry = valid and job.prompt_version in {review_v5.QUALITY_VERSION, review_v6.QUALITY_VERSION, review_v7.QUALITY_VERSION} and job.attempts < 3
             job.status = "queued" if retry else "failed" if valid else "superseded"
-            job.error = message[:1000] if valid else "复盘或课后记录已更新，本次评估已停止。"
+            job.error = message[:1000] if valid else "记录或课后记录已更新，本次评估已停止。"
             if valid and job.prompt_version in {review_v5.QUALITY_VERSION, review_v6.QUALITY_VERSION, review_v7.QUALITY_VERSION} and not retry:
                 job.error = "评估失败，请重试。" + job.error[:980]
             job.version += 1
@@ -442,7 +442,7 @@ class Worker:
                 self.fail(job_id, owner, "结算暂未完成，评估已保存，请重试。")
             except Exception as error:
                 log_failure(logger, "Unexpected evaluation failure job_id=%s", error, job_id)
-                self.fail(job_id, owner, "评估暂未完成，复盘与已生成结果已保存，请重试。")
+                self.fail(job_id, owner, "评估暂未完成，记录与已生成结果已保存，请重试。")
         return True
 
 

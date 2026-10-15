@@ -117,7 +117,7 @@ Page({
     const canFinishForReview = Boolean(canContinue && courseEnded);
     const cutoffReached = Boolean(record && phase !== "finished" && now >= timer.autoFinishAt(record));
     const dialEnabled = Boolean(course) && (Boolean(this._reviewTarget) || canContinue || canReview || pendingFinish || phase === "running" || phase === "paused" || (canOperate && phase === "idle" && this.data.synced));
-    const dialActionLabel = !course ? "等待课程计时时段" : pendingFinish ? "点击同步停止记录" : this._reviewTarget ? "点击打开本次复盘" : canContinue ? "点击继续计时" : canReview ? "点击打开本次复盘"
+    const dialActionLabel = !course ? "等待课程计时时段" : pendingFinish ? "点击同步停止记录" : this._reviewTarget ? "点击打开本次记录" : canContinue ? "点击继续计时" : canReview ? "点击打开本次记录"
       : phase === "running" || phase === "paused" ? (canOperate ? "点击停止计时" : "点击结束计时") : !canOperate ? "已超出计时时段"
       : phase === "idle" ? (this.data.synced ? "点击开始计时" : "等待同步计时") : "点击结束计时";
     const dialStateLabel = canContinue ? "继续计时" : pendingFinish || phase === "running" || phase === "paused" ? (canOperate ? "停止计时" : "结束计时")
@@ -269,7 +269,7 @@ Page({
       this._reviewTarget = null;
       this.sync();
       return true;
-    } catch (error) { this.setData({ error: error.message || "计时已保存，点击圆盘重试打开复盘。" }); return false; }
+    } catch (error) { this.setData({ error: error.message || "计时已保存，点击圆盘重试打开记录。" }); return false; }
   },
   requestCloseReview() {
     const panel = this.selectComponent("#timer-review");

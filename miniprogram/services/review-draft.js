@@ -11,22 +11,22 @@ function normalize(answers) {
 }
 function read(owner, recordId) {
   const storageKey = key(owner, recordId);
-  if (!storageKey) throw new Error("登录状态已变化，请重新进入复盘。");
+  if (!storageKey) throw new Error("登录状态已变化，请重新进入记录。");
   return wx.getStorageSync(storageKey) || null;
 }
 function write(owner, recordId, value) {
   const storageKey = key(owner, recordId);
-  if (!storageKey) throw new Error("登录状态已变化，请重新进入复盘。");
+  if (!storageKey) throw new Error("登录状态已变化，请重新进入记录。");
   wx.setStorageSync(storageKey, value);
 }
 function readInput(owner, recordId) {
   const storageKey = key(owner, recordId);
-  if (!storageKey) throw new Error("登录状态已变化，请重新进入复盘。");
+  if (!storageKey) throw new Error("登录状态已变化，请重新进入记录。");
   return wx.getStorageSync(`${storageKey}:input`) || null;
 }
 function writeInput(owner, recordId, value) {
   const storageKey = key(owner, recordId);
-  if (!storageKey) throw new Error("登录状态已变化，请重新进入复盘。");
+  if (!storageKey) throw new Error("登录状态已变化，请重新进入记录。");
   wx.setStorageSync(`${storageKey}:input`, value);
 }
 module.exports = { read, write, normalize, readInput, writeInput };

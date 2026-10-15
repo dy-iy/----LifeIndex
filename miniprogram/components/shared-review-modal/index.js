@@ -63,13 +63,13 @@ Component({
         const result = await messages.review(groupId, messageId);
         if (!current()) return;
         const view = sharedResultView(result.review, result.evaluation);
-        if (!view) throw new Error("本次复盘结果暂不可用，请重试。");
+        if (!view) throw new Error("本次记录结果暂不可用，请重试。");
         const name = result.sender.name || "群成员";
         this.setData({ view, member: { name, avatarSrc: avatarUrl(result.sender.avatar_url),
           initial: Array.from(name)[0] || "群" } });
       } catch (error) {
         if (!current()) return;
-        this.setData({ error: error.message || "复盘结果读取失败，请重试。" });
+        this.setData({ error: error.message || "记录结果读取失败，请重试。" });
         if (error.statusCode === 401) this.triggerEvent("accesslost", { statusCode: error.statusCode, message: error.message });
       } finally {
         if (current()) this.setData({ loading: false });

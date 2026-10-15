@@ -38,8 +38,8 @@ function toLessonView(remote) {
   const record = remote.session;
   const evaluation = remote.evaluation_summary && remote.evaluation_summary.status;
   const statusText = remote.voided ? (evaluation === "succeeded" ? "已处理" : "已更正参与情况")
-    : remote.status === "draft" ? (remote.version ? "草稿" : "待复盘")
-      : EVALUATION_LABELS[evaluation] || "已复盘";
+    : remote.status === "draft" ? (remote.version ? "草稿" : "待记录")
+      : EVALUATION_LABELS[evaluation] || "已记录";
   const summary = typeof remote.summary === "string" ? remote.summary
     : Array.isArray(remote.answers) ? remote.answers.join(" ") : "";
   return Object.assign({
@@ -48,7 +48,7 @@ function toLessonView(remote) {
     durationText: formatDuration(record.effective_seconds),
     durationLabel: record.source === "manual" ? "补记时长" : "有效计时",
     statusText, needsAttention: ["invalid_answer", "failed", "needs_input", "hold"].includes(evaluation),
-    actionText: evaluation === "invalid_answer" ? "修改复盘" : "复盘这一课",
+    actionText: evaluation === "invalid_answer" ? "修改记录" : "记录这一课",
     reviewSummary: summary.replace(/\s+/g, " ").trim().slice(0, 80),
     featured: false,
   }, coursePresentation(record));

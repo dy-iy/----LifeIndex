@@ -1,6 +1,7 @@
 """Read-only group quotes and exact charts from membership and price ledgers.
 
-The group is the arithmetic mean of the members who belonged at each instant.
+The group is the arithmetic mean of the members who belonged at each instant,
+plus the permanently earned full-check-in rewards at that instant.
 Personal extrema cannot be averaged: simultaneous observations are applied as
 one timestamp before taking any group high or low. No derived prices are stored.
 """
@@ -24,13 +25,13 @@ from class_index import money as personal_money, next_period, period_start
 from index_models import ClassIndexAccount, ClassMarketState
 from market_math import STEP
 from rules import INITIAL_PRICE
-from study_group_models import StudyGroup, StudyGroupEvent
+from study_group_models import StudyGroup, StudyGroupCheckinReward, StudyGroupEvent
 from study_groups import group_not_found, group_query
 
 router = APIRouter()
 GROUP_TIMEZONE = "Asia/Shanghai"
 ZONE = ZoneInfo(GROUP_TIMEZONE)
-GROUP_RULE_VERSION = "group-member-mean-creator-open-v2"
+GROUP_RULE_VERSION = "group-member-mean-full-checkin-three-percent-v3"
 
 
 class ClosedDayCache:
@@ -214,29 +215,43 @@ SWEEP_SQL = """
         SELECT *, price - COALESCE(lag(price) OVER (
             PARTITION BY ordinal ORDER BY at, phase, priority, sequence), 0) AS delta
         FROM samples
+    ), reward_events AS MATERIALIZED (
+        SELECT awarded_at, reward_points FROM study_group_checkin_rewards
+        WHERE group_id = :group_id AND awarded_at >= :starts_at AND awarded_at < :ends_at
     ), changes AS (
         SELECT at, delta, CASE WHEN membership THEN 1 ELSE 0 END AS member_delta,
-               membership, event, phase FROM ranked
+               membership, event, phase, 0::numeric AS reward_delta FROM ranked
         UNION ALL
-        SELECT i.ends_at, -sum(r.delta), -1, true, false, 1
+        SELECT i.ends_at, -sum(r.delta), -1, true, false, 1, 0::numeric
         FROM intervals i JOIN ranked r ON r.ordinal = i.ordinal
         WHERE i.ends_at < :ends_at
         GROUP BY i.ordinal, i.ends_at
         UNION ALL
         -- The terminal midnight tick closes the old day; a zero-change opening
         -- observation then carries that value into the new group trading day.
-        SELECT DISTINCT at, 0::numeric, 0, false, false, 1 FROM ranked
+        SELECT DISTINCT at, 0::numeric, 0, false, false, 1, 0::numeric FROM ranked
         WHERE phase = 0 AND (at AT TIME ZONE :zone)::time = time '00:00:00'
+        UNION ALL
+        -- Rewards are additive group events, independent of the member count.
+        -- Midnight personal ticks retain phase 0, while a new day's reward is
+        -- phase 1 and therefore cannot enter the previous day's close.
+        SELECT awarded_at, 0::numeric, 0, false, true, 1, reward_points FROM reward_events
+        UNION ALL
+        -- Keep the instant before the award as well. This preserves the jump
+        -- and the pre-award low even on a day without any personal ticks.
+        SELECT awarded_at, 0::numeric, 0, false, false, 0, 0::numeric FROM reward_events
     ), batches AS (
         SELECT at, phase, sum(delta) AS delta, sum(member_delta) AS member_delta,
-               bool_or(membership) AS membership, bool_or(event) AS event
+               bool_or(membership) AS membership, bool_or(event) AS event,
+               sum(reward_delta) AS reward_delta
         FROM changes GROUP BY at, phase
     ), totals AS (
         SELECT at, phase, sum(delta) OVER (ORDER BY at, phase) AS total,
-               sum(member_delta) OVER (ORDER BY at, phase) AS members, membership, event
+               sum(member_delta) OVER (ORDER BY at, phase) AS members, membership, event,
+               :reward_seed + sum(reward_delta) OVER (ORDER BY at, phase) AS rewards
         FROM batches
     ), prices AS (
-        SELECT at, phase, total / members AS price, membership, event,
+        SELECT at, phase, total / members + rewards AS price, membership, event,
                CASE WHEN phase = 0 AND (at AT TIME ZONE :zone)::time = time '00:00:00'
                     THEN at - interval '1 microsecond' ELSE at END AS effective_at
         FROM totals WHERE members > 0
@@ -257,26 +272,34 @@ INTRADAY_SQL = SWEEP_SQL + """
                    PARTITION BY date_trunc('minute', effective_at) ORDER BY price DESC, at, phase) AS high
         FROM selected_prices
     )
-    SELECT at, phase, price, membership, event FROM ranked_prices
-    WHERE first = 1 OR last = 1 OR low = 1 OR high = 1 OR membership OR event
+    SELECT at, phase, price, membership, event,
+           EXISTS (SELECT 1 FROM reward_events r WHERE r.awarded_at = ranked_prices.at) AS reward
+    FROM ranked_prices
+    -- Reward-before observations must survive minute compression even when
+    -- other ticks establish that minute's extrema. Phase 0 also retains the
+    -- existing terminal midnight close, while the reward-after is an event.
+    WHERE first = 1 OR last = 1 OR low = 1 OR high = 1 OR membership OR event OR phase = 0
     ORDER BY at, phase
 """
 
 DAILY_SQL = SWEEP_SQL + """
     , day_prices AS MATERIALIZED (
-        SELECT *, (effective_at AT TIME ZONE :zone)::date AS day
+        SELECT *, (effective_at AT TIME ZONE :zone)::date AS day,
+               row_number() OVER (PARTITION BY (effective_at AT TIME ZONE :zone)::date
+                                  ORDER BY at, phase) AS first,
+               row_number() OVER (PARTITION BY (effective_at AT TIME ZONE :zone)::date
+                                  ORDER BY at DESC, phase DESC) AS last
         FROM selected_prices
     ), bounds AS (
-        SELECT day, min(at) AS first_at, max(at) AS last_at,
-               max(price) AS high, min(price) AS low,
+        SELECT day, max(price) AS high, min(price) AS low,
                count(*) FILTER (WHERE event OR membership) AS event_count,
                count(*) AS sample_count
         FROM day_prices GROUP BY day
     )
     SELECT b.day, opening.price AS open, b.high, b.low, closing.price AS close,
            b.event_count, b.sample_count
-    FROM bounds b JOIN day_prices opening ON opening.day = b.day AND opening.at = b.first_at
-                  JOIN day_prices closing ON closing.day = b.day AND closing.at = b.last_at
+    FROM bounds b JOIN day_prices opening ON opening.day = b.day AND opening.first = 1
+                  JOIN day_prices closing ON closing.day = b.day AND closing.last = 1
     ORDER BY b.day
 """
 
@@ -301,7 +324,26 @@ def seed_records(db, records, *, include_boundary_tick=False):
     return rows
 
 
-def aggregate_rows(db, intervals, floor, end, *, intraday=False):
+def reward_points_before(db, group_id, at):
+    """Strict boundary keeps a midnight award in its own business day."""
+    if group_id is None:
+        return Decimal(0)
+    return db.scalar(select(func.coalesce(func.sum(StudyGroupCheckinReward.reward_points), 0))
+                     .where(StudyGroupCheckinReward.group_id == group_id,
+                            StudyGroupCheckinReward.awarded_at < at))
+
+
+def reward_sources(db, group_id, now):
+    return tuple((row.local_date.isoformat(), row.awarded_at.isoformat(), str(row.reward_points))
+                 for row in db.execute(select(StudyGroupCheckinReward.local_date,
+                                              StudyGroupCheckinReward.awarded_at,
+                                              StudyGroupCheckinReward.reward_points)
+                                       .where(StudyGroupCheckinReward.group_id == group_id,
+                                              StudyGroupCheckinReward.awarded_at <= now)
+                                       .order_by(StudyGroupCheckinReward.local_date)))
+
+
+def aggregate_rows(db, intervals, floor, end, *, intraday=False, group_id=None):
     records = seed_records(db, interval_records(intervals, floor, end))
     if not records:
         return []
@@ -312,11 +354,12 @@ def aggregate_rows(db, intervals, floor, end, *, intraday=False):
                      "ends_at": row["ends_at"].isoformat()} for row in records]
     parameters = {"intervals": json.dumps(serializable), "starts_at": floor, "ends_at": end,
                   "lower_date": floor.date() - timedelta(days=2),
-                  "upper_date": end.date() + timedelta(days=2), "zone": GROUP_TIMEZONE}
+                  "upper_date": end.date() + timedelta(days=2), "zone": GROUP_TIMEZONE,
+                  "group_id": group_id, "reward_seed": reward_points_before(db, group_id, floor)}
     return list(db.execute(text(INTRADAY_SQL if intraday else DAILY_SQL), parameters).mappings())
 
 
-def historical_price(db, intervals, at, *, include_boundary_tick=False):
+def historical_price(db, intervals, at, *, include_boundary_tick=False, group_id=None):
     # At the boundary, use the instant immediately before it, including users
     # who leave exactly at midnight and excluding users who join at midnight.
     active = [interval for interval in intervals if interval.start < at and
@@ -329,17 +372,18 @@ def historical_price(db, intervals, at, *, include_boundary_tick=False):
     seeds = seed_records(db, records, include_boundary_tick=include_boundary_tick)
     with localcontext() as context:
         context.prec = 48
-        return sum((Decimal(row["seed"]) for row in seeds), Decimal(0)) / len(seeds)
+        return (sum((Decimal(row["seed"]) for row in seeds), Decimal(0)) / len(seeds)
+                + reward_points_before(db, group_id, at))
 
 
 def midnight(day):
     return datetime.combine(day, time.min, ZONE).astimezone(timezone.utc)
 
 
-def previous_close(db, intervals, earliest, day, initial_price):
+def previous_close(db, intervals, earliest, day, initial_price, *, group_id=None):
     if day <= earliest.astimezone(ZONE).date():
         return Decimal(money(initial_price))
-    prior = historical_price(db, intervals, midnight(day), include_boundary_tick=True)
+    prior = historical_price(db, intervals, midnight(day), include_boundary_tick=True, group_id=group_id)
     if prior is None:
         prior = initial_price
     return Decimal(money(prior))
@@ -406,11 +450,11 @@ def history_catching_up(db, intervals, now):
     return history_sources(db, intervals, now)[0]
 
 
-def membership_signature(earliest, intervals, source_signature, initial_price):
+def membership_signature(earliest, intervals, source_signature, initial_price, reward_signature=()):
     facts = sorted((str(interval.user_id), interval.start.isoformat(),
                     interval.end.isoformat() if interval.end else "") for interval in intervals)
     return hashlib.sha256(json.dumps([GROUP_RULE_VERSION, str(initial_price),
-                                    earliest.isoformat(), facts, source_signature],
+                                    earliest.isoformat(), facts, source_signature, reward_signature],
                                     separators=(",", ":")).encode()).hexdigest()
 
 
@@ -419,7 +463,7 @@ def cached_daily_rows(db, group_id, intervals, earliest, floor, end, now,
     """Reuse complete past days, recomputing the current day from actual ticks."""
     if catching_up:
         closed_days.invalidate(group_id, snapshot_at)
-        return aggregate_rows(db, intervals, floor, end)
+        return aggregate_rows(db, intervals, floor, end, group_id=group_id)
     today = now.astimezone(ZONE).date()
     current_floor = midnight(today)
     last_closed_end = min(end, current_floor)
@@ -439,10 +483,13 @@ def cached_daily_rows(db, group_id, intervals, earliest, floor, end, now,
             finish = missing.pop(0)
         scan_floor = max(midnight(start), earliest)
         scan_end = midnight(finish + timedelta(days=1))
-        rows = {row["day"]: dict(row) for row in aggregate_rows(db, intervals, scan_floor, scan_end)}
-        carry = historical_price(db, intervals, midnight(start), include_boundary_tick=True)
+        rows = {row["day"]: dict(row) for row in aggregate_rows(db, intervals, scan_floor, scan_end,
+                                                             group_id=group_id)}
+        carry = historical_price(db, intervals, midnight(start), include_boundary_tick=True,
+                                 group_id=group_id)
         if carry is None:
-            carry = historical_price(db, intervals, earliest + timedelta(microseconds=1)) or INITIAL_PRICE
+            carry = historical_price(db, intervals, earliest + timedelta(microseconds=1),
+                                     group_id=group_id) or INITIAL_PRICE
         day = start
         while day <= finish:
             row = rows.get(day) or {"day": day, "open": carry, "high": carry, "low": carry,
@@ -455,7 +502,7 @@ def cached_daily_rows(db, group_id, intervals, earliest, floor, end, now,
         closed_days.publish(group_id, signature, snapshot_at, fresh)
     result = [cached[day] for day in requested]
     if end > current_floor:
-        result.extend(aggregate_rows(db, intervals, max(floor, current_floor), end))
+        result.extend(aggregate_rows(db, intervals, max(floor, current_floor), end, group_id=group_id))
     return result
 
 
@@ -482,18 +529,19 @@ def get_group_index(group_id: uuid.UUID, user: CurrentUser, db: Db,
         raise HTTPException(422, "历史翻页日期无效。")
     if (since and since > today) or (selected_date and selected_date > today):
         raise HTTPException(422, "不能查询未来群指数。")
-    previous = previous_close(db, intervals, earliest, today, group.initial_price)
+    previous = previous_close(db, intervals, earliest, today, group.initial_price, group_id=group.id)
     today_floor = max(midnight(today), earliest)
     live_end = now + timedelta(microseconds=1)
     catching_up, source_signature = history_sources(db, intervals, now)
-    signature = membership_signature(earliest, intervals, source_signature, group.initial_price)
+    signature = membership_signature(earliest, intervals, source_signature, group.initial_price,
+                                     reward_sources(db, group.id, now))
     snapshot_at = db.scalar(select(func.transaction_timestamp()))
     if catching_up:
         closed_days.invalidate(group.id, snapshot_at)
 
     def current_quote(daily=None):
         if daily is None:
-            daily = aggregate_rows(db, intervals, today_floor, live_end)
+            daily = aggregate_rows(db, intervals, today_floor, live_end, group_id=group.id)
         quote = quote_result(group, current_price, now, previous, daily)
         quote.update(history_start=earliest.isoformat(),
                      history_catching_up=catching_up)
@@ -505,15 +553,19 @@ def get_group_index(group_id: uuid.UUID, user: CurrentUser, db: Db,
         day = selected_date or today
         day_floor = max(midnight(day), earliest)
         end = live_end if day == today else midnight(day + timedelta(days=1))
-        points = aggregate_rows(db, intervals, day_floor, end, intraday=True) if day_floor < end else []
+        points = aggregate_rows(db, intervals, day_floor, end, intraday=True,
+                                group_id=group.id) if day_floor < end else []
         # Minute selection retains actual extrema after group aggregation, so
         # today needs one sweep for both the line and quote high/low.
         extrema = [{"high": max(point["price"] for point in points),
                     "low": min(point["price"] for point in points)}] if points else []
         quote = current_quote(extrema if day == today else None)
-        reference = previous if day == today else previous_close(db, intervals, earliest, day, group.initial_price)
+        reference = previous if day == today else previous_close(db, intervals, earliest, day,
+                                                               group.initial_price, group_id=group.id)
         rendered = [{"id": f"g-{int(point['at'].timestamp() * 1000000)}-{point['phase']}", "time": point["at"].astimezone(ZONE).isoformat(),
-                     "price": money(point["price"]), "kind": "membership" if point["membership"] else "tick"}
+                     "price": money(point["price"]),
+                     "kind": ("reward_before" if point["phase"] == 0 else "reward") if point["reward"]
+                             else "membership" if point["membership"] else "tick"}
                     for point in points]
         if day == today:
             # Account heads and chart are from the same repeatable-read snapshot.
@@ -551,7 +603,7 @@ def get_group_index(group_id: uuid.UUID, user: CurrentUser, db: Db,
                             catching_up, signature, snapshot_at)
     by_day = {item["day"]: item for item in days}
     quote = current_quote([by_day[today]] if today in by_day else [] if ceiling_day == today else None)
-    carry = previous_close(db, intervals, earliest, starts[0], group.initial_price)
+    carry = previous_close(db, intervals, earliest, starts[0], group.initial_price, group_id=group.id)
     items = []
     for start in starts:
         finish = min(next_period(start, period) - timedelta(days=1), today)

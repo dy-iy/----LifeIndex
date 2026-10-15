@@ -1,9 +1,9 @@
 """Persistent study group state, invitations, and transactional change history."""
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import BigInteger, CheckConstraint, DateTime, ForeignKey, Identity, Index, Integer, LargeBinary, Numeric, String, UniqueConstraint, func, text
+from sqlalchemy import BigInteger, CheckConstraint, Date, DateTime, ForeignKey, Identity, Index, Integer, LargeBinary, Numeric, String, UniqueConstraint, func, text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -71,6 +71,57 @@ class StudyGroupMember(Base):
     ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     last_removed_version: Mapped[int] = mapped_column(BigInteger, default=0, server_default="0")
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class StudyGroupCheckin(Base):
+    """One durable self check-in per group and Shanghai calendar day."""
+    __tablename__ = "study_group_checkins"
+    __table_args__ = (
+        CheckConstraint("local_date = (checked_at AT TIME ZONE 'Asia/Shanghai')::date",
+                        name="ck_study_group_checkins_local_date"),
+    )
+
+    group_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True),
+        ForeignKey("study_groups.id", ondelete="CASCADE"), primary_key=True)
+    local_date: Mapped[date] = mapped_column(Date, primary_key=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    checked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class StudyGroupCheckinReward(Base):
+    """Immutable full-attendance award, independent of subsequent membership."""
+    __tablename__ = "study_group_checkin_rewards"
+    __table_args__ = (
+        CheckConstraint("local_date = (awarded_at AT TIME ZONE 'Asia/Shanghai')::date",
+                        name="ck_group_checkin_rewards_local_date"),
+        CheckConstraint("previous_close >= 1 AND previous_close <> 'NaN'::numeric",
+                        name="ck_group_checkin_rewards_previous_close"),
+        CheckConstraint("rate = 0.03", name="ck_group_checkin_rewards_rate"),
+        CheckConstraint("reward_points > 0 AND reward_points <> 'NaN'::numeric "
+                        "AND reward_points = round(previous_close * rate, 8)",
+                        name="ck_group_checkin_rewards_points"),
+        CheckConstraint("member_count > 0 AND jsonb_typeof(member_ids) = 'array' "
+                        "AND jsonb_array_length(member_ids) = member_count",
+                        name="ck_group_checkin_rewards_members"),
+        CheckConstraint("char_length(btrim(rule_version)) BETWEEN 1 AND 80 "
+                        "AND rule_version = btrim(rule_version)",
+                        name="ck_group_checkin_rewards_rule"),
+        Index("ix_group_checkin_rewards_time", "group_id", "awarded_at"),
+    )
+
+    group_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True),
+        ForeignKey("study_groups.id", ondelete="CASCADE"), primary_key=True)
+    local_date: Mapped[date] = mapped_column(Date, primary_key=True)
+    awarded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    previous_close: Mapped[Decimal] = mapped_column(Numeric(36, 8))
+    reward_points: Mapped[Decimal] = mapped_column(Numeric(36, 8))
+    rate: Mapped[Decimal] = mapped_column(Numeric(6, 5))
+    # Audit references deliberately have no user FKs: achievement survives exits
+    # and later user cleanup without silently rewriting its frozen denominator.
+    member_ids: Mapped[list] = mapped_column(JSONB)
+    member_count: Mapped[int] = mapped_column(Integer)
+    rule_version: Mapped[str] = mapped_column(String(80))
 
 
 class StudyGroupInvite(Base):

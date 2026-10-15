@@ -575,7 +575,7 @@ Page({
     this._structuredDeletePending = operation;
     try {
       const confirmed = await this.confirmDeletion(snapshot, { title: "删除这门课程？",
-        content: "这门课程的信息、全部上课安排及对应课次都会删除。已有计时和复盘历史保留；正在计时或暂停的课次需先结束计时。",
+        content: "这门课程的信息、全部上课安排及对应课次都会删除。已有计时和记录历史保留；正在计时或暂停的课次需先结束计时。",
         confirmText: "删除课程" }, "formError");
       if (!confirmed || !this.active(snapshot) || this.data.saving || this.data.editor !== "structured"
           || this.data.structuredForm !== form || form.id !== operation.id || form.version !== operation.version) return;
@@ -589,7 +589,7 @@ Page({
           structuredCourses: this.data.structuredCourses.filter((course) => course.id !== operation.id),
           courses: this.data.courses.filter((course) => !templateIds.has(course.id)),
           lessons: this.data.lessons.filter((lesson) => !templateIds.has(lesson.course_id)),
-          message: "课程信息及全部上课安排已删除，计时和复盘历史保留" });
+          message: "课程信息及全部上课安排已删除，计时和记录历史保留" });
         this.updateVisible(); this.rememberDraft();
         timetable.acknowledgeStructuredDelete(operation.id, operation.version, operation.semesterId);
         wx.showToast({ title: "已删除", icon: "success" });
@@ -680,7 +680,7 @@ Page({
     const course = this.data.courses.find((value) => value.id === event.currentTarget.dataset.id);
     if (!course) return;
     const snapshot = this.syncIdentity();
-    const confirmed = await this.confirmDeletion(snapshot, { title: `删除“${course.name}”的这项安排？`, content: "这项安排对应的过去、当前和未来课次都会从课表移除。同一课程的其他安排、已有计时和复盘历史独立保留；正在计时或暂停的课次需先结束计时。", confirmText: "删除安排" });
+    const confirmed = await this.confirmDeletion(snapshot, { title: `删除“${course.name}”的这项安排？`, content: "这项安排对应的过去、当前和未来课次都会从课表移除。同一课程的其他安排、已有计时和记录历史独立保留；正在计时或暂停的课次需先结束计时。", confirmText: "删除安排" });
     if (!confirmed || !this.active(snapshot) || this.data.saving) return;
     this.setData({ saving: true, error: "", message: "" });
     try {
@@ -688,7 +688,7 @@ Page({
       await timetable.deleteCourse(course.id, course.version, semesterId);
       if (!this.active(snapshot)) return;
       this.resetCourseKeyboard(true);
-      this.setData({ message: "这项安排及对应课次已从课表删除，计时和复盘历史独立保留", selectedLesson: null, courseKeyboardHeight: 0 });
+      this.setData({ message: "这项安排及对应课次已从课表删除，计时和记录历史独立保留", selectedLesson: null, courseKeyboardHeight: 0 });
       this.rememberDraft(); timetable.acknowledgeDelete(course.id, course.version, semesterId); await this.reload();
     } catch (error) { if (this.active(snapshot)) this.setData({ error: timetable.errorMessage(error) }); }
     finally { if (this.active(snapshot)) this.setData({ saving: false }); }
@@ -699,7 +699,7 @@ Page({
     if (!lesson) return;
     const snapshot = this.syncIdentity();
     const confirmed = await this.confirmDeletion(snapshot, { title: "删除这一次课程？",
-      content: `${lesson.local_date} ${lesson.start_time} ${lesson.name}。这次课会从课表移除，其他日期不变，已有计时和复盘历史独立保留；正在计时或暂停时需先结束计时。`,
+      content: `${lesson.local_date} ${lesson.start_time} ${lesson.name}。这次课会从课表移除，其他日期不变，已有计时和记录历史独立保留；正在计时或暂停时需先结束计时。`,
       confirmText: "删除本次" });
     if (!confirmed || !this.active(snapshot) || this.data.saving) return;
     this.setData({ saving: true, error: "", message: "" });

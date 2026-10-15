@@ -136,7 +136,7 @@ def validate_assessment(value, *, scoring_version=None):
         schema = AssessmentV4 if scoring_version == "class-quality-v4" else Assessment
         return schema.model_validate(value).model_dump(mode="json")
     except (ValidationError, ValueError, TypeError, RecursionError):
-        raise ModelError("评估结果格式或证据不完整，已保留复盘，请重试。") from None
+        raise ModelError("评估结果格式或证据不完整，已保留记录，请重试。") from None
 
 
 def build_messages(snapshot, clarification=None):
@@ -144,7 +144,7 @@ def build_messages(snapshot, clarification=None):
     system = load_prompt("evaluation_legacy_v1_1.txt") + schema
     payload = json.dumps({"record": snapshot, "clarification": clarification}, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
     if len(payload.encode("utf-8")) > 40000:
-        raise ModelError("复盘资料过长，请缩短回答后重新提交。", status_code=422)
+        raise ModelError("记录资料过长，请缩短回答后重新提交。", status_code=422)
     return [{"role": "system", "content": system}, {"role": "user", "content": payload}]
 
 
@@ -158,17 +158,17 @@ def _invoke(client, messages, api_key):
             if response.status_code == 429:
                 raise ModelError("评估服务暂时繁忙，请稍后重试。", status_code=429)
             if response.status_code != 200:
-                raise ModelError("评估服务暂时不可用，已保留复盘，请稍后重试。")
+                raise ModelError("评估服务暂时不可用，已保留记录，请稍后重试。")
             chunks = bytearray()
             for chunk in response.iter_bytes():
                 chunks.extend(chunk)
                 if len(chunks) > MAX_RESPONSE_BYTES:
-                    raise ModelError("评估返回内容过长，已保留复盘，请重试。")
+                    raise ModelError("评估返回内容过长，已保留记录，请重试。")
         envelope = json.loads(chunks, object_pairs_hook=_unique_object)
         usage = _usage(envelope.get("usage"))
         choice = envelope["choices"][0]
         if choice.get("finish_reason") != "stop":
-            raise ModelError("评估未完整生成，已保留复盘，请重试。", usage=usage)
+            raise ModelError("评估未完整生成，已保留记录，请重试。", usage=usage)
         value = json.loads(choice["message"]["content"], object_pairs_hook=_unique_object)
         try:
             assessment = validate_assessment(value)
@@ -176,11 +176,11 @@ def _invoke(client, messages, api_key):
             raise ModelError(error.message, usage=usage) from None
         return {"assessment": assessment, "usage": usage}
     except httpx.TimeoutException:
-        raise ModelError("评估服务处理超时，已保留复盘，请重试。", status_code=504) from None
+        raise ModelError("评估服务处理超时，已保留记录，请重试。", status_code=504) from None
     except httpx.HTTPError:
-        raise ModelError("评估服务暂时无法连接，已保留复盘，请重试。") from None
+        raise ModelError("评估服务暂时无法连接，已保留记录，请重试。") from None
     except (KeyError, IndexError, TypeError, AttributeError, ValueError, RecursionError):
-        raise ModelError("评估结果格式不完整，已保留复盘，请重试。", usage=usage) from None
+        raise ModelError("评估结果格式不完整，已保留记录，请重试。", usage=usage) from None
 
 
 def invoke_evaluator(messages, *, api_key, client=None):

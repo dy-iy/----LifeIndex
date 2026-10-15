@@ -76,7 +76,7 @@ def deliver_completed_review(db, item, now):
     if existing is None:
         db.add(StudyGroupMessage(
             group_id=item.group_id, sender_id=item.user_id, client_key=key, kind="review",
-            content="我完成了复盘", review_summary=item.review_summary, review_snapshot=item.review_snapshot,
+            content="我完成了记录", review_summary=item.review_summary, review_snapshot=item.review_snapshot,
             sender_name=item.sender_name, sender_avatar_url=item.sender_avatar_url, created_at=now,
         ))
         db.flush()

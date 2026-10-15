@@ -18,11 +18,11 @@ function context() {
   if (!identity || identity.owner !== current.owner || identity.generation !== current.generation) {
     identity = current; entries = new Map(); reads = new Map(); lists = new Map();
   }
-  if (!current.owner) throw new Error("请先登录后填写复盘。");
+  if (!current.owner) throw new Error("请先登录后填写记录。");
   return current;
 }
 function assertCurrent(snapshot) {
-  if (!session.isCurrent(snapshot)) throw new Error("登录状态已变化，请重新进入复盘。");
+  if (!session.isCurrent(snapshot)) throw new Error("登录状态已变化，请重新进入记录。");
 }
 function entry(id) {
   const snapshot = context();
@@ -216,8 +216,8 @@ function write(id, operation) {
     if (operation === "retry") throw new Error("没有待确认的操作，请刷新云端状态。");
     if (!value.cloud || value.baseVersion === null) throw new Error("请先成功读取云端草稿后再保存。");
     if (value.conflict) throw new Error("请先核对两份答案并选择保留哪一份。");
-    if (value.cloud.status !== "draft") throw new Error("复盘已提交，当前不支持修改。");
-    if (operation === "submit" && value.questionVersion !== BRANCH_VERSION && value.answers.some((answer) => !answer.trim())) throw new Error("请填写全部三项复盘后再提交。");
+    if (value.cloud.status !== "draft") throw new Error("记录已提交，当前不支持修改。");
+    if (operation === "submit" && value.questionVersion !== BRANCH_VERSION && value.answers.some((answer) => !answer.trim())) throw new Error("请填写全部三项记录后再提交。");
     value.pending = { operation, key: `review-${Date.now()}-${++sequence}-${Math.random().toString(36).slice(2)}`,
       body: bodyFor(value) };
     try { persist(id, value, true); }
@@ -294,7 +294,7 @@ async function sendEvaluation(id, value, snapshot) {
 function writeEvaluation(id, operation) {
   const snapshot = context(), value = entry(id);
   if (value.evaluationFlight) return value.evaluationFlight;
-  if (value.pending || value.flight) throw new Error("请先确认复盘保存或提交结果。");
+  if (value.pending || value.flight) throw new Error("请先确认记录保存或提交结果。");
   if (!value.evaluationPending) {
     const evaluation = value.evaluation && value.evaluation.evaluation;
     if (!["retry", "clarify", "revise", "finish"].includes(operation)) throw new Error("没有待确认的评估操作。");
@@ -305,7 +305,7 @@ function writeEvaluation(id, operation) {
         throw new Error("已提交答案仅供回看，只有无效回答可以重新填写。");
       if (!value.revision || value.conflict || !value.evaluation.can_revise) throw new Error("请先核对答案和纠错期限。");
       if (!value.dirty) throw new Error("答案尚未修改，无需重复评估。");
-      if (value.questionVersion !== BRANCH_VERSION && value.answers.some((answer) => !answer.trim())) throw new Error("请填写全部三项复盘后再提交。");
+      if (value.questionVersion !== BRANCH_VERSION && value.answers.some((answer) => !answer.trim())) throw new Error("请填写全部三项记录后再提交。");
       body = bodyFor(value);
     } else if (operation === "clarify") {
       if (evaluation.flow && evaluation.flow.key === "focus" && focus.choice(value.clarificationAnswer) === "unspecified") throw new Error("请选择本次专注情况。");

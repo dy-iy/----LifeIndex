@@ -1,6 +1,6 @@
 @import "../../review-window.wxss";
 
-/* 沿用项目原生导航与课堂底栏，纸感布局只作用于复盘列表。 */
+/* 沿用项目原生导航与课堂底栏，纸感布局只作用于记录列表。 */
 page { background: #f8f5ed; }
 .review-page {
   position: relative;

@@ -157,7 +157,7 @@ function send(groupId, value, key) { return deliver(groupId, { content: cleanCon
 
 async function review(groupId, messageId, expected = {}) {
   const path = messagePath(groupId);
-  if (typeof messageId !== "string" || !messageId) throw new Error("复盘消息不完整，请重新打开。");
+  if (typeof messageId !== "string" || !messageId) throw new Error("记录消息不完整，请重新打开。");
   const snapshot = syncIdentity();
   const result = await backend.request({ path: `${path}/${encodeURIComponent(messageId)}/review` });
   ensureCurrent(snapshot);
@@ -172,7 +172,7 @@ async function review(groupId, messageId, expected = {}) {
     || expected.senderId !== undefined && result.sender.id !== expected.senderId
     || expected.sessionId !== undefined && result.review.session.id !== expected.sessionId
     || expected.reviewVersion !== undefined && result.review.version !== expected.reviewVersion) {
-    throw new Error("复盘结果不完整，请重试。");
+    throw new Error("记录结果不完整，请重试。");
   }
   return Object.assign({}, result, { sender: Object.assign({}, result.sender, { avatarSrc: backend.avatarUrl(result.sender.avatar_url) }) });
 }

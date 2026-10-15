@@ -1,4 +1,4 @@
-/* 计时页与复盘列表共用纸感弹窗。原生导航已占据顶部，按可用页面高度留白。 */
+/* 计时页与记录列表共用纸感弹窗。原生导航已占据顶部，按可用页面高度留白。 */
 .review-modal-mask {
   position: fixed; inset: 0; z-index: 300;
   display: flex; align-items: center; justify-content: center;

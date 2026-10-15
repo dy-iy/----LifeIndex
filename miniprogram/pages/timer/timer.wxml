@@ -42,7 +42,7 @@
       />
     </view>
 
-    <button wx:if="{{loggedIn && canFinishForReview}}" class="text-button timer-finalize" disabled="{{busy || loading}}" bindtap="finish">结束计时并复盘</button>
+    <button wx:if="{{loggedIn && canFinishForReview}}" class="text-button timer-finalize" disabled="{{busy || loading}}" bindtap="finish">结束计时并记录</button>
 
     <view class="tp-stats">
       <view class="tp-stats-tape" aria-hidden="true"></view>
@@ -70,10 +70,10 @@
       <view class="timer-hints">
         <view wx:if="{{pendingFinish}}" class="timing-hint">本机已停止，等待保存到云端。</view>
         <view wx:elif="{{cutoffReached}}" class="timing-hint">已到自动结束时间，时长不再增长；可点击圆盘结束并同步。</view>
-        <view wx:elif="{{canContinue}}" class="timing-hint">已停止，原计时已保留。点击圆盘继续，停止期间不计时。{{courseEnded ? '课程已结束，也可直接结束计时并复盘。' : '下课后停止计时才会打开复盘。'}}</view>
+        <view wx:elif="{{canContinue}}" class="timing-hint">已停止，原计时已保留。点击圆盘继续，停止期间不计时。{{courseEnded ? '课程已结束，也可直接结束计时并记录。' : '下课后停止计时才会打开记录。'}}</view>
         <view wx:elif="{{courseEnded && phase !== 'finished' && record}}" class="timing-hint">课内时长已停止累计，{{graceRemaining}} 后自动结束；也可现在点击停止。</view>
         <view wx:elif="{{courseEarly && phase !== 'finished'}}" class="timing-hint">准备中：课前准备单独记录，有效时长从上课时间起累计。</view>
-        <view wx:elif="{{record && (record.finish_reason === 'timeout' || record.finish_reason === 'repair')}}" class="timing-hint">已按下课后 10 分钟的截止时间自动结束，点击圆盘填写复盘。</view>
+        <view wx:elif="{{record && (record.finish_reason === 'timeout' || record.finish_reason === 'repair')}}" class="timing-hint">已按下课后 10 分钟的截止时间自动结束，点击圆盘填写记录。</view>
       </view>
     </block>
 
@@ -92,7 +92,7 @@
 <class-tab-bar selected="{{2}}" bind:select="switchClassTab"/>
 <view wx:if="{{reviewOpen}}" class="review-modal-mask">
   <view class="review-modal-backdrop" catchtouchmove="stopReviewTouch"></view>
-  <view class="review-modal" role="dialog" aria-label="本次课后复盘">
+  <view class="review-modal" role="dialog" aria-label="本次课后记录">
     <image class="review-modal-nessie" src="/assets/review/nessie.png" mode="aspectFit" aria-hidden="true"/>
     <view class="review-modal-underlay" aria-hidden="true"></view>
     <review-panel id="timer-review" class="review-modal-panel" session-id="{{reviewSessionId}}" visible="{{reviewVisible}}" bind:close="closeReview"/>

@@ -23,9 +23,13 @@
             bind:retry="retryMemberStatus" />
         </view>
       </scroll-view>
-      <view wx:if="{{activeRoomTab === 'checkin'}}" class="room-placeholder">
-        <view class="room-placeholder-title">群打卡</view>
-        <view class="room-placeholder-copy">功能准备中</view>
+      <view class="room-checkin-panel {{activeRoomTab === 'checkin' ? '' : 'room-panel-hidden'}}">
+        <scroll-view class="room-checkin-scroll" scroll-y="{{true}}">
+          <view class="room-checkin-content">
+            <campfire-checkin group-id="{{group.id}}" member-count="{{group.member_count}}" group-version="{{group.version}}"
+              active="{{activeRoomTab === 'checkin'}}" bind:accesslost="chatAccessLost" />
+          </view>
+        </scroll-view>
       </view>
     </block>
   </view>

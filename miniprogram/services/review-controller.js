@@ -7,6 +7,7 @@ const metrics = require("./review-metrics");
 const focus = require("./review-focus");
 const scoring = require("./review-scoring");
 const reviewSignal = require("./review-signal");
+const { displayError } = require("./backend");
 const { PARTICIPATION_OPTIONS, UNTIMED_REASONS, LEGACY_QUESTIONS, untimedReasonLabel, displayRecord } = require("./review-presentation");
 const EVALUATION_LABELS = { queued: "正在评估", running: "正在评估", needs_input: "已保存 · 可补充或结束", hold: "已保存 · 评分暂缓",
   failed: "评估失败", succeeded: "已结算", superseded: "已被新版本替代", invalid_answer: "待修改" };
@@ -137,6 +138,7 @@ module.exports = function createReviewController() { return {
           "id", "status", "prompt_version", "error", "question", "flow", "invalid_step", "outcome",
           "missing_information", "clarification",
         ].filter(key => evaluation[key] !== undefined).map(key => [key, evaluation[key]])), {
+          error: displayError(evaluation.error),
           statusLabel: evaluationLabel || "读取评估状态",
           dialogue: (evaluation.dialogue || []).map((turn) => ({ ...turn, participationLabel: turn.participation && turn.participation !== "unspecified" ? participationLabel(turn.participation) : "" })),
         }) : null,
@@ -152,8 +154,8 @@ module.exports = function createReviewController() { return {
         cloudUntimedReasonLabel: untimedReasonLabel(value.cloud && value.cloud.review_context && value.cloud.review_context.untimed_reason),
         participationLabel: participationLabel((value.reviewContext || {}).participation), cloudParticipationLabel: participationLabel(value.cloud && value.cloud.review_context && value.cloud.review_context.participation),
         settlement: settlement ? classIndex.eventView(settlement) : null,
-        statusLabel: value.cloud && value.cloud.voided ? (evaluation && evaluation.outcome ? "已复盘 · 已处理" : "已更正参与情况 · 原答案保留") : value.pending || value.evaluationPending ? "操作待确认" : value.conflict ? "答案有冲突" : value.revision ? "正在修订 · 未提交" : submitted ? `已提交 · ${evaluationLabel || "状态待更新"}`
-          : value.dirty ? "草稿已保存在本机，尚未提交" : value.cloud && value.cloud.version > 0 ? "草稿已保存云端" : "待填写复盘" });
+        statusLabel: value.cloud && value.cloud.voided ? (evaluation && evaluation.outcome ? "已记录 · 已处理" : "已更正参与情况 · 原答案保留") : value.pending || value.evaluationPending ? "操作待确认" : value.conflict ? "答案有冲突" : value.revision ? "正在修订 · 未提交" : submitted ? `已提交 · ${evaluationLabel || "状态待更新"}`
+          : value.dirty ? "草稿已保存在本机，尚未提交" : value.cloud && value.cloud.version > 0 ? "草稿已保存云端" : "待填写记录" });
       this.syncControls();
     } catch (error) {
       this.setData({ answers: ["", "", ""], filled: 0, cloud: null, pending: false, conflict: false, readonly: true,
@@ -171,7 +173,7 @@ module.exports = function createReviewController() { return {
       const value = await reviews.load(target);
       if (!current()) return;
       this.render(value.cloud.session); this.resumeEvaluation();
-    } catch (error) { if (current()) this.setData({ error: error.message || "复盘暂时无法刷新，请重试。" }); }
+    } catch (error) { if (current()) this.setData({ error: error.message || "记录暂时无法刷新，请重试。" }); }
     finally { if (current()) this.setData({ loading: false }); }
   },
   answer(event) {
@@ -234,7 +236,7 @@ module.exports = function createReviewController() { return {
     const snapshot = this._snapshot, id = this.data.record.id;
     if (this.data.cloud && this.data.cloud.can_submit === false) return;
     if (this.data.modern) { reviews.editContext(id, { finish_without_score: false }); return this.save("submit"); }
-    wx.showModal({ title: "提交本次复盘？", content: "提交后先整理课堂总结，再由多空 Agent 综合判断方向与强度，按固定规则结算上课指数；提交后可回看复盘与结算结果。",
+    wx.showModal({ title: "提交本次记录？", content: "提交后先整理课堂总结，再由多空 Agent 综合判断方向与强度，按固定规则结算上课指数；提交后可回看记录与结算结果。",
       confirmText: "确认提交", success: (result) => {
         if (result.confirm && this.active(snapshot) && this.data.record && this.data.record.id === id) this.save("submit");
       } });
@@ -320,18 +322,18 @@ module.exports = function createReviewController() { return {
   explainEvaluation() {
     const maximum = scoring.maxima(this.data.evaluation);
     if (!this.data.evaluation || this.data.evaluation.prompt_version === "class-summary-v7") {
-      wx.showModal({ title: "复盘与结算说明", content: "先结合课程名称和填写内容整理课堂活动、收获、理解与专注，再由多空 Agent 综合进展与不足，给出一次利多、利空或中性判断及0–100强度。利多记正、利空记负、中性记零，课程涨跌率＝3%×有符号强度÷100，再执行当日限幅。没有质量分或计时40%加权；忘记计时仍保留零时长。未到课继续按理由自动免罚或按缺席规则处理。无关回答退回重填，服务失败可重试，无效回答可在课后7天内重新提交。", showCancel: false });
+      wx.showModal({ title: "记录与结算说明", content: "先结合课程名称和填写内容整理课堂活动、收获、理解与专注，再由多空 Agent 综合进展与不足，给出一次利多、利空或中性判断及0–100强度。利多记正、利空记负、中性记零，课程涨跌率＝3%×有符号强度÷100，再执行当日限幅。没有质量分或计时40%加权；忘记计时仍保留零时长。未到课继续按理由自动免罚或按缺席规则处理。无关回答退回重填，服务失败可重试，无效回答可在课后7天内重新提交。", showCancel: false });
       return;
     }
     if (this.data.evaluation.prompt_version === "class-summary-v6") {
-      wx.showModal({ title: "复盘与结算说明", content: "先结合课程名称和填写内容整理课堂活动、收获、理解与专注，再由两位经理独立判断利多、利空或中性及0–100强度。利多记正、利空记负、中性记零，课程涨跌率＝3%×两位有符号强度之和÷200，再执行当日限幅。没有质量分或计时40%加权；忘记计时仍保留零时长。未到课继续按理由自动免罚或按缺席规则处理。无关回答退回重填，服务失败可重试，无效回答可在课后7天内重新提交。", showCancel: false });
+      wx.showModal({ title: "记录与结算说明", content: "先结合课程名称和填写内容整理课堂活动、收获、理解与专注，再由两位经理独立判断利多、利空或中性及0–100强度。利多记正、利空记负、中性记零，课程涨跌率＝3%×两位有符号强度之和÷200，再执行当日限幅。没有质量分或计时40%加权；忘记计时仍保留零时长。未到课继续按理由自动免罚或按缺席规则处理。无关回答退回重填，服务失败可重试，无效回答可在课后7天内重新提交。", showCancel: false });
       return;
     }
     if (this.data.evaluation.prompt_version === "class-quality-v5") {
-      wx.showModal({ title: "复盘与评分说明", content: "根据本次选项、星级和文字直接判断，相关的简短回答也会评分。回忆30、理解与反思40、专注30分，不按字数加分，不检测手机行为。没听课和水课按实际活动评估，自学、作业可以计入；明确没有学习时质量为0。未到课根据理由自动处理：合理或含糊理由、停课免罚，明确无故缺席沿用缺席规则。忘记计时仍按零时长计算。完全无关的回答需要重填；服务故障保留回答并重试。无效回答可在课后7天内重新提交。", showCancel: false });
+      wx.showModal({ title: "记录与评分说明", content: "根据本次选项、星级和文字直接判断，相关的简短回答也会评分。回忆30、理解与反思40、专注30分，不按字数加分，不检测手机行为。没听课和水课按实际活动评估，自学、作业可以计入；明确没有学习时质量为0。未到课根据理由自动处理：合理或含糊理由、停课免罚，明确无故缺席沿用缺席规则。忘记计时仍按零时长计算。完全无关的回答需要重填；服务故障保留回答并重试。无效回答可在课后7天内重新提交。", showCancel: false });
       return;
     }
-    wx.showModal({ title: "复盘与评分说明", content: `输入自动保存在本机，也可保存到云端。本次质量分由回忆 ${maximum.recall}、理解与反思 ${maximum.understanding}、专注 ${maximum.focus} 分组成，不按字数加分，不检测手机行为。新提交采用 30／40／30，历史评分保留原规则。新版最多补问两次，暂时说不清最多一次；旧三问最多一次。可随时保存结束，资料不足不等于零分。明确到课但未参与学习时，本次质量按 0 分记录，不代表原有知识或个人能力。计时占 40%、质量占 60%。课后 7 天内可提交复盘，提交后可回看结果。`, showCancel: false });
+    wx.showModal({ title: "记录与评分说明", content: `输入自动保存在本机，也可保存到云端。本次质量分由回忆 ${maximum.recall}、理解与反思 ${maximum.understanding}、专注 ${maximum.focus} 分组成，不按字数加分，不检测手机行为。新提交采用 30／40／30，历史评分保留原规则。新版最多补问两次，暂时说不清最多一次；旧三问最多一次。可随时保存结束，资料不足不等于零分。明确到课但未参与学习时，本次质量按 0 分记录，不代表原有知识或个人能力。计时占 40%、质量占 60%。课后 7 天内可提交记录，提交后可回看结果。`, showCancel: false });
   },
   syncControls() {
     const d = this.data;

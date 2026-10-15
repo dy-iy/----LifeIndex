@@ -1,0 +1,66 @@
+:host { display: block; min-width: 0; }
+.campfire-checkin { color: #2c352e; font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; }
+.campfire-card { overflow: hidden; box-sizing: border-box; padding: 30rpx; border: 1rpx solid #eceae0; border-radius: 34rpx; background: rgba(255, 255, 255, .96); box-shadow: 0 8rpx 40rpx rgba(53, 94, 69, .05); }
+.campfire-summary { display: flex; align-items: center; justify-content: space-between; gap: 20rpx; padding: 0 4rpx; }
+.campfire-stage-copy { flex: 1; min-width: 0; }
+.campfire-badges { display: flex; flex-wrap: wrap; align-items: center; gap: 10rpx; min-width: 0; margin-bottom: 24rpx; }
+.campfire-date { padding: 7rpx 18rpx; border-radius: 999rpx; color: #355e45; background: #eef2ec; font-size: 23rpx; font-weight: 600; line-height: 1.4; white-space: nowrap; }
+.campfire-full-tag { box-sizing: border-box; padding: 5rpx 14rpx; border: 1rpx solid #f5dec0; border-radius: 999rpx; color: #c87d20; background: #fdf3e3; font-size: 21rpx; line-height: 1.4; white-space: nowrap; }
+.campfire-subtitle { display: block; color: #889087; font-size: 22rpx; line-height: 1.55; overflow-wrap: anywhere; }
+.campfire-title { display: block; margin-top: 6rpx; color: #2c352e; font-size: 29rpx; font-weight: 700; line-height: 1.4; }
+.campfire-progress-ring { position: relative; flex: 0 0 132rpx; width: 132rpx; height: 132rpx; }
+.campfire-ring-image { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+.campfire-percent { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: 2rpx; color: #355e45; line-height: 1; }
+.campfire-percent-number { font-size: 40rpx; font-weight: 700; letter-spacing: -1rpx; font-variant-numeric: tabular-nums; }
+.campfire-percent-unit { padding-top: 9rpx; font-size: 19rpx; font-weight: 600; }
+.campfire-scene { position: relative; height: 0; margin: 12rpx 0 8rpx; padding-bottom: 57.8125%; overflow: hidden; }
+.campfire-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+.campfire-aurora { opacity: 0; transition: opacity .5s ease; animation: campfire-aurora-float 3.2s ease-in-out infinite; }
+.campfire-flame { opacity: 0; transform-origin: 50% 77.8378%; transition: opacity .25s ease; animation: campfire-flame-flicker 1.4s ease-in-out infinite; }
+.campfire-glow { transform-origin: 50% 69.1892%; animation: campfire-glow-pulse 2.6s ease-in-out infinite; }
+.campfire-layer-visible { opacity: 1; }
+.campfire-full-banner { position: absolute; top: 8.6486%; left: 50%; box-sizing: border-box; display: block; min-width: 32.5%; padding: 3rpx 12rpx; border-radius: 999rpx; color: #1e293b; background: #f59e0b; font-size: 19rpx; font-weight: 700; line-height: 1.35; text-align: center; white-space: nowrap; transform: translateX(-50%); }
+.campfire-reward { box-sizing: border-box; margin-top: 16rpx; padding: 18rpx 20rpx; border: 1rpx solid #dce7d7; border-radius: 20rpx; background: #f1f6ec; }
+.campfire-reward-summary { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8rpx 16rpx; color: #355e45; }
+.campfire-reward-title { font-size: 24rpx; font-weight: 600; line-height: 1.5; }
+.campfire-reward-points { overflow-wrap: anywhere; font-size: 29rpx; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.35; }
+.campfire-reward-description { display: block; margin-top: 6rpx; color: #7a8972; font-size: 21rpx; line-height: 1.5; }
+.campfire-error { display: block; margin-top: 16rpx; color: #ad5948; font-size: 23rpx; line-height: 1.5; text-align: center; }
+.campfire-history-notice { display: block; margin-top: 16rpx; color: #899180; font-size: 23rpx; line-height: 1.5; }
+.campfire-members-card { box-sizing: border-box; margin-top: 24rpx; padding: 30rpx; border: 1rpx solid #eceae0; border-radius: 34rpx; background: #fffef9; box-shadow: 0 8rpx 40rpx rgba(53, 94, 69, .04); }
+.campfire-members-header { display: flex; align-items: center; justify-content: space-between; gap: 16rpx; padding-bottom: 8rpx; }
+.campfire-members-title { color: #2c4137; font-size: 30rpx; font-weight: 700; line-height: 1.45; }
+.campfire-members-count { display: flex; flex-shrink: 0; align-items: center; gap: 10rpx; color: #8e9a83; font-size: 22rpx; line-height: 1.4; white-space: nowrap; }
+.campfire-members-icon { position: relative; flex: 0 0 25rpx; width: 25rpx; height: 25rpx; }
+.campfire-members-icon-head { position: absolute; top: 2rpx; left: 4rpx; box-sizing: border-box; width: 8rpx; height: 8rpx; border: 1.5rpx solid #8e9a83; border-radius: 50%; }
+.campfire-members-icon-head-secondary { top: 3rpx; left: 15rpx; width: 7rpx; height: 7rpx; }
+.campfire-members-icon-body { position: absolute; bottom: 1rpx; left: 1rpx; box-sizing: border-box; width: 14rpx; height: 11rpx; border: 1.5rpx solid #8e9a83; border-bottom: 0; border-radius: 8rpx 8rpx 0 0; }
+.campfire-members-icon-body-secondary { right: 0; left: auto; width: 8rpx; height: 10rpx; border-left: 0; border-radius: 0 7rpx 0 0; }
+.campfire-member-row { display: flex; align-items: center; gap: 20rpx; min-width: 0; padding: 25rpx 0; border-bottom: 1rpx solid #eceee3; }
+.campfire-member-row:last-child { padding-bottom: 4rpx; border-bottom: 0; }
+.campfire-member-avatar-wrap { position: relative; flex: 0 0 68rpx; width: 68rpx; height: 68rpx; }
+.campfire-member-avatar { display: block; width: 68rpx; height: 68rpx; border-radius: 50%; background: #e6ebdc; }
+.campfire-member-avatar-fallback { display: flex; align-items: center; justify-content: center; color: #53715a; font-size: 29rpx; font-weight: 600; }
+.campfire-member-avatar-check { position: absolute; right: -2rpx; bottom: -2rpx; display: flex; box-sizing: border-box; align-items: center; justify-content: center; width: 25rpx; height: 25rpx; border: 3rpx solid #fffef9; border-radius: 50%; color: #fff; background: #739561; font-size: 17rpx; font-weight: 700; line-height: 1; }
+.campfire-member-copy { flex: 1; min-width: 0; }
+.campfire-member-name-row { display: flex; align-items: center; gap: 10rpx; min-width: 0; }
+.campfire-member-name { flex: 0 1 auto; min-width: 0; overflow: hidden; color: #30453b; font-size: 26rpx; font-weight: 600; line-height: 1.45; text-overflow: ellipsis; white-space: nowrap; }
+.campfire-member-self { flex: 0 0 auto; color: #96a08b; font-size: 20rpx; line-height: 1.45; }
+.campfire-member-subtitle { display: block; margin-top: 5rpx; overflow: hidden; color: #99a38e; font-size: 21rpx; line-height: 1.45; text-overflow: ellipsis; white-space: nowrap; }
+.campfire-member-button { display: flex; box-sizing: border-box; flex: 0 0 140rpx; align-items: center; justify-content: center; gap: 10rpx; width: 140rpx; min-height: 54rpx; margin: 0; padding: 10rpx 5rpx; border: 1rpx solid #e4eadb; border-radius: 17rpx; color: #739160; background: #edf3e5; font-size: 22rpx; font-weight: 500; line-height: 1.35; white-space: nowrap; }
+.campfire-member-button::after { border: 0; }
+.campfire-member-button-checked[disabled] { color: #739160; background: #edf3e5; }
+.campfire-member-button-pending[disabled] { border-color: #edeedf; color: #a0aa92; background: #f7f8ef; }
+.campfire-member-button-self { border-color: #355e45; color: #fff; background: #355e45; }
+.campfire-member-button-self[disabled] { border-color: #b7c9b9; color: #edf3ee; background: #65836f; }
+.campfire-member-button-check { font-size: 23rpx; line-height: 1; }
+.campfire-member-clock { position: relative; box-sizing: border-box; width: 20rpx; height: 20rpx; border: 1.5rpx solid #a0aa92; border-radius: 50%; }
+.campfire-member-clock::before { position: absolute; top: 3rpx; left: 8rpx; width: 1.5rpx; height: 6rpx; background: #a0aa92; content: ""; }
+.campfire-member-clock::after { position: absolute; top: 8rpx; left: 8rpx; width: 5rpx; height: 1.5rpx; background: #a0aa92; transform: rotate(25deg); transform-origin: left center; content: ""; }
+.campfire-member-button-pressed { opacity: .78; transform: scale(.98); }
+.campfire-members-empty { display: block; padding: 28rpx 0 6rpx; color: #99a38e; font-size: 23rpx; line-height: 1.5; text-align: center; }
+.campfire-checkin .campfire-aurora, .campfire-checkin .campfire-flame, .campfire-checkin .campfire-glow { animation-play-state: paused; }
+.campfire-checkin-active .campfire-aurora, .campfire-checkin-active .campfire-flame, .campfire-checkin-active .campfire-glow { animation-play-state: running; }
+@keyframes campfire-flame-flicker { 0%, 100% { transform: scaleY(1) scaleX(1) rotate(-1deg); } 50% { transform: scaleY(1.08) scaleX(.95) rotate(1.5deg); } }
+@keyframes campfire-glow-pulse { 0%, 100% { opacity: .6; transform: scale(.96); } 50% { opacity: 1; transform: scale(1.06); } }
+@keyframes campfire-aurora-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5rpx); } }

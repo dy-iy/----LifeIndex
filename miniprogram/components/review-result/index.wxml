@@ -3,7 +3,7 @@
     <view class="rr-binding" aria-hidden="true"></view>
     <view class="rr-tape" aria-hidden="true"></view>
     <view class="rr-heading">
-      <text class="rr-heading-text">我的复盘</text>
+      <text class="rr-heading-text">我的记录</text>
       <view class="rr-heading-stroke" aria-hidden="true"></view>
     </view>
 
@@ -44,7 +44,7 @@
     <view class="rr-perforation rr-perforation--right" aria-hidden="true"></view>
     <view class="rr-notch rr-notch--left" aria-hidden="true"></view>
     <view class="rr-notch rr-notch--right" aria-hidden="true"></view>
-    <text class="rr-ticket-title">本次复盘结果</text>
+    <text class="rr-ticket-title">本次记录结果</text>
     <view class="rr-result-row">
       <view class="rr-stamp-column">
         <view class="rr-stamp"><text class="rr-stamp-text">{{review.headline}}</text></view>

@@ -53,7 +53,7 @@
             <text wx:if="{{crosshair}}" class="crosshair-price" style="top: {{crosshair.y - 22}}rpx;">{{crosshair.price}}</text>
             <view wx:if="{{tab !== 0 && chart.candleCount > 0 && chart.candleCount <= 6 && !chartInspecting}}" class="chart-history-hint" style="left: {{chart.historyHintLeft}}rpx;"><text>历史积累中</text><text>已记录 {{chart.candleCount}} 个周期</text></view>
             </view>
-            <view wx:if="{{chart.empty}}" class="chart-empty"><image src="{{art.emptyMarket}}" class="chart-empty-art"/><view class="empty-title">{{!loggedIn ? '登录后查看个人指数' : chartLoading ? '读取行情中' : chartError ? '行情暂未读取成功' : tab === 0 ? '当天暂无行情' : '暂无行情历史'}}</view><view class="chart-empty-note">{{!loggedIn ? '计时与复盘会记录在自己的指数中' : chartError ? '请检查网络后重试' : quoteActivated ? '行情会随计时和复盘持续变化' : '首次开启计时后，指数开始持续运行'}}</view></view>
+            <view wx:if="{{chart.empty}}" class="chart-empty"><image src="{{art.emptyMarket}}" class="chart-empty-art"/><view class="empty-title">{{!loggedIn ? '登录后查看个人指数' : chartLoading ? '读取行情中' : chartError ? '行情暂未读取成功' : tab === 0 ? '当天暂无行情' : '暂无行情历史'}}</view><view class="chart-empty-note">{{!loggedIn ? '计时与记录会体现在自己的指数中' : chartError ? '请检查网络后重试' : quoteActivated ? '行情会随计时和记录持续变化' : '首次开启计时后，指数开始持续运行'}}</view></view>
           </view>
         </view>
       </market-chart-panel>

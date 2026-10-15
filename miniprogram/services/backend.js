@@ -1,6 +1,11 @@
 const { BASE_URL } = require("../config/backend");
 const session = require("./session");
 
+// 兼容旧服务与历史任务保存的系统提示，仅调整展示文案。
+function displayError(message) {
+  return typeof message === "string" ? message.replace(/复盘记录|复盘/g, "记录") : message;
+}
+
 /** 业务请求默认需要后端会话。401 只清理该请求使用的会话，避免旧响应误删新登录。 */
 function request({ path, method = "GET", data, header = {}, timeout = 15000, auth = true } = {}) {
   return new Promise((resolve, reject) => {
@@ -32,7 +37,7 @@ function request({ path, method = "GET", data, header = {}, timeout = 15000, aut
           : typeof detail === "string" ? detail
           : response.statusCode === 422 ? "提交内容不符合要求，请检查后重试。"
           : `服务器请求失败（HTTP ${response.statusCode}）。`;
-        const error = new Error(message); error.statusCode = response.statusCode; error.data = response.data; reject(error);
+        const error = new Error(displayError(message)); error.statusCode = response.statusCode; error.data = response.data; reject(error);
       },
       fail(cause) { const error = new Error(cause.errMsg || "网络请求失败，请稍后重试。"); error.errMsg = cause.errMsg; reject(error); },
     });
@@ -44,4 +49,4 @@ function avatarUrl(path) {
   return typeof path === "string" && /^\/api\/(?:avatars|group-avatars)\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(path)
     ? `${BASE_URL}${path}` : "";
 }
-module.exports = { request, checkHealth, avatarUrl };
+module.exports = { request, checkHealth, avatarUrl, displayError };

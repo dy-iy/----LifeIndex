@@ -108,7 +108,7 @@ def enqueue_evaluation(db, user_id, review, study, now, *, legacy=False, direct_
     for prior in db.scalars(select(EvaluationJob).where(EvaluationJob.user_id == user_id,
             EvaluationJob.session_id == study.id, EvaluationJob.id != job.id,
             EvaluationJob.status.in_(["queued", "running", "needs_input", "hold", "failed", "invalid_answer"]))):
-        prior.status, prior.error = "superseded", "复盘或课后记录已更新，本次评估已停止。"
+        prior.status, prior.error = "superseded", "记录或课后记录已更新，本次评估已停止。"
         prior.version += 1
         prior.lease_owner = prior.lease_until = None
         prior.updated_at = now
@@ -203,7 +203,7 @@ def records(db, user_id, session_id, *, reading=False):
     if study.voided and not reading:
         raise HTTPException(409, "这节课已改为缺席、请假或停课，请查看最新课后记录。")
     if study.phase != "finished":
-        raise HTTPException(409, "请先结束计时，再填写复盘。")
+        raise HTTPException(409, "请先结束计时，再填写记录。")
     review = db.scalar(select(Review).where(Review.user_id == user_id, Review.session_id == session_id)
                        .execution_options(populate_existing=True))
     if study.voided and not (reading and review and review.outcome_evaluation_id):
@@ -234,7 +234,7 @@ class ClarifyInput(RetryInput):
 def versioned_job(db, user_id, session_id, version):
     study, review, job = records(db, user_id, session_id)
     if not job:
-        raise HTTPException(409, "复盘尚未进入评估，请先提交或稍后刷新。")
+        raise HTTPException(409, "记录尚未进入评估，请先提交或稍后刷新。")
     if job.version != version:
         raise HTTPException(409, "评估状态已更新，请刷新后重试。")
     return study, review, job
@@ -311,9 +311,9 @@ def revise_evaluation(session_id: uuid.UUID, body: ReviewInput, request: Request
         now = utcnow()
         require_window(study, now)
         if review is None or review.status != "pending_evaluation":
-            raise HTTPException(409, "请先提交复盘，再申请修订。")
+            raise HTTPException(409, "请先提交记录，再申请修订。")
         if review.version != body.version:
-            raise HTTPException(409, "云端复盘已更新，请刷新并核对答案。")
+            raise HTTPException(409, "云端记录已更新，请刷新并核对答案。")
         validate_submission(body)
         if review.answers == body.answers and review.question_version == body.question_version and review.review_context == input_context(body):
             # Reposting identical evidence must never draw another, luckier score.

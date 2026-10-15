@@ -121,7 +121,7 @@
         <text class="field-label">地点</text><input always-embed="{{true}}" id="course-field-schedule-{{scheduleIndex}}-location" cursor="{{courseInputCursors['course-field-schedule-' + scheduleIndex + '-location']}}" class="field-input" value="{{schedule.location}}" data-index="{{scheduleIndex}}" data-field="location" bindinput="inputStructuredSchedule" bindfocus="onCourseFieldFocus" bindblur="onCourseFieldBlur" bindkeyboardheightchange="onCourseKeyboardHeightChange" adjust-position="{{false}}" maxlength="200" placeholder="未知，可留空" disabled="{{saving}}"/>
       </view>
       <button size="mini" class="text-button structured-add" disabled="{{saving}}" bindtap="addStructuredSchedule">＋ 添加上课安排</button>
-      <view wx:if="{{structuredForm.id}}" class="rule-note">修改或移除安排会同步到课表；已有计时和复盘历史独立保存。正在计时或暂停的课次需先结束计时。</view>
+      <view wx:if="{{structuredForm.id}}" class="rule-note">修改或移除安排会同步到课表；已有计时和记录历史独立保存。正在计时或暂停的课次需先结束计时。</view>
     </view></scroll-view></view>
     <view class="course-dialog-footer" catchtouchmove="noop"><view wx:if="{{formError}}" class="error">{{formError}}</view><button wx:if="{{conflict}}" size="mini" class="text-button" disabled="{{saving}}" bindtap="rebaseStructuredVersion">读取最新版本，保留修改</button><view class="course-dialog-actions"><button wx:if="{{structuredForm.id}}" size="mini" class="course-delete-button" loading="{{structuredDeleting}}" disabled="{{saving}}" bindtap="deleteStructuredCourse">{{structuredDeleting ? '正在删除…' : '删除'}}</button><button size="mini" class="primary-button" loading="{{saving && !structuredDeleting}}" disabled="{{saving}}" bindtap="saveStructuredCourse">{{saving && !structuredDeleting ? '正在保存…' : '保存课程信息'}}</button></view></view>
   </view>
@@ -140,7 +140,7 @@
       <view wx:if="{{error}}" class="error">{{error}}</view>
     </scroll-view>
     <button size="mini" wx:if="{{selectedLesson.canAdjust}}" class="primary-button" bindtap="editSelectedLesson">调整这一次 · 调课 / 请假 / 停课</button>
-    <view class="detail-history">计时和复盘历史独立保留；正在计时或暂停时需先结束计时，再修改或删除课次。</view>
+    <view class="detail-history">计时和记录历史独立保留；正在计时或暂停时需先结束计时，再修改或删除课次。</view>
     <button size="mini" wx:if="{{selectedLesson.canEditCourse}}" class="text-button" bindtap="editSelectedCourse">编辑这门课的安排 →</button>
     <view class="lesson-delete-actions">
       <button size="mini" wx:if="{{selectedLesson.canAdjust}}" class="text-button danger" disabled="{{saving}}" data-id="{{selectedLesson.id}}" bindtap="deleteLesson">删除这一次</button>

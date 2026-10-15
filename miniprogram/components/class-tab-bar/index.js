@@ -9,7 +9,7 @@ Component({
       { path: "/pages/market/market", text: "指数", icon: art.chart, activeIcon: art.chartActive },
       { path: "/pages/timetable/timetable", text: "课表", icon: art.calendar, activeIcon: art.calendarActive },
       { path: "/pages/timer/timer", text: "计时", icon: art.timer, activeIcon: art.timerActive },
-      { path: "/pages/review/review", text: "复盘", icon: art.review, activeIcon: art.reviewActive },
+      { path: "/pages/review/review", text: "记录", icon: art.review, activeIcon: art.reviewActive },
       { path: "/pages/chat/chat", text: "群聊", icon: art.chat, activeIcon: art.chatActive },
     ],
   },

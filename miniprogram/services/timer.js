@@ -327,7 +327,7 @@ function resume(recordId) {
   return runWrite("resume", (snapshot) => {
     ensureNoPendingFinish();
     const record = recordId ? [state.active, ...state.recent].find((item) => item && item.id === recordId) : state.active;
-    if (!canResume(record)) throw new Error("当前记录不能继续计时，请重新同步后核对课程时段与复盘状态。");
+    if (!canResume(record)) throw new Error("当前记录不能继续计时，请重新同步后核对课程时段与记录状态。");
     if (state.active && state.active.id !== record.id) throw new Error("已有其他课程正在计时，请先停止当前计时。");
     return regularWrite(snapshot, `/api/sessions/${encodeURIComponent(record.id)}/resume`, { version: record.version });
   });

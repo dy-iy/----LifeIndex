@@ -45,7 +45,7 @@ def validate_quality(value, *, scoring_version=None):
                                                     "short": {"argument": "等待独立观点。"}}}, scoring_version=scoring_version)
         return quality
     except (ValidationError, ValueError, TypeError):
-        raise ModelError("质量评估格式或证据不完整，已保留复盘，请重试。") from None
+        raise ModelError("质量评估格式或证据不完整，已保留记录，请重试。") from None
 
 
 def current_evidence_ids(answer_count=3):

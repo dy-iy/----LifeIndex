@@ -31,12 +31,12 @@
                 <view class="message-name">{{item.sender_name}}</view>
                 <view wx:if="{{item.kind === 'review'}}" class="message-review-card {{item.is_self ? 'message-review-card-self' : ''}}"
                   data-id="{{item.id}}" bindtap="openReviewMessage" bindlongpress="copyMessage"
-                  aria-role="button" aria-label="{{item.sender_name}}完成了{{item.review_summary.course_name}}的复盘，点击查看结果">
+                  aria-role="button" aria-label="{{item.sender_name}}完成了{{item.review_summary.course_name}}的记录，点击查看结果">
                   <view class="message-review-heading"><view class="message-review-check" aria-hidden="true">✓</view><text>{{item.reviewTitle}}</text></view>
                   <text class="message-review-course">{{item.review_summary.course_name}}</text>
                   <text class="message-review-time">{{item.reviewTimeRange}}</text>
                   <view class="message-review-duration"><text>有效计时</text><text class="message-review-duration-value">{{item.reviewDuration}}</text></view>
-                  <view class="message-review-footer"><text>查看复盘结果</text><text aria-hidden="true">↗</text></view>
+                  <view class="message-review-footer"><text>查看记录结果</text><text aria-hidden="true">↗</text></view>
                 </view>
                 <view wx:else class="message-bubble {{item.is_self ? 'message-bubble-self' : ''}} {{item.status === 'failed' ? 'message-bubble-failed' : ''}}"
                   data-id="{{item.id}}" data-key="{{item.key}}" bindlongpress="copyMessage" bindtap="retryMessage">

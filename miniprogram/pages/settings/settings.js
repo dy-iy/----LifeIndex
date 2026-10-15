@@ -86,5 +86,5 @@ Page({
     catch (error) { this.setData({ error: error.message }); }
     finally { this.setData({ busy: "" }); }
   },
-  showDataInfo() { wx.showModal({ title: "数据与隐私", content: "登录不会自动读取微信头像或昵称。你主动选择的头像会立即上传保存，昵称点击保存后保存在服务器。头像可通过图片链接访问。课表、计时和已保存或提交的复盘按账户保存在云端；复盘未同步的修改仅保存在本机。", showCancel: false }); },
+  showDataInfo() { wx.showModal({ title: "数据与隐私", content: "登录不会自动读取微信头像或昵称。你主动选择的头像会立即上传保存，昵称点击保存后保存在服务器。头像可通过图片链接访问。课表、计时和已保存或提交的记录按账户保存在云端；记录未同步的修改仅保存在本机。", showCancel: false }); },
 });

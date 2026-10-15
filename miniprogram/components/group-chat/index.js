@@ -143,7 +143,7 @@ Component({
           domId: `message-${item.id}`, initial: Array.from(item.sender_name)[0] || "群",
           avatarSrc: this._badAvatars.has(item.avatarSrc) ? "" : item.avatarSrc,
           timeLabel, status: item.status || "sent",
-          reviewTitle: item.is_self ? "我完成了复盘" : "完成了复盘",
+          reviewTitle: item.is_self ? "我完成了记录" : "完成了记录",
           reviewTimeRange: item.review_summary ? `${item.review_summary.local_date} · ${item.review_summary.start_time}–${item.review_summary.end_time}` : "",
           reviewDuration: item.review_summary ? formatDuration(item.review_summary.effective_seconds) : "",
         });

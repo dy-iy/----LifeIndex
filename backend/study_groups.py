@@ -20,7 +20,7 @@ from group_initial_open import complete_creation_midnight, resolve_group_initial
 from index_models import ClassIndexAccount
 from models import AuthSession, User
 from rules import CENT, INITIAL_PRICE
-from study_group_models import StudyGroup, StudyGroupEvent, StudyGroupInvite, StudyGroupMember
+from study_group_models import StudyGroup, StudyGroupCheckinReward, StudyGroupEvent, StudyGroupInvite, StudyGroupMember
 
 router = APIRouter()
 MAX_GROUPS_PER_USER = 20
@@ -158,9 +158,15 @@ class GroupInvitePreviewResponse(BaseModel):
 
 def group_query(user_id):
     own = aliased(StudyGroupMember)
+    # Aggregate rewards separately so joining the current roster cannot repeat
+    # a group's earned points once per member or multiply the member count.
+    rewards = (select(func.coalesce(func.sum(StudyGroupCheckinReward.reward_points), 0))
+               .where(StudyGroupCheckinReward.group_id == StudyGroup.id,
+                      StudyGroupCheckinReward.awarded_at <= func.clock_timestamp())
+               .correlate(StudyGroup).scalar_subquery())
     # Historical memberships never grant access or contribute to aggregates.
     return (select(StudyGroup, func.count(StudyGroupMember.user_id),
-                   func.avg(func.coalesce(ClassIndexAccount.price, INITIAL_PRICE)))
+                   func.avg(func.coalesce(ClassIndexAccount.price, INITIAL_PRICE)) + rewards)
             .join(own, and_(own.group_id == StudyGroup.id, own.user_id == user_id, own.status == "active"))
             .join(StudyGroupMember, and_(StudyGroupMember.group_id == StudyGroup.id,
                                         StudyGroupMember.status == "active"))

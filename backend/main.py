@@ -28,6 +28,7 @@ from study_groups import router as study_groups_router
 from group_index import router as group_index_router
 from group_messages import router as group_messages_router
 from group_member_status import router as group_member_status_router
+from group_checkins import router as group_checkins_router
 from worker_runtime import WorkerRuntime
 
 load_dotenv(Path(__file__).with_name(".env"))
@@ -72,6 +73,7 @@ def create_app(settings: Settings | None = None, *, background_workers: bool = T
     application.include_router(group_index_router)
     application.include_router(group_messages_router)
     application.include_router(group_member_status_router)
+    application.include_router(group_checkins_router)
 
     @application.exception_handler(SQLAlchemyError)
     async def database_unavailable(request: Request, exc: SQLAlchemyError):

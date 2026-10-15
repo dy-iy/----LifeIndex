@@ -1,21 +1,21 @@
 <view wx:if="{{visible}}" class="review-modal-mask">
   <view class="review-modal-backdrop" bindtap="close" catchtouchmove="stopTouch"></view>
-  <view class="review-modal" role="dialog" aria-label="{{member ? member.name + '的课后复盘' : '课后复盘'}}" aria-modal="true">
+  <view class="review-modal" role="dialog" aria-label="{{member ? member.name + '的课后记录' : '课后记录'}}" aria-modal="true">
     <image class="review-modal-nessie" src="/assets/review/nessie.png" mode="aspectFit" aria-hidden="true"/>
     <view class="review-modal-underlay" aria-hidden="true"></view>
     <view class="review-modal-panel">
       <view class="review-panel-layout review-panel-layout-window">
         <view class="review-sheet-header">
           <view class="review-sheet-title-wrap">
-            <text class="review-sheet-title">课后复盘</text>
+            <text class="review-sheet-title">课后记录</text>
             <view class="review-sheet-title-stroke" aria-hidden="true"></view>
             <view class="review-sheet-title-sparks" aria-hidden="true"><view></view><view></view></view>
           </view>
-          <button class="review-sheet-close" bindtap="close" hover-class="review-sheet-close-pressed" aria-label="关闭复盘窗口"><text>关闭</text><text class="review-sheet-close-symbol" aria-hidden="true">×</text></button>
+          <button class="review-sheet-close" bindtap="close" hover-class="review-sheet-close-pressed" aria-label="关闭记录窗口"><text>关闭</text><text class="review-sheet-close-symbol" aria-hidden="true">×</text></button>
         </view>
         <scroll-view class="review-panel-body" scroll-y="{{true}}" enhanced="{{true}}" show-scrollbar="{{false}}" bounces="{{false}}">
           <view class="review-panel-embedded">
-            <view wx:if="{{loading}}" class="shared-review-status">正在读取复盘结果…</view>
+            <view wx:if="{{loading}}" class="shared-review-status">正在读取记录结果…</view>
             <view wx:elif="{{error}}" class="shared-review-error" role="alert"><text>{{error}}</text><button bindtap="loadReview" hover-class="none">重试</button></view>
             <block wx:elif="{{view && member}}">
               <view class="shared-review-member">

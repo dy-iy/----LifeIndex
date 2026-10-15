@@ -36,7 +36,7 @@ class ReviewInput(BaseModel):
     def match_questions(self):
         expected = 1 if self.question_version == QUESTION_VERSION else 3
         if len(self.answers) != expected:
-            raise ValueError("答案数量与复盘版本不一致。")
+            raise ValueError("答案数量与记录版本不一致。")
         if self.question_version != QUESTION_VERSION and self.review_context != ReviewContext():
             raise ValueError("旧版三问不接受新版参与情况。")
         if self.question_version != QUESTION_VERSION and any(len(answer) > 2000 for answer in self.answers):
@@ -48,7 +48,7 @@ def validate_submission(body):
     if body.question_version == QUESTION_VERSION and not body.answers[0].strip():
         raise HTTPException(422, "请填写当前问题的回答。")
     if body.question_version != QUESTION_VERSION and any(not answer.strip() for answer in body.answers):
-        raise HTTPException(422, "请填写全部三项复盘后再提交，或切换到新版情况记录。")
+        raise HTTPException(422, "请填写全部三项记录后再提交，或切换到新版情况记录。")
 
 
 def input_context(body):
@@ -130,7 +130,7 @@ def finished(db, user_id, session_id, *, reading=False):
     if item.voided and not reading:
         raise HTTPException(409, "这节课已改为缺席、请假或停课，请查看最新课后记录。")
     if item.phase != "finished":
-        raise HTTPException(409, "请先结束计时，再填写复盘。")
+        raise HTTPException(409, "请先结束计时，再填写记录。")
     return item
 
 
@@ -229,15 +229,15 @@ def write_review(db, user, session_id, body, submit):
     item = finished(db, user.id, session_id)
     review = find_review(db, user.id, session_id)
     if body.version != (review.version if review else 0):
-        raise HTTPException(409, "云端复盘已更新，请核对两份答案后再保存。")
+        raise HTTPException(409, "云端记录已更新，请核对两份答案后再保存。")
     if review and review.status != "draft":
-        raise HTTPException(409, "复盘已提交，当前不支持修改已提交的答案。")
+        raise HTTPException(409, "记录已提交，当前不支持修改已提交的答案。")
     if submit:
         validate_submission(body)
     now = utcnow()
     if submit:
         if now < item.ends_at:
-            raise HTTPException(409, "课程尚未结束，请等待下课后提交复盘；当前仍可继续计时。")
+            raise HTTPException(409, "课程尚未结束，请等待下课后提交记录；当前仍可继续计时。")
         from evaluation_api import require_window
         require_window(item, now)
     if review is None:

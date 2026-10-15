@@ -117,16 +117,16 @@ def shared_review_snapshot(db, user_id, session_id, review_version, now):
 
     study, review, job = records(db, user_id, session_id, reading=True)
     if review is None or review.status != "pending_evaluation":
-        raise HTTPException(409, "请先完成并提交这节课的复盘。")
+        raise HTTPException(409, "请先完成并提交这节课的记录。")
     if review.version != review_version:
-        raise HTTPException(409, "复盘记录已更新，请刷新后重新选择。")
+        raise HTTPException(409, "记录已更新，请刷新后重新选择。")
     if job is None or job.status != "succeeded":
-        raise HTTPException(409, "复盘结果尚未完成，请等待结算。")
+        raise HTTPException(409, "记录结果尚未完成，请等待结算。")
 
     evaluation = response(study, review, job, now)["evaluation"]
     exempt = (evaluation.get("outcome") or {}).get("decision") in {"leave", "cancelled"}
     if not evaluation.get("settlement") and not exempt:
-        raise HTTPException(409, "复盘尚未结算，请稍后再发送。")
+        raise HTTPException(409, "记录尚未结算，请稍后再发送。")
     personal = result(study, review, session_segments(db, user_id, session_id), now, job, db=db)
     session = personal["session"]
     summary = {"session_id": str(study.id), "review_version": review.version,
@@ -167,7 +167,7 @@ def get_group_message_review(group_id: uuid.UUID, message_id: uuid.UUID, user: C
         StudyGroupMessage.id == message_id, StudyGroupMessage.group_id == group_id,
         StudyGroupMessage.kind == "review"))
     if message is None or message.review_snapshot is None:
-        raise HTTPException(404, "复盘消息不存在。")
+        raise HTTPException(404, "记录消息不存在。")
     response.headers["Cache-Control"] = "no-store"
     return {**message.review_snapshot,
             "sender": {"id": str(message.sender_id), "name": message.sender_name,

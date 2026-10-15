@@ -1,0 +1,6 @@
+{
+  "component": true,
+  "usingComponents": {
+    "checkin-calendar": "/components/checkin-calendar/index"
+  }
+}
