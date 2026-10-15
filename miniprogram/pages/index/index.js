@@ -11,9 +11,6 @@ Page({
   onShareAppMessage,
   data: { loggedIn: false, brandWordmark: wordmark, headerMarket, entries: [
     { id: "class", name: "上课指数", points: null, art: art.classIndex, surface: surfaces.classIndex },
-    { id: "algorithm", name: "算法指数", points: null, art: art.algorithmIndex, surface: surfaces.algorithmIndex },
-    { id: "chores", name: "家务指数", points: null, art: art.choresIndex, surface: surfaces.choresIndex },
-    { id: "play", name: "娱乐指数", points: null, art: art.playIndex, surface: surfaces.playIndex },
   ] },
   onLoad() { this._loadId = 0; this.unsubscribe = session.subscribe(() => this.refreshIdentity()); },
   refreshIdentity() {
@@ -42,7 +39,6 @@ Page({
     const entry = this.data.entries.find((item) => item.id === event.currentTarget.dataset.id);
     if (!entry) return;
     if (entry.id === "class") return goToClassTab(0);
-    wx.showToast({ title: `${entry.name}筹备中`, icon: "none" });
   },
   openSettings() { wx.switchTab({ url: "/pages/settings/settings" }); },
 });

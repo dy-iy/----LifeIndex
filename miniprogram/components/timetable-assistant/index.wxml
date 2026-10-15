@@ -1,77 +1,77 @@
-<view class="assistant-overlay" style="bottom: {{keyboardHeight}}px;">
-  <view class="assistant-backdrop" catchtap="closeAssistant" catchtouchmove="noop"></view>
-  <view class="assistant-dialog {{!loggedIn ? 'guest-dialog' : ''}} {{keyboardHeight ? 'keyboard-open' : ''}}" role="dialog" aria-modal="true" aria-label="课表Agent" catchtap="noop">
-    <view class="assistant-header" catchtouchmove="noop">
-      <view><view class="eyebrow">让安排跟上生活</view><view class="assistant-title">课表Agent</view></view>
-      <button size="mini" class="assistant-close" bindtap="closeAssistant" aria-label="关闭课表Agent">×</button>
+<view class="assistant-box assistant-overlay" style="bottom: {{keyboardHeight}}px;">
+  <view class="assistant-box assistant-backdrop" catchtap="closeAssistant" catchtouchmove="noop"></view>
+  <view class="assistant-box assistant-dialog {{!loggedIn ? 'guest-dialog' : ''}} {{keyboardHeight ? 'keyboard-open' : ''}}" role="dialog" aria-modal="true" aria-label="课表Agent" catchtap="noop">
+    <view class="assistant-box assistant-header" catchtouchmove="noop">
+      <view class="assistant-box"><view class="assistant-box eyebrow">让安排跟上生活</view><view class="assistant-box assistant-title">课表Agent</view></view>
+      <button size="mini" class="assistant-button assistant-box assistant-close" bindtap="closeAssistant" aria-label="关闭课表Agent">×</button>
     </view>
-    <view wx:if="{{loggedIn}}" class="conversation-toolbar" catchtouchmove="noop">
-      <picker class="{{(busy || uploading || pending || loading) ? 'picker-disabled' : ''}}" wx:if="{{threads.length}}" range="{{threads}}" range-key="title" value="{{threadIndex}}" disabled="{{busy || uploading || pending || loading}}" bindchange="selectThread"><view class="picker-trigger conversation-title"><text class="picker-value">{{thread.title || '历史对话'}}</text><view class="picker-chevron" aria-hidden="true"></view></view></picker>
-      <view wx:else class="conversation-title">新的安排</view>
-      <button size="mini" class="text-button" disabled="{{busy || uploading || pending || loading}}" bindtap="newThread">＋ 新对话</button>
+    <view wx:if="{{loggedIn}}" class="assistant-box conversation-toolbar" catchtouchmove="noop">
+      <picker class="conversation-picker {{(busy || uploading || pending || loading) ? 'picker-disabled' : ''}}" wx:if="{{threads.length}}" range="{{threads}}" range-key="title" value="{{threadIndex}}" disabled="{{busy || uploading || pending || loading}}" bindchange="selectThread"><view class="assistant-box picker-trigger conversation-title"><text class="picker-value">{{thread.title || '历史对话'}}</text><view class="assistant-box picker-chevron" aria-hidden="true"></view></view></picker>
+      <view wx:else class="assistant-box conversation-title">新的安排</view>
+      <button size="mini" class="{{(busy || uploading || pending || loading) ? 'is-disabled' : ''}} assistant-button assistant-box text-button new-thread-button" disabled="{{busy || uploading || pending || loading}}" bindtap="newThread">＋ 新对话</button>
     </view>
-    <view class="assistant-body">
+    <view class="assistant-box assistant-body">
       <scroll-view class="assistant-scroll" scroll-y="{{true}}" scroll-into-view="{{scrollTarget}}" enhanced="{{true}}" show-scrollbar="{{false}}">
-        <view class="conversation-content">
-          <view wx:if="{{!loggedIn}}" class="welcome-card">
-            <view class="empty-title">从你的这一个学期开始</view>
-            <view class="empty-copy">微信登录后，就能识别课表截图、保存对话，安排假期和临时调课。</view>
-            <button size="mini" class="primary-button login-button" bindtap="goLogin">去「我的」登录</button>
+        <view class="assistant-box conversation-content">
+          <view wx:if="{{!loggedIn}}" class="assistant-box welcome-card">
+            <view class="assistant-box empty-title">从你的这一个学期开始</view>
+            <view class="assistant-box empty-copy">微信登录后，就能识别课表截图、保存对话，安排假期和临时调课。</view>
+            <button size="mini" class="assistant-button assistant-box primary-button login-button" bindtap="goLogin">去「我的」登录</button>
           </view>
           <block wx:else>
-            <view wx:if="{{loading}}" class="small muted loading">正在恢复对话…</view>
-            <view wx:if="{{error}}" class="error-panel"><text class="error" selectable="{{true}}">{{error}}</text></view>
-            <view wx:if="{{!messages.length && !loading}}" class="welcome-card">
-              <view class="empty-title">从一张课表开始</view>
-              <view class="empty-copy">一次上传 1–3 张课表截图，也可以直接描述课程或修改要求。识别到的信息会直接保存。</view>
-              <view class="example">试着说：“下周二的高数改到周四 14:00，教室不变。”</view>
-              <view class="small muted">未知信息先留空，你可以在课程列表随时修改。</view>
+            <view wx:if="{{loading}}" class="assistant-box small muted loading">正在恢复对话…</view>
+            <view wx:if="{{error}}" class="assistant-box error-panel"><text class="error" selectable="{{true}}">{{error}}</text></view>
+            <view wx:if="{{!messages.length && !loading}}" class="assistant-box welcome-card">
+              <view class="assistant-box empty-title">从一张课表开始</view>
+              <view class="assistant-box empty-copy">一次上传 1–3 张课表截图，也可以直接描述课程或修改要求。识别到的信息会直接保存。</view>
+              <view class="assistant-box example">试着说：“下周二的高数改到周四 14:00，教室不变。”</view>
+              <view class="assistant-box small muted">未知信息先留空，你可以在课程列表随时修改。</view>
             </view>
-            <view wx:if="{{thread.has_more_messages}}" class="small muted">当前显示最近 50 轮对话。</view>
-            <view wx:for="{{messages}}" wx:key="id" class="message {{item.isUser ? 'message-user' : 'message-assistant'}}">
+            <view wx:if="{{thread.has_more_messages}}" class="assistant-box small muted">当前显示最近 50 轮对话。</view>
+            <view wx:for="{{messages}}" wx:key="id" class="assistant-box message {{item.isUser ? 'message-user' : 'message-assistant'}}">
               <text class="message-role">{{item.isUser ? '你' : '课表Agent'}}</text>
               <text wx:if="{{item.text}}" class="message-content" selectable="{{true}}">{{item.displayText}}</text>
-              <button size="mini" wx:if="{{item.expandable}}" class="text-button expand-button" data-id="{{item.id}}" bindtap="toggleMessage">{{item.expanded ? '收起' : '展开全文'}}</button>
+              <button size="mini" wx:if="{{item.expandable}}" class="assistant-button assistant-box text-button expand-button" data-id="{{item.id}}" bindtap="toggleMessage">{{item.expanded ? '收起' : '展开全文'}}</button>
               <text wx:if="{{item.image_count}}" class="image-count">附 {{item.image_count}} 张课表图片</text>
             </view>
-            <view wx:if="{{reply}}" class="message message-assistant"><text class="message-role">课表Agent</text><text class="message-content" selectable="{{true}}">{{replyText}}</text><button size="mini" wx:if="{{replyExpandable}}" class="text-button expand-button" bindtap="toggleReply">{{replyExpanded ? '收起' : '展开全文'}}</button></view>
-            <view wx:if="{{statusText}}" class="run-status {{processing ? 'working' : ''}}"><view wx:if="{{processing}}" class="working-dot"></view><text>{{statusText}}</text></view>
+            <view wx:if="{{reply}}" class="assistant-box message message-assistant"><text class="message-role">课表Agent</text><text class="message-content" selectable="{{true}}">{{replyText}}</text><button size="mini" wx:if="{{replyExpandable}}" class="assistant-button assistant-box text-button expand-button" bindtap="toggleReply">{{replyExpanded ? '收起' : '展开全文'}}</button></view>
+            <view wx:if="{{statusText}}" class="assistant-box run-status {{processing ? 'working' : ''}}"><view wx:if="{{processing}}" class="assistant-box working-dot"></view><text>{{statusText}}</text></view>
             <text wx:if="{{runError}}" class="error run-error" selectable="{{true}}">{{runError}}</text>
-            <view wx:if="{{periodTimeSetupRequired}}" class="result-notes period-time-notes">
-              <view class="result-notes-title">请手动设置每节课的时间段</view>
+            <view wx:if="{{periodTimeSetupRequired}}" class="assistant-box result-notes period-time-notes">
+              <view class="assistant-box result-notes-title">请手动设置每节课的时间段</view>
               <text class="result-note-message">已保存节次信息，请手动设置每节课的开始和结束时间。</text>
               <text class="result-note-message">只有开始和结束时间填写完整的课程安排，才可在对应时段被计时功能识别；时间未填完整的安排暂不会被识别。</text>
-              <view wx:for="{{periodTimeSetupTables}}" wx:for-item="table" wx:key="key" class="result-note-row"><text class="result-note-title">{{table.label}}</text><text class="result-note-message">{{table.periodsLabel}}</text></view>
+              <view wx:for="{{periodTimeSetupTables}}" wx:for-item="table" wx:key="key" class="assistant-box result-note-row"><text class="result-note-title">{{table.label}}</text><text class="result-note-message">{{table.periodsLabel}}</text></view>
               <text class="result-note-message">可在下方输入各节时间，例如：第1节08:00-08:45，第2节08:55-09:40；也可到课程列表编辑具体安排的时间。</text>
-              <button size="mini" class="text-button expand-button" disabled="{{busy || loading || uploading || processing || pending || needsReload}}" bindtap="preparePeriodTimes">填写节次时间</button>
+              <button size="mini" class="{{(busy || loading || uploading || processing || pending || needsReload) ? 'is-disabled' : ''}} assistant-button assistant-box text-button expand-button" disabled="{{busy || loading || uploading || processing || pending || needsReload}}" bindtap="preparePeriodTimes">填写节次时间</button>
             </view>
-            <view wx:if="{{unappliedCount}}" class="result-notes unapplied-notes">
-              <view class="result-notes-title">未应用的修改 · {{unappliedCount}} 条</view>
+            <view wx:if="{{unappliedCount}}" class="assistant-box result-notes unapplied-notes">
+              <view class="assistant-box result-notes-title">未应用的修改 · {{unappliedCount}} 条</view>
               <text class="small muted">这些修改内容已保留，当前课程安排没有应用下列变动。</text>
-              <view wx:for="{{unappliedChanges}}" wx:for-item="change" wx:key="key" class="result-note-row">
+              <view wx:for="{{unappliedChanges}}" wx:for-item="change" wx:key="key" class="assistant-box result-note-row">
                 <text class="result-note-title">{{change.title}}</text><text class="result-note-message" selectable="{{true}}">原因：{{change.reason}}</text>
                 <text wx:if="{{change.sourceText}}" class="result-note-message" selectable="{{true}}">原话：{{change.sourceText}}</text>
                 <block wx:if="{{change.targets.length}}"><text class="result-note-label">对应或候选目标</text><text wx:for="{{change.targets}}" wx:for-item="target" wx:key="*this" class="result-note-message" selectable="{{true}}">{{target}}</text></block>
                 <block wx:if="{{change.fields.length}}"><text class="result-note-label">已理解的修改</text><text wx:for="{{change.fields}}" wx:for-item="field" wx:key="*this" class="result-note-message" selectable="{{true}}">{{field}}</text></block>
               </view>
-              <button wx:if="{{unappliedCount > 5}}" size="mini" class="text-button expand-button" bindtap="toggleUnapplied">{{unappliedExpanded ? '收起' : '查看全部 ' + unappliedCount + ' 条'}}</button>
+              <button wx:if="{{unappliedCount > 5}}" size="mini" class="assistant-button assistant-box text-button expand-button" bindtap="toggleUnapplied">{{unappliedExpanded ? '收起' : '查看全部 ' + unappliedCount + ' 条'}}</button>
             </view>
-            <view wx:if="{{diagnosticCount}}" class="result-notes">
-              <view class="result-notes-title">课程安排说明 · {{diagnosticCount}} 条</view>
-              <view wx:for="{{diagnosticRows}}" wx:for-item="diagnostic" wx:key="key" class="result-note-row"><text class="result-note-title">{{diagnostic.title}}</text><text class="result-note-message" selectable="{{true}}">{{diagnostic.message}}</text></view>
-              <button wx:if="{{diagnosticCount > 5}}" size="mini" class="text-button expand-button" bindtap="toggleDiagnostics">{{diagnosticsExpanded ? '收起' : '查看全部 ' + diagnosticCount + ' 条'}}</button>
+            <view wx:if="{{diagnosticCount}}" class="assistant-box result-notes">
+              <view class="assistant-box result-notes-title">课程安排说明 · {{diagnosticCount}} 条</view>
+              <view wx:for="{{diagnosticRows}}" wx:for-item="diagnostic" wx:key="key" class="assistant-box result-note-row"><text class="result-note-title">{{diagnostic.title}}</text><text class="result-note-message" selectable="{{true}}">{{diagnostic.message}}</text></view>
+              <button wx:if="{{diagnosticCount > 5}}" size="mini" class="assistant-button assistant-box text-button expand-button" bindtap="toggleDiagnostics">{{diagnosticsExpanded ? '收起' : '查看全部 ' + diagnosticCount + ' 条'}}</button>
             </view>
-            <button size="mini" wx:if="{{canRetry}}" class="secondary-button retry-button" disabled="{{busy || loading || uploading || pending || needsReload}}" bindtap="retryRun">重试本次处理</button>
-            <view class="refresh-row"><button size="mini" class="text-button" disabled="{{loading || busy || uploading}}" bindtap="reload">重新读取</button></view>
+            <button size="mini" wx:if="{{canRetry}}" class="{{(busy || loading || uploading || pending || needsReload) ? 'is-disabled' : ''}} assistant-button assistant-box secondary-button retry-button" disabled="{{busy || loading || uploading || pending || needsReload}}" bindtap="retryRun">重试本次处理</button>
+            <view class="assistant-box refresh-row"><button size="mini" class="{{(loading || busy || uploading) ? 'is-disabled' : ''}} assistant-button assistant-box text-button refresh-button" disabled="{{loading || busy || uploading}}" bindtap="reload">重新读取</button></view>
           </block>
         </view>
       </scroll-view>
     </view>
-    <view wx:if="{{loggedIn}}" class="composer" catchtouchmove="noop">
-      <textarea class="message-input" value="{{text}}" focus="{{periodInputFocused}}" bindblur="onPeriodInputBlur" bindinput="inputText" bindkeyboardheightchange="onKeyboardHeightChange" fixed="{{true}}" adjust-position="{{false}}" maxlength="4000" disabled="{{busy || pending}}" placeholder="描述课程或修改要求，发送后直接保存…" aria-label="告诉我你的课程安排"/>
-      <view wx:if="{{images.length}}" class="attachments"><view wx:for="{{images}}" wx:key="id" class="attachment"><image src="{{item.path}}" mode="aspectFill" data-index="{{index}}" bindtap="previewImage"/><button size="mini" class="remove-image" disabled="{{busy || pending || uploading}}" data-index="{{index}}" bindtap="removeImage" aria-label="移除第 {{index + 1}} 张图片">×</button></view></view>
-      <view class="composer-tools"><button size="mini" class="text-button image-button" disabled="{{busy || loading || uploading || processing || pending || images.length >= 3}}" bindtap="chooseImages">{{uploading ? '正在上传…' : '＋ 课表截图'}}</button><text class="small muted">{{images.length}}/3 张 · 每张 ≤ 2 MB</text></view>
-      <button size="mini" class="primary-button send-button" loading="{{busy}}" disabled="{{busy || loading || uploading || processing || pending || needsReload || (!text && !images.length)}}" bindtap="send">{{processing ? '正在处理，请稍候' : pending ? '请先恢复处理状态' : '发送给课表Agent'}}</button>
+    <view wx:if="{{loggedIn}}" class="assistant-box composer" catchtouchmove="noop">
+      <textarea class="assistant-box message-input" value="{{text}}" focus="{{periodInputFocused}}" bindblur="onPeriodInputBlur" bindinput="inputText" bindkeyboardheightchange="onKeyboardHeightChange" fixed="{{true}}" adjust-position="{{false}}" maxlength="4000" disabled="{{busy || pending}}" placeholder="描述课程或修改要求，发送后直接保存…" aria-label="告诉我你的课程安排"/>
+      <view wx:if="{{images.length}}" class="assistant-box attachments"><view wx:for="{{images}}" wx:key="id" class="assistant-box attachment"><image class="attachment-image" src="{{item.path}}" mode="aspectFill" data-index="{{index}}" bindtap="previewImage"/><button size="mini" class="{{(busy || pending || uploading) ? 'is-disabled' : ''}} assistant-button assistant-box remove-image" disabled="{{busy || pending || uploading}}" data-index="{{index}}" bindtap="removeImage" aria-label="移除第 {{index + 1}} 张图片">×</button></view></view>
+      <view class="assistant-box composer-tools"><button size="mini" class="{{(busy || loading || uploading || processing || pending || images.length >= 3) ? 'is-disabled' : ''}} assistant-button assistant-box text-button image-button" disabled="{{busy || loading || uploading || processing || pending || images.length >= 3}}" bindtap="chooseImages">{{uploading ? '正在上传…' : '＋ 课表截图'}}</button><text class="small muted">{{images.length}}/3 张 · 每张 ≤ 2 MB</text></view>
+      <button size="mini" class="{{(busy || loading || uploading || processing || pending || needsReload || (!text && !images.length)) ? 'is-disabled' : ''}} assistant-button assistant-box primary-button send-button" loading="{{busy}}" disabled="{{busy || loading || uploading || processing || pending || needsReload || (!text && !images.length)}}" bindtap="send">{{processing ? '正在处理，请稍候' : pending ? '请先恢复处理状态' : '发送给课表Agent'}}</button>
     </view>
   </view>
 </view>

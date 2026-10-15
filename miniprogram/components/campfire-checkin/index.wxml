@@ -15,6 +15,18 @@
       </view>
       <view class="campfire-progress-ring" role="progressbar" aria-label="成员打卡进度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{percent}}">
         <image wx:if="{{scene.progressRingSrc}}" class="campfire-ring-image" src="{{scene.progressRingSrc}}" mode="scaleToFill" aria-hidden="true"/>
+        <view wx:if="{{ready && scene.progressRingMaskSrc}}" class="campfire-ring-liquid" style="-webkit-mask-image: url('{{scene.progressRingMaskSrc}}'); mask-image: url('{{scene.progressRingMaskSrc}}');" aria-hidden="true">
+          <view class="campfire-ring-flow"/>
+          <view class="campfire-ring-shimmer"/>
+          <view class="campfire-ring-stars">
+            <view class="campfire-ring-star campfire-ring-star-one"/>
+            <view class="campfire-ring-star campfire-ring-star-two"/>
+            <view class="campfire-ring-star campfire-ring-star-three"/>
+            <view class="campfire-ring-star campfire-ring-star-four"/>
+            <view class="campfire-ring-star campfire-ring-star-five"/>
+            <view class="campfire-ring-star campfire-ring-star-six"/>
+          </view>
+        </view>
         <view class="campfire-percent"><text class="campfire-percent-number">{{ready ? percent : '—'}}</text><text wx:if="{{ready}}" class="campfire-percent-unit">%</text></view>
       </view>
     </view>
@@ -24,6 +36,9 @@
       <image wx:if="{{scene.decorSrc}}" class="campfire-layer" src="{{scene.decorSrc}}" mode="scaleToFill" aria-hidden="true"/>
       <image wx:if="{{scene.glowSrc}}" class="campfire-layer campfire-glow" src="{{scene.glowSrc}}" mode="scaleToFill" aria-hidden="true"/>
       <image wx:if="{{scene.fireSrc}}" class="campfire-layer campfire-flame {{completed > 0 ? 'campfire-layer-visible' : ''}}" src="{{scene.fireSrc}}" mode="scaleToFill" aria-hidden="true"/>
+      <image wx:if="{{scene.fireCoreSrc}}" class="campfire-layer campfire-flame-core campfire-layer-visible" src="{{scene.fireCoreSrc}}" mode="scaleToFill" aria-hidden="true"/>
+      <image wx:if="{{scene.sparksBackSrc}}" class="campfire-layer campfire-sparks campfire-sparks-back" src="{{scene.sparksBackSrc}}" mode="scaleToFill" aria-hidden="true"/>
+      <image wx:if="{{scene.sparksFrontSrc}}" class="campfire-layer campfire-sparks campfire-sparks-front" src="{{scene.sparksFrontSrc}}" mode="scaleToFill" aria-hidden="true"/>
       <image wx:if="{{scene.sceneSrc}}" class="campfire-layer" src="{{scene.sceneSrc}}" mode="scaleToFill" aria-hidden="true"/>
       <text wx:if="{{ready && scene.isFull}}" class="campfire-full-banner">🌌 篝火夜读 · 全员满卡</text>
     </view>
@@ -50,10 +65,26 @@
           <view class="campfire-member-name-row"><text class="campfire-member-name">{{item.name}}</text><text wx:if="{{item.isSelf}}" class="campfire-member-self">我</text></view>
           <text class="campfire-member-subtitle">{{!ready || !membersReady ? (loading ? '正在读取打卡状态…' : '打卡状态待更新') : item.checked ? (item.timeLabel ? item.timeLabel + ' 完成打卡' : '已完成当天的打卡') : viewingHistory ? '当天未打卡' : '等待今天的打卡'}}</text>
         </view>
-        <button wx:if="{{!ready || !membersReady}}" class="campfire-member-button campfire-member-button-pending" disabled="{{true}}"><text>{{loading ? '加载中…' : '状态待更新'}}</text></button>
-        <button wx:elif="{{item.checked}}" class="campfire-member-button campfire-member-button-checked" disabled="{{true}}"><text class="campfire-member-button-check" aria-hidden="true">✓</text><text>已打卡</text></button>
-        <button wx:elif="{{item.isSelf && !viewingHistory}}" class="campfire-member-button campfire-member-button-self" data-id="{{item.id}}" data-group-id="{{groupId}}" data-day="{{day}}" bindtap="memberCheckin" disabled="{{submitting}}" loading="{{submitting}}" hover-class="campfire-member-button-pressed"><text>{{submitting ? '打卡中…' : '打卡'}}</text></button>
-        <button wx:else class="campfire-member-button campfire-member-button-pending" disabled="{{true}}"><view class="campfire-member-clock" aria-hidden="true"/><text>未打卡</text></button>
+        <view class="campfire-member-action {{memberCheckinCelebrating && item.isSelf ? 'campfire-member-action-celebrating' : ''}}">
+          <button size="mini" class="campfire-member-button {{ready && membersReady && item.checked ? 'campfire-member-button-checked' : ready && membersReady && item.isSelf && !viewingHistory ? 'campfire-member-button-self' : 'campfire-member-button-pending'}} {{submitting && item.isSelf && !item.checked ? 'campfire-member-button-submitting' : ''}} {{!ready || !membersReady || item.checked || !item.isSelf || viewingHistory || submitting ? 'campfire-member-button-disabled' : ''}}"
+            data-id="{{item.id}}" data-group-id="{{groupId}}" data-day="{{day}}" bindtap="memberCheckin"
+            disabled="{{!ready || !membersReady || item.checked || !item.isSelf || viewingHistory || submitting}}"
+            aria-label="{{!ready || !membersReady ? (loading ? '正在加载打卡状态' : '打卡状态待更新') : item.checked ? item.name + '，已打卡' : item.isSelf && !viewingHistory ? (submitting ? '正在打卡' : '立即打卡') : item.name + '，未打卡'}}"
+            hover-class="campfire-member-button-pressed" hover-stay-time="{{120}}">
+            <view class="campfire-member-button-surface">
+              <view class="campfire-member-button-content">
+                <view class="campfire-member-clock" aria-hidden="true"/>
+                <view class="campfire-member-button-spinner" aria-hidden="true"/>
+                <text>{{!ready || !membersReady ? (loading ? '加载中…' : '状态待更新') : item.checked ? '已打卡' : item.isSelf && !viewingHistory ? (submitting ? '打卡中' : '打卡') : '未打卡'}}</text>
+              </view>
+              <view class="campfire-member-button-check" aria-hidden="true"/>
+            </view>
+          </button>
+          <view wx:if="{{memberCheckinCelebrating && item.isSelf}}" class="campfire-member-checkin-effects" aria-hidden="true">
+            <view class="campfire-member-checkin-halo"/>
+            <view wx:for="{{memberCheckinParticles}}" wx:for-item="particle" wx:key="id" class="campfire-member-checkin-particle" style="{{particle.style}}"/>
+          </view>
+        </view>
       </view>
     </view>
     <text wx:else class="campfire-members-empty">{{loading ? '正在加载成员…' : viewingHistory && ready ? '这一天暂无成员记录' : '成员列表暂未加载'}}</text>

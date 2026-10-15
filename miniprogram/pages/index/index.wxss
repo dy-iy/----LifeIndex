@@ -60,7 +60,7 @@
   position: relative;
   display: flex;
   align-items: center;
-  height: 188rpx;
+  height: 210rpx;
   margin-bottom: 20rpx;
   padding: 25rpx 30rpx;
   overflow: hidden;
@@ -74,15 +74,6 @@
 .index-card:last-child { margin-bottom: 0; }
 .index-card-class {
   background: radial-gradient(ellipse at 93% 8%, rgba(179, 193, 120, 0.17), transparent 62%), linear-gradient(110deg, #1e4234 0%, #2e5741 63%, #45634a 100%);
-}
-.index-card-algorithm {
-  background: radial-gradient(ellipse at 93% 8%, rgba(155, 194, 211, 0.18), transparent 62%), linear-gradient(110deg, #263e55 0%, #345973 63%, #446a81 100%);
-}
-.index-card-chores {
-  background: radial-gradient(ellipse at 93% 8%, rgba(247, 205, 143, 0.2), transparent 62%), linear-gradient(110deg, #814b38 0%, #a46b4e 63%, #b5825e 100%);
-}
-.index-card-play {
-  background: radial-gradient(ellipse at 93% 8%, rgba(208, 181, 207, 0.19), transparent 62%), linear-gradient(110deg, #53415f 0%, #715878 63%, #886b8b 100%);
 }
 .index-card-pressed { opacity: 0.88; transform: scale(0.99); }
 
@@ -108,9 +99,6 @@
 
 .index-value { font-size: 60rpx; line-height: 1.1; }
 .index-unit { margin-left: 17rpx; font-size: 21rpx; color: #c0cfb9; }
-.index-card-algorithm .index-unit { color: #c1d3e0; }
-.index-card-chores .index-unit { color: #efd0b5; }
-.index-card-play .index-unit { color: #ded0e3; }
 
 .index-art {
   position: absolute;
@@ -133,4 +121,6 @@
 }
 .index-change { margin-top: 6rpx; font-size: 19rpx; color: #adbaad; }.index-change.rise { color: #f0a99a; }.index-change.fall { color: #b0d7b8; }.home-index-error { margin: 20rpx 0; color: #8d796c; line-height: 1.7; font-size: 23rpx; }
 
-.index-card { height: 210rpx; }
+.more-indices { display: flex; align-items: center; justify-content: center; gap: 18rpx; min-height: 76rpx; margin-top: 26rpx; color: #92998e; font-size: 24rpx; line-height: 1.5; white-space: nowrap; }
+.more-indices::before, .more-indices::after { flex: 1; height: 1rpx; background: linear-gradient(90deg, transparent, rgba(130, 139, 120, .22)); content: ""; }
+.more-indices::after { transform: rotate(180deg); }

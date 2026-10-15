@@ -59,6 +59,9 @@ function buildCalendar({ month, selectedDate, createdDate, todayDate, days = [] 
     canNext: isMonthSelectable(nextMonth, createdDate, todayDate),
     canToday: isDateSelectable(todayDate, createdDate, todayDate),
     cells: [],
+    weekCells: [],
+    weekStart: "",
+    weekEnd: "",
   };
   if (!parsed) return result;
 
@@ -69,17 +72,18 @@ function buildCalendar({ month, selectedDate, createdDate, todayDate, days = [] 
   const cellCount = Math.ceil((mondayOffset + daysInMonth(parsed.year, parsed.month)) / 7) * 7;
   const records = Object.create(null);
   if (Array.isArray(days)) days.forEach((day) => {
-    if (day && parseDate(day.date) && day.date.slice(0, 7) === displayMonth) records[day.date] = day;
+    // The compact week can straddle a month boundary, so keep neighboring
+    // records as well when the parent has already loaded them.
+    if (day && parseDate(day.date)) records[day.date] = day;
   });
 
-  for (let index = 0; index < cellCount; index += 1) {
-    const dateObject = new Date(first.getTime() + (index - mondayOffset) * 86400000);
+  function buildCell(dateObject, restrictToMonth) {
     const date = `${String(dateObject.getUTCFullYear()).padStart(4, "0")}-${pad(dateObject.getUTCMonth() + 1)}-${pad(dateObject.getUTCDate())}`;
     const inMonth = date.slice(0, 7) === displayMonth;
-    const enabled = inMonth && isDateSelectable(date, createdDate, todayDate, displayMonth);
+    const enabled = isDateSelectable(date, createdDate, todayDate, restrictToMonth ? displayMonth : undefined);
     const today = date === todayDate;
     const full = enabled && Boolean(records[date] && records[date].is_full === true);
-    result.cells.push({
+    return {
       date,
       label: String(dateObject.getUTCDate()),
       inMonth,
@@ -88,8 +92,27 @@ function buildCalendar({ month, selectedDate, createdDate, todayDate, days = [] 
       today,
       full,
       ariaLabel: `${date}${today ? "，今天" : ""}${full ? "，全员已打卡" : ""}${enabled ? "" : "，不可选择"}`,
-    });
+    };
   }
+
+  for (let index = 0; index < cellCount; index += 1) {
+    const dateObject = new Date(first.getTime() + (index - mondayOffset) * 86400000);
+    result.cells.push(buildCell(dateObject, true));
+  }
+
+  const selected = parseDate(selectedDate);
+  const today = parseDate(todayDate);
+  const anchor = selected && selectedDate.slice(0, 7) === displayMonth ? selected
+    : (today && todayDate.slice(0, 7) === displayMonth ? today : { ...parsed, day: 1 });
+  const anchorDate = new Date(first.getTime());
+  anchorDate.setUTCDate(anchor.day);
+  const weekOffset = (anchorDate.getUTCDay() + 6) % 7;
+  for (let index = 0; index < 7; index += 1) {
+    const dateObject = new Date(anchorDate.getTime() + (index - weekOffset) * 86400000);
+    result.weekCells.push(buildCell(dateObject, false));
+  }
+  result.weekStart = result.weekCells[0].date;
+  result.weekEnd = result.weekCells[6].date;
   return result;
 }
 

@@ -1,5 +1,5 @@
 :host { display: block; }
-view, text { box-sizing: border-box; }
+.timetable-box { box-sizing: border-box; }
 .week-timetable { color: #183844; }
 .grid-toolbar { padding: 4rpx 1rpx 19rpx; }
 .grid-count { display: flex; align-items: center; gap: 10rpx; font-size: 21rpx; color: #879087; }

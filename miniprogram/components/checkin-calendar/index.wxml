@@ -1,19 +1,24 @@
-<view class="checkin-calendar-card">
+<view class="checkin-calendar-card {{expanded ? 'checkin-calendar-card-expanded' : 'checkin-calendar-card-compact'}}">
   <view class="checkin-calendar-header">
-    <text class="checkin-calendar-title">打卡日历</text>
-    <button class="checkin-calendar-today-button" hover-class="checkin-calendar-pressed" disabled="{{!canToday || loading || !active}}" data-group-id="{{groupId}}" data-context-key="{{contextKey}}" bindtap="goToday">今天</button>
-  </view>
-  <view class="checkin-calendar-month-row">
-    <button class="checkin-calendar-month-button" hover-class="checkin-calendar-pressed" aria-label="上一个月" disabled="{{!canPrevious || loading || !active}}" data-month="{{previousMonth}}" data-group-id="{{groupId}}" data-context-key="{{contextKey}}" bindtap="changeMonth"><view class="checkin-calendar-arrow checkin-calendar-arrow-left"></view></button>
-    <text class="checkin-calendar-month-label">{{monthLabel}}</text>
-    <button class="checkin-calendar-month-button" hover-class="checkin-calendar-pressed" aria-label="下一个月" disabled="{{!canNext || loading || !active}}" data-month="{{nextMonth}}" data-group-id="{{groupId}}" data-context-key="{{contextKey}}" bindtap="changeMonth"><view class="checkin-calendar-arrow"></view></button>
+    <button class="checkin-calendar-month-toggle {{!displayMonth || loading || !active ? 'checkin-calendar-disabled' : ''}}" hover-class="checkin-calendar-pressed" aria-label="{{monthLabel}}，{{expanded ? '收起月历' : '展开月历'}}" aria-expanded="{{expanded}}" disabled="{{!displayMonth || loading || !active}}" data-group-id="{{groupId}}" data-context-key="{{contextKey}}" bindtap="toggleExpanded">
+      <text class="checkin-calendar-month-label">{{monthLabel}}</text>
+      <view class="checkin-calendar-expand-chevron {{expanded ? 'checkin-calendar-expand-chevron-up' : ''}}" aria-hidden="true"></view>
+    </button>
+    <view class="checkin-calendar-header-actions">
+      <text class="checkin-calendar-loading" wx:if="{{loading}}">更新中…</text>
+      <block wx:if="{{expanded}}">
+        <button class="checkin-calendar-month-button {{!canPrevious || loading || !active ? 'checkin-calendar-disabled' : ''}}" hover-class="checkin-calendar-pressed" aria-label="上一个月" disabled="{{!canPrevious || loading || !active}}" data-month="{{previousMonth}}" data-group-id="{{groupId}}" data-context-key="{{contextKey}}" bindtap="changeMonth"><view class="checkin-calendar-arrow checkin-calendar-arrow-left"></view></button>
+        <button class="checkin-calendar-month-button {{!canNext || loading || !active ? 'checkin-calendar-disabled' : ''}}" hover-class="checkin-calendar-pressed" aria-label="下一个月" disabled="{{!canNext || loading || !active}}" data-month="{{nextMonth}}" data-group-id="{{groupId}}" data-context-key="{{contextKey}}" bindtap="changeMonth"><view class="checkin-calendar-arrow"></view></button>
+      </block>
+      <button wx:if="{{canReturnToday}}" class="checkin-calendar-today-button {{!canToday || loading || !active ? 'checkin-calendar-disabled' : ''}}" hover-class="checkin-calendar-pressed" disabled="{{!canToday || loading || !active}}" data-group-id="{{groupId}}" data-context-key="{{contextKey}}" bindtap="goToday">今天</button>
+    </view>
   </view>
   <view class="checkin-calendar-weekdays">
     <text class="checkin-calendar-weekday" wx:for="{{weekdays}}" wx:key="*this">{{item}}</text>
   </view>
   <view class="checkin-calendar-grid">
-    <view class="checkin-calendar-cell" wx:for="{{cells}}" wx:key="date">
-      <button class="checkin-calendar-date-button {{item.enabled ? 'checkin-calendar-date-enabled' : ''}} {{item.inMonth ? '' : 'checkin-calendar-date-outside'}}" hover-class="checkin-calendar-pressed" disabled="{{!item.enabled || loading || !active}}" aria-label="{{item.ariaLabel}}" data-date="{{item.date}}" data-group-id="{{groupId}}" data-context-key="{{contextKey}}" bindtap="selectDate">
+    <view class="checkin-calendar-cell" wx:for="{{expanded ? cells : weekCells}}" wx:key="date">
+      <button class="checkin-calendar-date-button {{item.enabled ? 'checkin-calendar-date-enabled' : ''}} {{expanded && !item.inMonth ? 'checkin-calendar-date-outside' : ''}} {{!item.enabled || loading || !active ? 'checkin-calendar-disabled' : ''}}" hover-class="checkin-calendar-pressed" disabled="{{!item.enabled || loading || !active}}" aria-label="{{item.ariaLabel}}" data-date="{{item.date}}" data-group-id="{{groupId}}" data-context-key="{{contextKey}}" bindtap="selectDate">
         <view class="checkin-calendar-date-circle {{item.today ? 'checkin-calendar-date-today' : ''}} {{item.selected ? 'checkin-calendar-date-selected' : ''}}">
           <text class="checkin-calendar-day-number">{{item.label}}</text>
           <text class="checkin-calendar-full-mark" wx:if="{{item.full}}">✓</text>
@@ -21,13 +26,12 @@
       </button>
     </view>
   </view>
-  <view class="checkin-calendar-legend">
+  <view wx:if="{{expanded}}" class="checkin-calendar-legend">
     <view class="checkin-calendar-legend-item"><view class="checkin-calendar-legend-today"></view><text>今天</text></view>
     <view class="checkin-calendar-legend-item"><text class="checkin-calendar-legend-full">✓</text><text>全员打卡</text></view>
-    <text class="checkin-calendar-loading" wx:if="{{loading}}">更新中…</text>
   </view>
   <view class="checkin-calendar-error" wx:if="{{error}}">
     <text class="checkin-calendar-error-text">{{error}}</text>
-    <button class="checkin-calendar-retry" hover-class="checkin-calendar-pressed" disabled="{{loading || !active}}" data-group-id="{{groupId}}" data-context-key="{{contextKey}}" bindtap="retry">重试</button>
+    <button class="checkin-calendar-retry {{loading || !active ? 'checkin-calendar-disabled' : ''}}" hover-class="checkin-calendar-pressed" disabled="{{loading || !active}}" data-group-id="{{groupId}}" data-context-key="{{contextKey}}" bindtap="retry">重试</button>
   </view>
 </view>

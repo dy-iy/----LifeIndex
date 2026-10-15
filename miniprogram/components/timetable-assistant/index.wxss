@@ -1,8 +1,8 @@
 @import "../../picker-controls.wxss";
 
-view, button, textarea { box-sizing: border-box; }
-button { font-weight: 500; }
-button::after { border: none; }
+.assistant-box { box-sizing: border-box; }
+.assistant-button { font-weight: 500; }
+.assistant-button::after { border: none; }
 .assistant-overlay { position: fixed; z-index: 1000; top: 0; left: 0; right: 0; display: flex; align-items: center; justify-content: center; padding: 24rpx 38rpx; color: #183844; font-size: 25rpx; }
 .assistant-backdrop { position: absolute; inset: 0; background: rgba(27, 40, 31, .38); animation: veil-in .18s ease-out; }
 .assistant-dialog { position: relative; display: flex; flex-direction: column; width: 100%; max-width: 680rpx; height: 82vh; max-height: 100%; min-height: 0; overflow: hidden; border: 1rpx solid #e9dfd0; border-radius: 20rpx; background: #fffcf6; box-shadow: 0 22rpx 80rpx rgba(24, 43, 31, .2); animation: dialog-in .2s ease-out; }
@@ -11,9 +11,9 @@ button::after { border: none; }
 .assistant-title { font-family: "Songti SC", "STSong", serif; font-size: 39rpx; line-height: 1.25; }
 .assistant-dialog .assistant-close { display: flex; align-items: center; justify-content: center; width: 62rpx; height: 62rpx; margin: 0 0 0 20rpx; padding: 0; flex-shrink: 0; color: #795b93; background: #f2e9f5; border-radius: 50%; font-size: 40rpx; line-height: 1; }
 .conversation-toolbar { display: flex; flex-shrink: 0; align-items: center; justify-content: space-between; margin: 0 28rpx; border-top: 1rpx solid #e8dfd3; border-bottom: 1rpx solid #e8dfd3; gap: 16rpx; }
-.conversation-toolbar picker { flex: 1; min-width: 0; }
+.conversation-toolbar .conversation-picker { flex: 1; min-width: 0; }
 .conversation-title { min-width: 0; padding: 18rpx 0; font-size: 24rpx; }
-.conversation-toolbar button { margin: 0; flex-shrink: 0; padding-right: 0; }
+.conversation-toolbar .new-thread-button { margin: 0; flex-shrink: 0; padding-right: 0; }
 .assistant-body { flex: 1; min-height: 0; overflow: hidden; }
 .assistant-scroll { height: 100%; }
 .conversation-content { padding: 22rpx 28rpx 0; }
@@ -25,7 +25,7 @@ button::after { border: none; }
 .empty-copy { color: #879087; font-size: 23rpx; line-height: 1.8; }
 .example { color: #795b93; font-size: 23rpx; line-height: 1.8; margin: 18rpx 0 12rpx; padding-left: 17rpx; border-left: 3rpx solid #c8a7df; }
 .refresh-row { display: flex; justify-content: flex-end; padding: 7rpx 0; }
-.refresh-row button { margin: 0; padding-right: 0; font-size: 20rpx; }
+.refresh-row .refresh-button { margin: 0; padding-right: 0; font-size: 20rpx; }
 .error { color: #b4533a; font-size: 23rpx; line-height: 1.8; }
 .error-panel { padding: 0 0 20rpx; }
 .message { padding: 22rpx; margin-bottom: 20rpx; border-radius: 20rpx; }
@@ -54,14 +54,14 @@ button::after { border: none; }
 .composer-tools .image-button { padding-left: 0; margin: 0; }
 .attachments { display: flex; gap: 14rpx; margin-top: 16rpx; }
 .attachment { position: relative; width: 88rpx; height: 74rpx; }
-.attachment image { width: 88rpx; height: 74rpx; border-radius: 10rpx; }
+.attachment .attachment-image { width: 88rpx; height: 74rpx; border-radius: 10rpx; }
 .assistant-dialog .remove-image { position: absolute; top: -10rpx; right: -10rpx; width: 32rpx; height: 32rpx; margin: 0; padding: 0; border-radius: 50%; background: #fffcf6; color: #9b6c57; font-size: 25rpx; line-height: 30rpx; }
 .assistant-dialog .primary-button, .assistant-dialog .secondary-button { width: 100%; margin: 0; padding: 22rpx 24rpx; font-size: 25rpx; line-height: 1.3; border-radius: 16rpx; }
 .assistant-dialog .primary-button { background: #7954a0; color: #fffcf6; }
 .assistant-dialog .secondary-button { border: 1rpx solid #d9c2e8; background: #f7eef9; color: #7954a0; }
 .assistant-dialog .text-button { width: auto; background: transparent; color: #795b93; font-size: 22rpx; padding: 13rpx; line-height: 1.5; }
-.assistant-dialog button[disabled] { color: #aaa0ad; background: #eee7ed; }
-.assistant-dialog .text-button[disabled] { background: transparent; }
+.assistant-dialog .assistant-button.is-disabled { color: #aaa0ad; background: #eee7ed; }
+.assistant-dialog .text-button.is-disabled { background: transparent; }
 .guest-dialog { height: 580rpx; }
 .assistant-dialog .expand-button { margin: 8rpx 0 0; padding: 0; font-size: 21rpx; }
 .keyboard-open .conversation-toolbar, .keyboard-open .eyebrow { display: none; }

@@ -1,24 +1,28 @@
 :host { display: block; min-width: 0; }
-.checkin-calendar-card { box-sizing: border-box; margin-bottom: 24rpx; padding: 28rpx 30rpx 24rpx; border: 1rpx solid #eceae0; border-radius: 34rpx; color: #2c4137; background: #fffef9; box-shadow: 0 8rpx 40rpx rgba(53, 94, 69, .04); font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; }
-.checkin-calendar-header { display: flex; align-items: center; justify-content: space-between; gap: 18rpx; }
-.checkin-calendar-title { font-size: 30rpx; font-weight: 700; line-height: 1.45; }
+.checkin-calendar-card { box-sizing: border-box; margin-bottom: 24rpx; padding: 20rpx 30rpx 18rpx; border: 1rpx solid #eceae0; border-radius: 34rpx; color: #2c4137; background: #fffef9; box-shadow: 0 8rpx 40rpx rgba(53, 94, 69, .04); font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; }
+.checkin-calendar-card-expanded { padding-top: 28rpx; padding-bottom: 24rpx; }
+.checkin-calendar-header { display: flex; align-items: center; justify-content: space-between; gap: 12rpx; margin-bottom: 8rpx; }
+.checkin-calendar-header-actions { display: flex; flex: 0 0 auto; align-items: center; gap: 8rpx; }
+.checkin-calendar-card .checkin-calendar-header .checkin-calendar-month-toggle { display: flex; box-sizing: border-box; flex: 1; align-items: center; justify-content: flex-start; gap: 12rpx; width: auto; min-width: 0; min-height: 56rpx; margin: 0; padding: 0; border: 0; border-radius: 0; color: #3c5144; background: transparent; line-height: 1.5; text-align: left; }
+.checkin-calendar-card .checkin-calendar-header .checkin-calendar-month-toggle.checkin-calendar-disabled { color: #3c5144; background: transparent; }
+.checkin-calendar-expand-chevron { box-sizing: border-box; flex: 0 0 12rpx; width: 12rpx; height: 12rpx; margin-top: -5rpx; border-right: 2rpx solid #8d9a83; border-bottom: 2rpx solid #8d9a83; transform: rotate(45deg); transition: transform 180ms ease; }
+.checkin-calendar-expand-chevron-up { margin-top: 5rpx; transform: rotate(225deg); }
 /* style:v2 gives native buttons a fixed width and disabled background. Keep
    calendar controls more specific and bound each date to its own grid cell. */
 .checkin-calendar-card .checkin-calendar-header .checkin-calendar-today-button { display: flex; box-sizing: border-box; flex: 0 0 auto; align-items: center; justify-content: center; width: auto; min-width: 86rpx; max-width: 130rpx; min-height: 0; margin: 0; padding: 6rpx 18rpx; border: 1rpx solid #e4e9de; border-radius: 999rpx; color: #527355; background: #f1f4eb; font-size: 22rpx; line-height: 1.45; white-space: nowrap; }
-.checkin-calendar-card .checkin-calendar-header .checkin-calendar-today-button[disabled] { color: #a6ae9c; background: #f6f7f1; }
-.checkin-calendar-month-row { display: flex; align-items: center; justify-content: space-between; gap: 16rpx; margin: 15rpx 0 11rpx; }
-.checkin-calendar-month-label { color: #3c5144; font-size: 27rpx; font-weight: 600; line-height: 1.5; text-align: center; font-variant-numeric: tabular-nums; }
-.checkin-calendar-card .checkin-calendar-month-row .checkin-calendar-month-button { display: flex; box-sizing: border-box; align-items: center; justify-content: center; flex: 0 0 64rpx; width: 64rpx; min-width: 64rpx; max-width: 64rpx; height: 56rpx; min-height: 56rpx; max-height: 56rpx; margin: 0; padding: 0; border: 0; border-radius: 18rpx; color: #527355; background: #f4f6ef; line-height: 1; }
-.checkin-calendar-card .checkin-calendar-month-row .checkin-calendar-month-button[disabled] { color: #c9cebf; background: transparent; }
+.checkin-calendar-card .checkin-calendar-header .checkin-calendar-today-button.checkin-calendar-disabled { color: #a6ae9c; background: #f6f7f1; }
+.checkin-calendar-month-label { min-width: 0; overflow: hidden; color: inherit; font-size: 27rpx; font-weight: 600; line-height: 1.5; text-overflow: ellipsis; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.checkin-calendar-card .checkin-calendar-header-actions .checkin-calendar-month-button { display: flex; box-sizing: border-box; align-items: center; justify-content: center; flex: 0 0 64rpx; width: 64rpx; min-width: 64rpx; max-width: 64rpx; height: 56rpx; min-height: 56rpx; max-height: 56rpx; margin: 0; padding: 0; border: 0; border-radius: 18rpx; color: #527355; background: #f4f6ef; line-height: 1; }
+.checkin-calendar-card .checkin-calendar-header-actions .checkin-calendar-month-button.checkin-calendar-disabled { color: #c9cebf; background: transparent; }
 .checkin-calendar-arrow { box-sizing: border-box; width: 15rpx; height: 15rpx; border-top: 2.5rpx solid currentColor; border-right: 2.5rpx solid currentColor; transform: rotate(45deg); }
 .checkin-calendar-arrow-left { transform: rotate(-135deg); }
 .checkin-calendar-weekdays, .checkin-calendar-grid { display: flex; flex-wrap: wrap; }
 .checkin-calendar-weekday { box-sizing: border-box; width: 14.285714%; padding: 9rpx 0; color: #8d9a83; font-size: 21rpx; line-height: 1.45; text-align: center; }
 .checkin-calendar-cell { box-sizing: border-box; flex: 0 0 14.285714%; width: 14.285714%; min-width: 0; max-width: 14.285714%; height: 75rpx; }
 .checkin-calendar-card .checkin-calendar-cell .checkin-calendar-date-button { position: relative; display: flex; box-sizing: border-box; align-items: center; justify-content: center; width: 100%; min-width: 0; max-width: 100%; height: 75rpx; min-height: 75rpx; max-height: 75rpx; margin: 0; padding: 0; border: 0; border-radius: 0; color: #b3b8aa; background: transparent; font-size: 26rpx; line-height: 1; }
-.checkin-calendar-card .checkin-calendar-cell .checkin-calendar-date-button[disabled] { color: #b3b8aa; background: transparent; }
-.checkin-calendar-card .checkin-calendar-cell .checkin-calendar-date-enabled, .checkin-calendar-card .checkin-calendar-cell .checkin-calendar-date-enabled[disabled] { color: #222; }
-.checkin-calendar-card .checkin-calendar-cell .checkin-calendar-date-outside, .checkin-calendar-card .checkin-calendar-cell .checkin-calendar-date-outside[disabled] { color: #d0d2c9; }
+.checkin-calendar-card .checkin-calendar-cell .checkin-calendar-date-button.checkin-calendar-disabled { color: #b3b8aa; background: transparent; }
+.checkin-calendar-card .checkin-calendar-cell .checkin-calendar-date-enabled, .checkin-calendar-card .checkin-calendar-cell .checkin-calendar-date-enabled.checkin-calendar-disabled { color: #222; }
+.checkin-calendar-card .checkin-calendar-cell .checkin-calendar-date-outside, .checkin-calendar-card .checkin-calendar-cell .checkin-calendar-date-outside.checkin-calendar-disabled { color: #d0d2c9; }
 .checkin-calendar-date-circle { position: relative; display: flex; box-sizing: border-box; align-items: center; justify-content: center; width: 55rpx; height: 55rpx; border: 2rpx solid transparent; border-radius: 50%; }
 .checkin-calendar-day-number { line-height: 1; font-variant-numeric: tabular-nums; }
 .checkin-calendar-date-today { border-color: #92a682; }
@@ -29,10 +33,11 @@
 .checkin-calendar-legend-item { display: flex; flex: 0 0 auto; align-items: center; gap: 9rpx; }
 .checkin-calendar-legend-today { box-sizing: border-box; width: 18rpx; height: 18rpx; border: 2rpx solid #92a682; border-radius: 50%; }
 .checkin-calendar-legend-full { display: flex; align-items: center; justify-content: center; width: 20rpx; height: 20rpx; border-radius: 50%; color: #fff; background: #739561; font-size: 15rpx; font-weight: 700; line-height: 1; }
-.checkin-calendar-loading { flex: 1; min-width: 0; text-align: right; }
+.checkin-calendar-loading { color: #95a088; font-size: 20rpx; line-height: 1.4; white-space: nowrap; }
 .checkin-calendar-error { display: flex; align-items: center; gap: 14rpx; margin-top: 16rpx; }
 .checkin-calendar-error-text { flex: 1; min-width: 0; color: #ad5948; font-size: 22rpx; line-height: 1.45; overflow-wrap: anywhere; }
 .checkin-calendar-card .checkin-calendar-error .checkin-calendar-retry { box-sizing: border-box; flex: 0 0 auto; width: auto; min-width: 78rpx; max-width: 120rpx; min-height: 0; margin: 0; padding: 6rpx 14rpx; border: 0; border-radius: 12rpx; color: #527355; background: #f1f4eb; font-size: 22rpx; line-height: 1.45; white-space: nowrap; }
-.checkin-calendar-card .checkin-calendar-error .checkin-calendar-retry[disabled] { color: #a6ae9c; }
-.checkin-calendar-card .checkin-calendar-header .checkin-calendar-today-button::after, .checkin-calendar-card .checkin-calendar-month-row .checkin-calendar-month-button::after, .checkin-calendar-card .checkin-calendar-cell .checkin-calendar-date-button::after, .checkin-calendar-card .checkin-calendar-error .checkin-calendar-retry::after { border: 0; }
+.checkin-calendar-card .checkin-calendar-error .checkin-calendar-retry.checkin-calendar-disabled { color: #a6ae9c; }
+.checkin-calendar-card .checkin-calendar-header .checkin-calendar-month-toggle::after, .checkin-calendar-card .checkin-calendar-header .checkin-calendar-today-button::after, .checkin-calendar-card .checkin-calendar-header-actions .checkin-calendar-month-button::after, .checkin-calendar-card .checkin-calendar-cell .checkin-calendar-date-button::after, .checkin-calendar-card .checkin-calendar-error .checkin-calendar-retry::after { border: 0; }
 .checkin-calendar-pressed { opacity: .65; }
+@media (prefers-reduced-motion: reduce) { .checkin-calendar-expand-chevron { transition: none; } }

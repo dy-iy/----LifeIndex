@@ -59,8 +59,8 @@ Component({
     error: { type: String, value: "" }
   },
   data: {
-    periods: [{ key: "intraday", label: "分时" }, { key: "day", label: "日 K" },
-      { key: "week", label: "周 K" }, { key: "month", label: "月 K" }],
+    periods: [{ key: "intraday", label: "分时" }, { key: "day", label: "日K" },
+      { key: "week", label: "周K" }, { key: "month", label: "月K" }],
     safePeriod: "intraday", header: quoteHeader(null),
     chart: compactChart(market.chart([], "intraday", null, { viewportWidth: DEFAULT_WIDTH })),
     scrollLeft: 0, inspecting: false, touching: false,

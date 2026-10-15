@@ -1,39 +1,39 @@
-<view class="week-timetable">
-  <view class="grid-toolbar">
-    <view class="grid-count"><view class="arrangement-mark"></view><text>{{grid.mode === 'period' ? '按节次排列' : '节次时间待设置'}}</text></view>
+<view class="timetable-box week-timetable">
+  <view class="timetable-box grid-toolbar">
+    <view class="timetable-box grid-count"><view class="timetable-box arrangement-mark"></view><text class="timetable-box">{{grid.mode === 'period' ? '按节次排列' : '节次时间待设置'}}</text></view>
   </view>
-  <view class="grid-frame {{disabled ? 'is-disabled' : ''}}">
-    <view class="grid-scroll">
-      <view class="timetable-sheet">
-        <view class="grid-heading">
-          <view class="month-heading"><text class="month-number">{{grid.days[0].monthNumber}}</text><text>月</text></view>
-          <view class="day-headings">
-            <view wx:for="{{grid.days}}" wx:for-item="day" wx:key="date" class="day-heading {{day.isToday ? 'is-today' : ''}} {{day.disabled ? 'outside-term' : ''}}">
-              <text class="weekday-name">周{{day.label}}</text>
-              <text class="day-number">{{day.dayNumber}}</text>
-              <view class="today-mark"></view>
+  <view class="timetable-box grid-frame {{disabled ? 'is-disabled' : ''}}">
+    <view class="timetable-box grid-scroll">
+      <view class="timetable-box timetable-sheet">
+        <view class="timetable-box grid-heading">
+          <view class="timetable-box month-heading"><text class="timetable-box month-number">{{grid.days[0].monthNumber}}</text><text class="timetable-box">月</text></view>
+          <view class="timetable-box day-headings">
+            <view wx:for="{{grid.days}}" wx:for-item="day" wx:key="date" class="timetable-box day-heading {{day.isToday ? 'is-today' : ''}} {{day.disabled ? 'outside-term' : ''}}">
+              <text class="timetable-box weekday-name">周{{day.label}}</text>
+              <text class="timetable-box day-number">{{day.dayNumber}}</text>
+              <view class="timetable-box today-mark"></view>
             </view>
           </view>
         </view>
-        <view class="grid-body" style="height: {{grid.height}}rpx;">
-          <view class="time-axis">
-            <view wx:for="{{grid.rows}}" wx:for-item="row" wx:key="top" class="axis-row {{row.kind === 'break' ? 'break-axis' : ''}}" style="top: {{row.top}}rpx; height: {{row.height}}rpx;">
-              <text class="axis-label">{{row.label}}</text>
-              <block wx:if="{{row.kind === 'period' || row.kind === 'extra'}}"><text class="axis-time">{{row.startTime}}</text><text wx:if="{{row.endTime !== row.startTime}}" class="axis-time">{{row.endTime}}</text></block>
+        <view class="timetable-box grid-body" style="height: {{grid.height}}rpx;">
+          <view class="timetable-box time-axis">
+            <view wx:for="{{grid.rows}}" wx:for-item="row" wx:key="top" class="timetable-box axis-row {{row.kind === 'break' ? 'break-axis' : ''}}" style="top: {{row.top}}rpx; height: {{row.height}}rpx;">
+              <text class="timetable-box axis-label">{{row.label}}</text>
+              <block wx:if="{{row.kind === 'period' || row.kind === 'extra'}}"><text class="timetable-box axis-time">{{row.startTime}}</text><text wx:if="{{row.endTime !== row.startTime}}" class="timetable-box axis-time">{{row.endTime}}</text></block>
             </view>
           </view>
-          <view class="day-columns">
-            <view wx:for="{{grid.days}}" wx:for-item="day" wx:key="date" class="day-column {{day.isToday ? 'today-column' : ''}} {{day.disabled ? 'outside-column' : ''}}">
-              <view wx:for="{{grid.rows}}" wx:for-item="row" wx:key="top" class="grid-cell {{row.kind === 'break' ? 'break-cell' : ''}}" style="top: {{row.top}}rpx; height: {{row.height}}rpx;"></view>
-              <view wx:for="{{day.cards}}" wx:for-item="card" wx:key="id" class="lesson-block color-{{card.colorIndex}} {{180 > card.height ? 'short-card' : ''}} {{90 > card.height ? 'compact-card' : ''}} {{52 > card.height ? 'tiny-card' : ''}}" style="top: {{card.top}}rpx; height: {{card.height}}rpx; left: {{card.leftPercent}}%; width: {{card.widthPercent}}%;" data-id="{{card.id}}" catchtap="selectLesson" hover-class="{{disabled ? 'none' : 'lesson-pressed'}}" role="button" aria-label="{{card.name}}，{{day.date}}，{{card.start_time}} 至 {{card.end_time}}，{{card.location || '未设置地点'}}{{card.isAdjusted ? '，已调整' : ''}}{{card.hasOverlap ? '，时间重叠' : ''}}，点击查看详情">
-                <view class="lesson-inner">
-                  <view class="lesson-accent"></view>
-                  <text class="lesson-name">{{card.name}}</text>
-                  <text wx:if="{{card.hasOverlap}}" class="overlap-tag">重叠</text>
-                  <text wx:if="{{grid.mode === 'unconfigured' && card.height >= 120}}" class="lesson-location">{{card.timeLabel}}</text>
-                  <text wx:if="{{card.height >= 120 && card.location}}" class="lesson-location">{{card.location}}</text>
-                  <text wx:if="{{card.isAdjusted && card.height >= 180}}" class="adjusted-tag">已调整</text>
-                  <view wx:if="{{card.isAdjusted}}" class="adjusted-dot"></view>
+          <view class="timetable-box day-columns">
+            <view wx:for="{{grid.days}}" wx:for-item="day" wx:key="date" class="timetable-box day-column {{day.isToday ? 'today-column' : ''}} {{day.disabled ? 'outside-column' : ''}}">
+              <view wx:for="{{grid.rows}}" wx:for-item="row" wx:key="top" class="timetable-box grid-cell {{row.kind === 'break' ? 'break-cell' : ''}}" style="top: {{row.top}}rpx; height: {{row.height}}rpx;"></view>
+              <view wx:for="{{day.cards}}" wx:for-item="card" wx:key="id" class="timetable-box lesson-block color-{{card.colorIndex}} {{180 > card.height ? 'short-card' : ''}} {{90 > card.height ? 'compact-card' : ''}} {{52 > card.height ? 'tiny-card' : ''}}" style="top: {{card.top}}rpx; height: {{card.height}}rpx; left: {{card.leftPercent}}%; width: {{card.widthPercent}}%;" data-id="{{card.id}}" catchtap="selectLesson" hover-class="{{disabled ? 'none' : 'lesson-pressed'}}" role="button" aria-label="{{card.name}}，{{day.date}}，{{card.start_time}} 至 {{card.end_time}}，{{card.location || '未设置地点'}}{{card.isAdjusted ? '，已调整' : ''}}{{card.hasOverlap ? '，时间重叠' : ''}}，点击查看详情">
+                <view class="timetable-box lesson-inner">
+                  <view class="timetable-box lesson-accent"></view>
+                  <text class="timetable-box lesson-name">{{card.name}}</text>
+                  <text wx:if="{{card.hasOverlap}}" class="timetable-box overlap-tag">重叠</text>
+                  <text wx:if="{{grid.mode === 'unconfigured' && card.height >= 120}}" class="timetable-box lesson-location">{{card.timeLabel}}</text>
+                  <text wx:if="{{card.height >= 120 && card.location}}" class="timetable-box lesson-location">{{card.location}}</text>
+                  <text wx:if="{{card.isAdjusted && card.height >= 180}}" class="timetable-box adjusted-tag">已调整</text>
+                  <view wx:if="{{card.isAdjusted}}" class="timetable-box adjusted-dot"></view>
                 </view>
               </view>
             </view>
@@ -42,14 +42,14 @@
       </view>
     </view>
   </view>
-  <view class="grid-caption"><text>{{grid.mode === 'unconfigured' ? '上传课表可补齐节次时间，也可在学期设置中填写' : '点击课程查看详情'}}；重叠安排并列显示</text><view wx:if="{{grid.scheduledCount}}" class="adjusted-legend"><view class="legend-dot"></view><text>调整</text></view></view>
-  <view wx:if="{{showEmpty && !grid.scheduledCount}}" class="empty-week-note">这一周还是空白，慢慢安排也很好。</view>
-  <view wx:if="{{grid.changes.length}}" class="week-changes">
-    <view class="changes-heading"><text>本周变更</text><text class="changes-count">{{grid.changes.length}} 条</text></view>
-    <view wx:for="{{grid.changes}}" wx:for-item="change" wx:key="id" class="change-row" data-id="{{change.id}}" bindtap="selectLesson" hover-class="{{disabled ? 'none' : 'change-pressed'}}" role="button" aria-label="{{change.name}}，{{change.status === 'leave' ? '请假' : '停课'}}，{{change.local_date}}，点击查看详情">
-      <text class="change-status {{change.status === 'leave' ? 'leave-status' : ''}}">{{change.status === 'leave' ? '请假' : '停课'}}</text>
-      <view class="change-copy"><text class="change-name">{{change.name}}</text><text class="change-time">{{change.local_date}} · {{change.start_time}}–{{change.end_time}}</text><text wx:if="{{change.note}}" class="change-note">{{change.note}}</text></view>
-      <text class="change-arrow">↗</text>
+  <view class="timetable-box grid-caption"><text class="timetable-box">{{grid.mode === 'unconfigured' ? '上传课表可补齐节次时间，也可在学期设置中填写' : '点击课程查看详情'}}；重叠安排并列显示</text><view wx:if="{{grid.scheduledCount}}" class="timetable-box adjusted-legend"><view class="timetable-box legend-dot"></view><text class="timetable-box">调整</text></view></view>
+  <view wx:if="{{showEmpty && !grid.scheduledCount}}" class="timetable-box empty-week-note">这一周还是空白，慢慢安排也很好。</view>
+  <view wx:if="{{grid.changes.length}}" class="timetable-box week-changes">
+    <view class="timetable-box changes-heading"><text class="timetable-box">本周变更</text><text class="timetable-box changes-count">{{grid.changes.length}} 条</text></view>
+    <view wx:for="{{grid.changes}}" wx:for-item="change" wx:key="id" class="timetable-box change-row" data-id="{{change.id}}" bindtap="selectLesson" hover-class="{{disabled ? 'none' : 'change-pressed'}}" role="button" aria-label="{{change.name}}，{{change.status === 'leave' ? '请假' : '停课'}}，{{change.local_date}}，点击查看详情">
+      <text class="timetable-box change-status {{change.status === 'leave' ? 'leave-status' : ''}}">{{change.status === 'leave' ? '请假' : '停课'}}</text>
+      <view class="timetable-box change-copy"><text class="timetable-box change-name">{{change.name}}</text><text class="timetable-box change-time">{{change.local_date}} · {{change.start_time}}–{{change.end_time}}</text><text wx:if="{{change.note}}" class="timetable-box change-note">{{change.note}}</text></view>
+      <text class="timetable-box change-arrow">↗</text>
     </view>
   </view>
 </view>

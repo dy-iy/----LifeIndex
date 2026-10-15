@@ -1,6 +1,14 @@
 <view class="index-card quote--{{header.direction}}">
-  <view class="card-paper-corner" aria-hidden="true"></view>
-  <view class="card-spark" aria-hidden="true"></view>
+  <view class="card-glass-glow" aria-hidden="true"></view>
+  <view class="card-glass-reflection" aria-hidden="true"></view>
+  <view class="card-toolbar">
+    <view class="period-tabs" role="group" aria-label="图表周期">
+      <view class="period-slider period-slider--{{safePeriod}}" aria-hidden="true"></view>
+      <button wx:for="{{periods}}" wx:key="key" class="period-tab {{safePeriod === item.key ? 'period-tab--active' : ''}}" data-period="{{item.key}}" bindtap="onPeriodTap" hover-class="period-tab-pressed" aria-label="{{item.label}}" aria-pressed="{{safePeriod === item.key}}">
+        <text>{{item.label}}</text>
+      </button>
+    </view>
+  </view>
   <view class="card-quote">
     <view class="card-reading">
       <text class="card-price card-price--{{header.priceFit}}" style="font-size: {{header.priceSize}}rpx;">{{header.price}}</text>
@@ -10,11 +18,6 @@
       <view class="card-points"><text class="card-points-value change-value--{{header.pointsFit}}" style="font-size: {{header.pointsSize}}rpx;">{{header.points}}</text><text class="change-unit">点</text></view>
       <text class="card-percent change-value--{{header.percentFit}}" style="font-size: {{header.percentSize}}rpx;">{{header.percent}}</text>
     </view>
-  </view>
-  <view class="period-tabs">
-    <button wx:for="{{periods}}" wx:key="key" class="period-tab {{safePeriod === item.key ? 'period-tab--active' : ''}}" data-period="{{item.key}}" bindtap="onPeriodTap" hover-class="none" aria-label="{{item.label}}" aria-pressed="{{safePeriod === item.key}}">
-      <text>{{item.label}}</text><view wx:if="{{safePeriod === item.key}}" class="period-underline" aria-hidden="true"></view>
-    </button>
   </view>
   <view class="chart-frame">
     <view class="chart-stage">
@@ -43,7 +46,7 @@
       <view wx:elif="{{loading}}" class="chart-loading">读取图表中…</view>
       <view wx:if="{{selectedDetail}}" class="candle-detail">{{selectedDetail}}</view>
     </view>
-    <view wx:if="{{error}}" class="chart-error" role="alert"><text>{{error}}</text><button size="mini" bindtap="retry" disabled="{{loading}}" hover-class="none">重试</button></view>
+    <view wx:if="{{error}}" class="chart-error" role="alert"><text class="chart-error-text">{{error}}</text><button class="chart-error-retry" size="mini" bindtap="retry" disabled="{{loading}}" hover-class="none">重试</button></view>
   </view>
   <view class="chart-tools">
     <view class="chart-help">
@@ -51,9 +54,8 @@
       <text class="chart-hint">{{inspecting ? '拖动查看 · 松手 2 秒恢复' : safePeriod === 'intraday' ? '横滑时间轴 · 点击或长按读数' : '点击或长按读数 · 横滑历史'}}</text>
     </view>
     <view class="zoom-controls">
-      <button class="zoom-button" data-direction="out" bindtap="changeZoom" disabled="{{loading || touching || !canZoomOut}}" hover-class="zoom-button-pressed" aria-label="缩小图表">−</button>
-      <button class="zoom-button" data-direction="in" bindtap="changeZoom" disabled="{{loading || touching || !canZoomIn}}" hover-class="zoom-button-pressed" aria-label="放大图表">+</button>
+      <button class="zoom-button {{loading || touching || !canZoomOut ? 'zoom-button-disabled' : ''}}" data-direction="out" bindtap="changeZoom" disabled="{{loading || touching || !canZoomOut}}" hover-class="zoom-button-pressed" aria-label="缩小图表">−</button>
+      <button class="zoom-button {{loading || touching || !canZoomIn ? 'zoom-button-disabled' : ''}}" data-direction="in" bindtap="changeZoom" disabled="{{loading || touching || !canZoomIn}}" hover-class="zoom-button-pressed" aria-label="放大图表">+</button>
     </view>
   </view>
-  <view class="card-bottom-curve" aria-hidden="true"></view>
 </view>

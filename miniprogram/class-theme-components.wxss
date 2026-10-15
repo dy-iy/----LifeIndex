@@ -1,0 +1,11 @@
+@import "page-background.wxss";
+
+/* Class rules shared by class pages and review components. */
+.page { min-height: 100vh; }
+.page-title { color: #293f3b; }
+.page-title::after { content: ""; display: block; width: 32rpx; height: 5rpx; margin-top: 14rpx; border-radius: 8rpx; background: #cf947b; box-shadow: 43rpx 0 0 #96b2c6, 86rpx 0 0 #dec184; }
+.section-link { color: #687f91; }
+.muted { color: #7a837f; }
+.secondary-button { color: #476779; border-color: #c7d6df; background: #f3f7fa; }
+.pill { border-color: #d9cdbb; color: #8a7458; background: #fbf4e8; }
+.field-input { background: #fffdf9; border-color: #dddcd5; color: #293f3b; }

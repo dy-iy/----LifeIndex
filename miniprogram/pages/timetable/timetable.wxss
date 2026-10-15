@@ -1,5 +1,6 @@
 /* The same cream paper and violet ink used by the index and timer pages. */
-page { background: #fbf7ee; color: #183844; }
+page { background: #fbf7ee; color: #183844; overflow-anchor: none; }
+.timetable-page { overflow-anchor: none; }
 .timetable-page {
   position: relative;
   min-height: 100vh;
@@ -31,10 +32,19 @@ page { background: #fbf7ee; color: #183844; }
 
 .title-row { position: relative; display: flex; align-items: center; margin: 4rpx 0 16rpx; min-height: 132rpx; }
 .title-art { position: absolute; width: 205rpx; height: 142rpx; right: -8rpx; top: -4rpx; }
-.semester-head { position: relative; margin: 34rpx 0 20rpx; padding-right: 180rpx; }
+.semester-head { position: relative; margin: 34rpx 0 20rpx; padding-right: 104rpx; }
 .semester-head picker { min-width: 0; }
 .semester-picker { font-size: 28rpx; font-weight: 600; }
 .semester-actions { position: absolute; right: 0; top: 0; display: flex; }
+.semester-actions-open { z-index: 920; }
+.semester-menu-backdrop { position: fixed; inset: 0; z-index: 910; background: transparent; }
+.timetable-page .semester-more { display: flex; align-items: center; justify-content: center; width: 72rpx; height: 64rpx; margin: 0; padding: 0; border: 1rpx solid transparent; border-radius: 16rpx; background: transparent; color: #795b93; font-size: 42rpx; line-height: 1; }
+.semester-more::after, .semester-menu-item::after { border: 0; }
+.timetable-page .semester-more-active { border-color: #e5d7ec; background: #f3eaf7; }
+.timetable-page .semester-more[disabled] { background: transparent; color: #aaa1af; }
+.semester-menu { position: absolute; top: calc(100% + 8rpx); right: 0; box-sizing: border-box; width: 208rpx; padding: 8rpx; border: 1rpx solid #e6dce9; border-radius: 18rpx; background: #fffdf8; box-shadow: 0 12rpx 36rpx rgba(51, 39, 60, .12); }
+.timetable-page .semester-menu-item { display: flex; align-items: center; width: 100%; min-height: 80rpx; margin: 0; padding: 16rpx 22rpx; border: 0; border-radius: 12rpx; color: #51425e; background: transparent; font-size: 26rpx; line-height: 1.5; text-align: left; }
+.semester-menu-item + .semester-menu-item { border-top: 1rpx solid #eee7ef; }
 .week-strip { display: flex; padding: 8rpx 0 20rpx; border-bottom: 1rpx solid #e8dece; }
 .week-day { flex: 1; text-align: center; border-radius: 100rpx; padding: 18rpx 0 12rpx; margin: 0 5rpx; }
 .week-prefix { display: block; color: #879087; font-size: 19rpx; }
@@ -88,9 +98,7 @@ page { background: #fbf7ee; color: #183844; }
 .error-panel .text-button { text-align: left; padding: 0 0 20rpx; }
 .loading-copy { padding: 20rpx 0; font-size: 23rpx; color: #879087; }
 .lesson-heading { margin: 25rpx 0 12rpx; font-size: 33rpx; }
-.schedule-heading { gap: 18rpx; }
-.schedule-heading .eyebrow { font-size: 16rpx; letter-spacing: 3rpx; margin-bottom: 10rpx; }
-.schedule-heading .section-title { font-family: "Songti SC", serif; font-weight: 500; font-size: 34rpx; }
+.schedule-heading { justify-content: flex-end; gap: 18rpx; }
 .schedule-heading .view-switch { flex-shrink: 0; }
 .schedule-heading .view-switch text { padding: 12rpx 20rpx; }
 .planner-toolbar { display: flex; align-items: center; justify-content: space-between; }
@@ -99,9 +107,9 @@ page { background: #fbf7ee; color: #183844; }
 .timetable-page .planner-toolbar .week-arrow[disabled] { color: #b8bcaf; background: #f3ede5; }
 .week-picker { min-height: 68rpx; padding: 10rpx 12rpx; font-weight: 600; font-size: 28rpx; }
 .timetable-page .planner-toolbar .today-button { background: #fffcf6; border: 1rpx solid #e6d8ec; color: #795b93; width: auto; flex-shrink: 0; padding: 10rpx 20rpx; margin: 0; line-height: 1.5; font-size: 23rpx; border-radius: 30rpx; }
-.week-caption { display: flex; justify-content: space-between; font-size: 21rpx; color: #879087; margin: 20rpx 0; }
+.week-caption-space { height: 28rpx; margin: 20rpx 0; }
 .day-date-picker { margin-top: 18rpx; padding: 16rpx 20rpx; border: 1rpx solid #e7ddcf; border-radius: 14rpx; background: #fffcf6; font-size: 26rpx; }
-.course-list-toggle { display: flex; align-items: center; flex-shrink: 0; gap: 12rpx; min-height: 64rpx; padding-left: 20rpx; color: #795b93; font-size: 24rpx; }
+.course-card-edit::after { border: 0; }
 .agent-import-action { margin-top: 26rpx; }
 .timetable-surface .agent-import-button { display: block; width: 100%; margin: 0; padding: 26rpx 30rpx; font-size: 28rpx; line-height: 1.4; }
 .course-editor-overlay { position: fixed; top: 0; bottom: 0; left: 0; right: 0; z-index: 960; display: flex; align-items: center; justify-content: center; padding: 28rpx 32rpx; padding-bottom: calc(28rpx + env(safe-area-inset-bottom)); }
@@ -140,15 +148,51 @@ page { background: #fbf7ee; color: #183844; }
 .lesson-dialog .primary-button { font-size: 24rpx; }
 .has-semester .title-row { min-height: 82rpx; margin-bottom: 8rpx; }
 .has-semester .title-art { width: 138rpx; height: 96rpx; top: -10rpx; }
-.has-semester .semester-head { margin: 24rpx 0 0; padding-right: 185rpx; }
+.has-semester .semester-head { margin: 24rpx 0 0; }
 .semester-meta { font-size: 20rpx; }
 .has-semester .schedule-heading { margin: 24rpx 0 18rpx; }
-.has-semester .schedule-heading .eyebrow { display: none; }
-.has-semester .schedule-heading .section-title { font-size: 29rpx; }
 
-.structured-course { padding: 20rpx 0; border-bottom: 1rpx solid #e8dece; }
-.structured-course .template-name { flex: 1; min-width: 0; }
-.structured-schedule { margin-top: 14rpx; padding: 16rpx 18rpx; background: #faf6ee; border-radius: 10rpx; color: #687c70; font-size: 24rpx; line-height: 1.8; overflow-wrap: anywhere; }
+.course-information-heading { min-height: 64rpx; margin-bottom: 18rpx; }
+.course-deck { position: relative; margin: 0 0 10rpx; overflow: hidden; overflow-anchor: none; contain: layout; }
+.course-deck-count-2:not(.course-deck-ready):not(.course-deck-open) { padding-bottom: 14rpx; }
+.course-deck-count-3:not(.course-deck-ready):not(.course-deck-open) { padding-bottom: 28rpx; }
+.course-deck:not(.course-deck-ready):not(.course-deck-open) .structured-course { min-height: 218rpx; }
+.structured-course { position: absolute; top: 0; left: 0; box-sizing: border-box; width: 100%; overflow: hidden; border: 1rpx solid #e7e0d5; border-radius: 24rpx; background: #fffdf8; box-shadow: 0 5rpx 16rpx rgba(68, 57, 42, .045); transform-origin: top center; }
+.course-deck-first { position: relative; z-index: 3; }
+.course-deck-depth-1 { z-index: 2; transform: translate3d(0, 14rpx, 0) scaleX(.965); }
+.course-deck-depth-2 { z-index: 1; transform: translate3d(0, 28rpx, 0) scaleX(.93); }
+.course-deck-hidden { opacity: 0; }
+.course-deck-ready .structured-course { position: absolute; }
+.course-deck:not(.course-deck-open) .structured-course:not(.course-deck-first) { pointer-events: none; }
+.course-deck:not(.course-deck-open) .course-deck-depth-1 { background: #f9f6ef; }
+.course-deck:not(.course-deck-open) .course-deck-depth-2 { background: #f2eee7; }
+.course-deck-moving .structured-course { will-change: transform, opacity; transition: transform 300ms cubic-bezier(.22, 1.08, .36, 1), height 300ms cubic-bezier(.22, .68, .3, 1), opacity 180ms ease, background-color 180ms ease; }
+.course-stack-cover { position: relative; box-sizing: border-box; min-height: 218rpx; padding: 26rpx 28rpx 22rpx; pointer-events: none; }
+.course-card-content { position: absolute; top: 0; left: 0; box-sizing: border-box; width: 100%; padding: 20rpx 24rpx 24rpx; opacity: 0; pointer-events: none; }
+.course-deck-moving .course-card-content, .course-deck-moving .course-stack-cover { transition: opacity 180ms ease; transition-delay: inherit; }
+.course-deck-moving .course-deck-first .course-card-content { transition-duration: 120ms; }
+.course-deck-moving .course-stack-cover { transition-duration: 80ms; }
+.course-deck-moving.course-deck-open .course-deck-first .course-card-content { transition-delay: 80ms; }
+.course-deck-moving:not(.course-deck-open) .course-stack-cover { transition-delay: 180ms; }
+.course-deck-open .course-card-content { opacity: 1; pointer-events: auto; }
+.course-deck-open .course-stack-cover { opacity: 0; }
+/* Natural layout remains usable if a node measurement is not available yet. */
+.course-deck-open:not(.course-deck-ready) .structured-course { position: relative; margin-bottom: 18rpx; transform: none; opacity: 1; }
+.course-deck-open:not(.course-deck-ready) .course-card-content { position: relative; }
+.course-deck-open:not(.course-deck-ready) .course-stack-cover { position: absolute; top: 0; left: 0; width: 100%; }
+.course-stack-course-name { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; color: #243e48; font-size: 30rpx; font-weight: 600; line-height: 1.5; overflow-wrap: anywhere; }
+.course-stack-meta { display: block; margin-top: 12rpx; color: #6f7f76; font-size: 24rpx; line-height: 1.5; }
+.course-stack-location { display: block; margin-top: 5rpx; overflow: hidden; color: #92988c; font-size: 22rpx; line-height: 1.5; text-overflow: ellipsis; white-space: nowrap; }
+.course-stack-footer { display: flex; align-items: center; justify-content: space-between; gap: 14rpx; margin-top: 22rpx; padding-top: 16rpx; border-top: 1rpx solid #eee8dd; font-size: 22rpx; line-height: 1.5; }
+.course-stack-remaining { color: #94988e; }
+.course-stack-open-hint { display: flex; align-items: center; gap: 10rpx; flex-shrink: 0; margin-left: auto; color: #896aa0; }
+.course-card-pressed { background: #f8f4ec; }
+.course-card-heading { display: flex; align-items: flex-start; gap: 14rpx; }
+.structured-course .template-name { flex: 1; min-width: 0; padding-top: 9rpx; padding-bottom: 0; font-weight: 600; line-height: 1.5; overflow-wrap: anywhere; }
+.timetable-page .course-card-edit { display: flex; align-items: center; justify-content: center; flex: 0 0 auto; width: auto; min-height: 60rpx; margin: 0; padding: 4rpx 10rpx; border: 0; border-radius: 14rpx; color: #795b93; background: transparent; font-size: 24rpx; line-height: 1.4; }
+.timetable-page .course-card-edit[disabled] { color: #aaa1af; background: transparent; }
+.structured-schedule { margin-top: 14rpx; padding: 16rpx 0 0; border-top: 1rpx solid #eee8dd; color: #687c70; font-size: 24rpx; line-height: 1.8; overflow-wrap: anywhere; }
+@media (prefers-reduced-motion: reduce) { .course-deck-moving, .course-deck-moving .structured-course, .course-deck-moving .course-card-content, .course-deck-moving .course-stack-cover { transition-duration: 1ms !important; transition-delay: 0ms !important; } }
 .missing-information { display: block; margin-top: 6rpx; color: #a17a51; font-size: 22rpx; }
 .structured-add { text-align: left; padding-left: 0; margin-top: 12rpx; }
 .structured-schedule-editor { border-top: 1rpx solid #e8dece; margin-top: 28rpx; padding-top: 16rpx; }
@@ -156,9 +200,9 @@ page { background: #fbf7ee; color: #183844; }
 .structured-schedule-editor .time-fields input { min-width: 0; }
 
 /* Paper notes keep the existing controls and geometry in their original places. */
-.timetable-page .semester-head { padding: 16rpx 207rpx 16rpx 22rpx; margin-top: 28rpx; border: 1rpx solid #e9dfd0; border-radius: 10rpx 13rpx 9rpx 12rpx; background: #fffcf6; box-shadow: 0 4rpx 9rpx rgba(125, 101, 70, .07); }
+.timetable-page .semester-head { padding: 16rpx 104rpx 16rpx 22rpx; margin-top: 28rpx; border: 1rpx solid #e9dfd0; border-radius: 10rpx 13rpx 9rpx 12rpx; background: #fffcf6; box-shadow: 0 4rpx 9rpx rgba(125, 101, 70, .07); }
 .timetable-page .semester-head::before { content: ""; position: absolute; top: -9rpx; left: 20rpx; width: 58rpx; height: 18rpx; background: rgba(194, 154, 221, .4); transform: rotate(-10deg); pointer-events: none; }
-.timetable-page .semester-actions { top: 20rpx; right: 16rpx; }
+.timetable-page .semester-actions { top: 12rpx; right: 16rpx; }
 .timetable-page .semester-meta { margin-top: 2rpx; }
 .timetable-page .semester-picker { min-height: 58rpx; color: #354b4c; }
 .timetable-page .today-button[disabled], .timetable-surface .detail-close[disabled] { background: #f3ede5; color: #b5abb4; }
@@ -168,7 +212,5 @@ page { background: #fbf7ee; color: #183844; }
 .timetable-page .course-ticket .pill { background: #f5eaf9; }
 .timetable-page .inactive-ticket .pill { background: #eeeae4; border-color: #ddd6cc; color: #8a8279; }
 @media (max-width: 360px) {
-  .timetable-page .semester-head { padding-right: 192rpx; }
-  .timetable-page .semester-actions .section-link { font-size: 22rpx; padding-left: 14rpx; }
   .schedule-heading .view-switch text { padding-right: 16rpx; padding-left: 16rpx; }
 }

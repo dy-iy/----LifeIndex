@@ -3,6 +3,7 @@ const art = require("../../services/art");
 const session = require("../../services/session");
 const timetable = require("../../services/timetable");
 const structured = require("../../services/timetable-structured");
+const courseDeck = require("../../services/course-deck-motion");
 const { buildWeekGrid } = require("../../services/timetable-grid");
 const { onShareAppMessage } = require("../../services/share");
 const DAYS = ["一", "二", "三", "四", "五", "六", "日"];
@@ -48,15 +49,18 @@ function editorInputCursors(editor, form) {
   }
   return cursors;
 }
+function courseDeckState() {
+  return { courseDeckReady: false, courseDeckMoving: false, courseDeckStyles: [], courseDeckHeight: "" };
+}
 function initialData() {
   return { art, statuses: STATUS, loggedIn: false, loading: false, saving: false, structuredDeleting: false,
     coursesLoading: false, lessonsLoading: false, structuredLoading: false, stateVersion: 0,
     coursesError: "", lessonsError: "", structuredError: "",
-    semesters: [], semester: null, semesterIndex: 0, courses: [], lessons: [], visibleLessons: [], weekDays: [],
+    semesters: [], semester: null, semesterIndex: 0, semesterMenuOpen: false, courses: [], lessons: [], visibleLessons: [], weekDays: [],
     selectedDate: "", weekStart: "", viewMode: "week", grid: null, weekOptions: [], weekIndex: 0,
     canPreviousWeek: false, canNextWeek: false, selectedLesson: null, error: "", message: "", formError: "", conflict: false,
     editor: "", courseKeyboardHeight: 0, courseScrollTop: 0, courseInputCursors: {}, semesterForm: {}, lessonForm: {}, structuredForm: {}, structuredDays: structured.WEEKDAYS,
-    structuredDocument: null, structuredCourses: [], courseListOpen: true, agentOpen: false, agentSemesterId: "" };
+    structuredDocument: null, structuredCourses: [], courseListOpen: false, ...courseDeckState(), agentOpen: false, agentSemesterId: "" };
 }
 function fail(message) { throw new Error(message); }
 function validDate(value) { return /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(Date.parse(`${value}T00:00:00Z`)) && new Date(`${value}T00:00:00Z`).toISOString().slice(0, 10) === value; }
@@ -71,17 +75,24 @@ Page({
   },
   onShow() {
     this._courseEditorHidden = false; this.syncIdentity();
+    if (!this._courseDeckLayout) this.measureCourseDeck();
     if (MODAL_EDITORS.includes(this.data.editor)) this.setData({ courseInputCursors: editorInputCursors(this.data.editor, this.data[`${this.data.editor}Form`]) });
     return this.reload();
   },
-  onHide() { this.rememberDraft(); this._courseEditorHidden = true; this.resetCourseKeyboard(true); },
-  onUnload() { this.rememberDraft(); this._loadId += 1; this._disposed = true; this.resetCourseKeyboard(true); if (this.unsubscribe) this.unsubscribe(); },
+  onHide() { this.closeSemesterMenu(); this.rememberDraft(); this._courseEditorHidden = true; this.cancelCourseDeckMotion(); this.resetCourseKeyboard(true); },
+  onUnload() { this.rememberDraft(); this._loadId += 1; this._disposed = true; this.cancelCourseDeckMotion(true); this.resetCourseKeyboard(true); if (this.unsubscribe) this.unsubscribe(); },
+  onResize(event) {
+    const width = event && event.size && event.size.windowWidth;
+    if (width && width !== this._courseDeckWindowWidth) this.refreshCourseDeckLayout();
+  },
+  onPageScroll(event) { this._courseDeckScrollTop = event.scrollTop; },
   syncIdentity() {
     const current = timetable.identity();
     if (!this._snapshot || current.owner !== this._snapshot.owner || current.generation !== this._snapshot.generation) {
       if (current.owner && this._snapshot && current.owner === this._snapshot.owner && this._scopeId !== undefined) timetable.saveDraft(this._scopeId, this.draftState());
       this._snapshot = current; this._loadId = (this._loadId || 0) + 1;
       this._scopeEpoch = (this._scopeEpoch || 0) + 1; this._scopeId = undefined;
+      this.cancelCourseDeckMotion(true);
       this.resetCourseKeyboard(true);
       this.setData(initialData());
     }
@@ -107,10 +118,11 @@ Page({
     const scopeId = semester ? semester.id : "";
     if (this._scopeId !== scopeId) {
       this.rememberDraft(); this._scopeEpoch += 1; this._scopeId = scopeId;
+      this.cancelCourseDeckMotion(true);
       this.resetCourseKeyboard(true);
       const draft = timetable.getDraft(scopeId) || {};
       const editor = MODAL_EDITORS.concat("lesson").includes(draft.editor) && (semester || draft.editor === "semester") ? draft.editor : "";
-      this.setData({ selectedDate: "", weekStart: "", viewMode: "week", courseListOpen: true,
+      this.setData({ selectedDate: "", weekStart: "", viewMode: "week", courseListOpen: false, semesterMenuOpen: false, ...courseDeckState(),
         saving: false, structuredDeleting: false,
         courses: [], lessons: [], visibleLessons: [], weekDays: [], grid: null, weekOptions: [],
         structuredDocument: null, structuredCourses: [], selectedLesson: null,
@@ -122,6 +134,7 @@ Page({
     return true;
   },
   async reload() {
+    this.closeSemesterMenu();
     const snapshot = this.syncIdentity();
     if (!snapshot.owner) return;
     const loadId = ++this._loadId;
@@ -211,7 +224,10 @@ Page({
     return this.loadStructured({ semester_id: this.data.semester.id }, snapshot, this._loadId);
   },
   setStructured(result) {
-    this.setData({ structuredDocument: result.document || null, structuredCourses: (result.courses || []).filter((value) => !value.is_deleted).map((value) => structured.describe(value)) });
+    this.cancelCourseDeckMotion(true);
+    this.setData({ structuredDocument: result.document || null,
+      structuredCourses: (result.courses || []).filter((value) => !value.is_deleted).map((value) => structured.describe(value)),
+      ...courseDeckState() }, () => this.measureCourseDeck());
     this.refreshStructuredTimes();
   },
   refreshStructuredTimes() {
@@ -244,6 +260,7 @@ Page({
   switchClassTab(event) { return goToClassTab(event.detail.index); },
   async selectSemester(event) {
     if (this.data.saving || this.data.loading) return;
+    this.closeSemesterMenu();
     const index = Number(event.detail.value);
     const semester = this.data.semesters[index];
     if (!semester || this.data.semester && semester.id === this.data.semester.id) return;
@@ -432,7 +449,7 @@ Page({
   },
   setForm(editor, value) {
     this.resetCourseKeyboard(true);
-    this.setData({ editor, ...editorFormData(editor, value), formError: "", conflict: false, message: "" }); this.rememberDraft();
+    this.setData({ editor, ...editorFormData(editor, value), semesterMenuOpen: false, formError: "", conflict: false, message: "" }); this.rememberDraft();
     if (!MODAL_EDITORS.includes(editor) && typeof wx.pageScrollTo === "function") wx.pageScrollTo({ scrollTop: 0, duration: 200 });
   },
   inputField(event) {
@@ -447,6 +464,18 @@ Page({
     if (this.data.conflict) changes.conflict = false;
     if (Object.keys(changes).length) this.setData(changes);
     this.rememberDraft();
+  },
+  toggleSemesterMenu() {
+    if (this._disposed || this._courseEditorHidden || this.data.loading || this.data.saving || !this.data.semester) return;
+    this.setData({ semesterMenuOpen: !this.data.semesterMenuOpen });
+  },
+  closeSemesterMenu() {
+    if (this.data.semesterMenuOpen) this.setData({ semesterMenuOpen: false });
+  },
+  chooseSemesterAction(event) {
+    if (!this.data.semesterMenuOpen) return;
+    this.closeSemesterMenu();
+    this.openSemester(event);
   },
   openSemester(event) {
     if (this.data.saving || this.data.loading) return;
@@ -511,7 +540,99 @@ Page({
     return Object.assign(data, { start_date: form.start_date, end_date: form.end_date, first_week_monday: form.first_week_monday }, form.id ? { version: form.version } : {});
   },
   saveSemester() { return this.submit("semester", () => this.semesterPayload()); },
-  toggleCourses() { this.setData({ courseListOpen: !this.data.courseListOpen }); },
+  cancelCourseDeckMotion(resetLayout = false) {
+    clearTimeout(this._courseDeckTimer);
+    this._courseDeckTimer = null;
+    this._courseDeckMotionId = (this._courseDeckMotionId || 0) + 1;
+    this._courseDeckMeasureId = (this._courseDeckMeasureId || 0) + 1;
+    if (resetLayout) { this._courseDeckLayout = null; this._courseDeckRestoreScrollTop = undefined; }
+    else if (this._courseDeckLayout && !this._disposed) {
+      this.setData({ ...courseDeck.frame(this._courseDeckLayout, this.data.courseListOpen, false), courseDeckMoving: false });
+    }
+  },
+  refreshCourseDeckLayout() {
+    this.cancelCourseDeckMotion(true);
+    this.setData(courseDeckState(), () => this.measureCourseDeck());
+  },
+  measureCourseDeck() {
+    if (this._disposed || this._courseEditorHidden || !this.data.semester || !this.data.structuredCourses.length || typeof wx.createSelectorQuery !== "function") return;
+    const courses = this.data.structuredCourses, semesterId = this.data.semester.id, epoch = this._scopeEpoch;
+    const snapshot = { ...this._snapshot };
+    const measureId = this._courseDeckMeasureId = (this._courseDeckMeasureId || 0) + 1;
+    const info = typeof wx.getWindowInfo === "function" ? wx.getWindowInfo()
+      : typeof wx.getSystemInfoSync === "function" ? wx.getSystemInfoSync() : {};
+    const width = info.windowWidth || this._courseDeckWindowWidth || 375;
+    const query = wx.createSelectorQuery().in(this);
+    query.select(".course-deck").boundingClientRect();
+    query.selectAll(".course-card-content").boundingClientRect();
+    query.select(".course-stack-cover").boundingClientRect();
+    query.exec((results) => {
+      if (this._disposed || this._courseEditorHidden || measureId !== this._courseDeckMeasureId || epoch !== this._scopeEpoch
+          || !this.data.semester || this.data.semester.id !== semesterId || this.data.structuredCourses !== courses
+          || snapshot.owner !== (this._snapshot || {}).owner || snapshot.generation !== (this._snapshot || {}).generation) return;
+      const [stage, contents, cover] = results || [];
+      if (!stage || !stage.width || !cover || !cover.height || !contents || contents.length !== courses.length || contents.some((rect) => !rect || !rect.height)) return;
+      this._courseDeckLayout = courseDeck.buildLayout(contents, cover, stage.width, width / 750);
+      this._courseDeckWindowWidth = width;
+      this.setData({ ...courseDeck.frame(this._courseDeckLayout, this.data.courseListOpen, false), courseDeckReady: true, courseDeckMoving: false });
+    });
+  },
+  toggleCourses() { this.moveCourseDeck(!this.data.courseListOpen); },
+  expandCourses() { this.moveCourseDeck(true); },
+  collapseCourses() { this.moveCourseDeck(false); },
+  restoreCourseDeckScroll(motionId, layout, complete) {
+    if (typeof wx.createSelectorQuery !== "function" || typeof wx.pageScrollTo !== "function") { complete(0); return; }
+    const query = wx.createSelectorQuery().in(this);
+    query.select(".timetable-page").boundingClientRect();
+    query.select(".course-deck").boundingClientRect();
+    query.selectViewport().scrollOffset();
+    query.exec((results) => {
+      if (this._disposed || this._courseEditorHidden || motionId !== this._courseDeckMotionId || this.data.courseListOpen || layout !== this._courseDeckLayout) return;
+      const [page, stage, viewport] = results || [];
+      if (!page || !stage || !viewport || !layout) { complete(0); return; }
+      const info = typeof wx.getWindowInfo === "function" ? wx.getWindowInfo()
+        : typeof wx.getSystemInfoSync === "function" ? wx.getSystemInfoSync() : {};
+      if (!info.windowHeight) { complete(0); return; }
+      const scrollTop = viewport.scrollTop || 0;
+      // The add button is already hidden here. Predict the final document range
+      // before shrinking the stage, so the browser never has to clamp it again.
+      const foldedBottom = page.top + scrollTop + page.height - stage.height + layout.foldHeight;
+      const maximum = Math.max(0, Math.floor(foldedBottom - info.windowHeight));
+      const anchor = Number.isFinite(this._courseDeckRestoreScrollTop) ? this._courseDeckRestoreScrollTop : scrollTop;
+      const target = Math.min(maximum, Math.max(0, anchor));
+      const duration = Math.abs(scrollTop - target) > 1 ? 220 : 0;
+      if (duration) wx.pageScrollTo({ scrollTop: target, duration });
+      complete(duration);
+    });
+  },
+  moveCourseDeck(open) {
+    if (this._disposed || this._courseEditorHidden || !this.data.semester || !this.data.structuredCourses.length || this.data.courseListOpen === open) return;
+    clearTimeout(this._courseDeckTimer);
+    const motionId = this._courseDeckMotionId = (this._courseDeckMotionId || 0) + 1;
+    const layout = this._courseDeckLayout;
+    if (open && !this.data.courseDeckMoving) this._courseDeckRestoreScrollTop = this._courseDeckScrollTop || 0;
+    if (!layout || !this.data.courseDeckReady) {
+      this.setData({ courseListOpen: open }, () => this.measureCourseDeck());
+    } else {
+      const target = courseDeck.frame(layout, open, true);
+      // Keep the page tall until the return scroll and the reverse motion finish.
+      if (!open) target.courseDeckHeight = this.data.courseDeckHeight;
+      this.setData({ ...target, courseListOpen: open, courseDeckMoving: true }, () => {
+        if (motionId !== this._courseDeckMotionId || this._disposed || this._courseEditorHidden) return;
+        const renderedAt = Date.now();
+        const settle = (scrollDuration) => {
+          if (motionId !== this._courseDeckMotionId || this._disposed || this._courseEditorHidden) return;
+          this._courseDeckTimer = setTimeout(() => {
+            if (this._disposed || this._courseEditorHidden || motionId !== this._courseDeckMotionId || layout !== this._courseDeckLayout) return;
+            this._courseDeckTimer = null;
+            this.setData({ ...courseDeck.frame(layout, this.data.courseListOpen, false), courseDeckMoving: false });
+          }, Math.max(courseDeck.SETTLE - (Date.now() - renderedAt), scrollDuration ? scrollDuration + 20 : 0));
+        };
+        if (open) settle(0);
+        else this.restoreCourseDeckScroll(motionId, layout, settle);
+      });
+    }
+  },
   openStructuredCourse(event) {
     if (this.data.saving || this.data.loading || this.data.structuredLoading || !this.data.semester || !this.data.structuredDocument) return;
     const id = event && event.currentTarget.dataset.id;
@@ -585,11 +706,13 @@ Page({
         if (!this.active(snapshot)) return;
         const templateIds = new Set(this.data.courses.filter((course) => course.structured_course_id === operation.id).map((course) => course.id));
         this.resetCourseKeyboard(true);
+        this.cancelCourseDeckMotion(true);
         this.setData({ editor: "", structuredForm: {}, selectedLesson: null,
           structuredCourses: this.data.structuredCourses.filter((course) => course.id !== operation.id),
+          ...courseDeckState(),
           courses: this.data.courses.filter((course) => !templateIds.has(course.id)),
           lessons: this.data.lessons.filter((lesson) => !templateIds.has(lesson.course_id)),
-          message: "课程信息及全部上课安排已删除，计时和记录历史保留" });
+          message: "课程信息及全部上课安排已删除，计时和记录历史保留" }, () => this.measureCourseDeck());
         this.updateVisible(); this.rememberDraft();
         timetable.acknowledgeStructuredDelete(operation.id, operation.version, operation.semesterId);
         wx.showToast({ title: "已删除", icon: "success" });

@@ -9,7 +9,14 @@
     <view wx:if="{{loading}}" class="loading-copy">正在读取学期…</view>
     <view wx:if="{{semester}}" class="semester-head">
       <picker class="{{(loading || saving) ? 'picker-disabled' : ''}}" range="{{semesters}}" range-key="name" value="{{semesterIndex}}" disabled="{{loading || saving}}" bindchange="selectSemester"><view class="picker-trigger semester-picker"><text class="picker-value">{{semester.name}}</text><view class="picker-chevron" aria-hidden="true"></view></view></picker>
-      <view class="semester-actions"><text class="section-link" data-edit="{{true}}" bindtap="openSemester">设置</text><text class="section-link" bindtap="openSemester">＋ 新学期</text></view>
+      <view wx:if="{{semesterMenuOpen}}" class="semester-menu-backdrop" catchtap="closeSemesterMenu" catchtouchmove="noop" aria-hidden="true"></view>
+      <view class="semester-actions {{semesterMenuOpen ? 'semester-actions-open' : ''}}">
+        <button size="mini" class="semester-more {{semesterMenuOpen ? 'semester-more-active' : ''}}" disabled="{{loading || saving}}" catchtap="toggleSemesterMenu" aria-label="学期管理" aria-haspopup="menu" aria-expanded="{{semesterMenuOpen}}">⋯</button>
+        <view wx:if="{{semesterMenuOpen}}" class="semester-menu" role="menu" aria-label="学期管理" catchtap="noop">
+          <button size="mini" class="semester-menu-item" data-edit="{{true}}" catchtap="chooseSemesterAction" disabled="{{loading || saving}}" role="menuitem">设置</button>
+          <button size="mini" class="semester-menu-item" catchtap="chooseSemesterAction" disabled="{{loading || saving}}" role="menuitem">新学期</button>
+        </view>
+      </view>
       <view class="small muted semester-meta">学期 {{semester.number}} · 共 {{semester.total_weeks}} 周</view>
     </view>
     <view wx:elif="{{!loading && !error}}" class="empty-card"><view class="empty-title">先设置你的学期</view><view class="empty-copy">填写学期名称和日期后，即可导入课表、设置作息和编辑课程。</view><button class="primary-button" bindtap="openSemester">＋ 设置学期</button></view>
@@ -27,13 +34,13 @@
     </view>
 
     <block wx:if="{{semester}}">
-      <view class="section-head schedule-heading"><view><text class="eyebrow">WEEKLY PLANNER</text><text class="section-title">把一周安排好</text></view><view class="view-switch"><text class="{{viewMode === 'week' ? 'active' : ''}}" data-mode="week" bindtap="changeView">周课表</text><text class="{{viewMode === 'day' ? 'active' : ''}}" data-mode="day" bindtap="changeView">日程</text></view></view>
+      <view class="section-head schedule-heading"><view class="view-switch"><text class="{{viewMode === 'week' ? 'active' : ''}}" data-mode="week" bindtap="changeView">周课表</text><text class="{{viewMode === 'day' ? 'active' : ''}}" data-mode="day" bindtap="changeView">日程</text></view></view>
       <view class="planner-toolbar"><view class="week-navigation"><button size="mini" class="week-arrow" disabled="{{loading || saving || !canPreviousWeek}}" data-step="-1" bindtap="shiftWeek" aria-label="上一周">‹</button><picker class="{{(loading || saving) ? 'picker-disabled' : ''}}" range="{{weekOptions}}" range-key="label" value="{{weekIndex}}" disabled="{{loading || saving}}" bindchange="selectWeek"><view class="picker-trigger week-picker"><text class="picker-value">第 {{weekNumber || 1}} 周</text><view class="picker-chevron" aria-hidden="true"></view></view></picker><button size="mini" class="week-arrow" disabled="{{loading || saving || !canNextWeek}}" data-step="1" bindtap="shiftWeek" aria-label="下一周">›</button></view><button size="mini" class="today-button" disabled="{{loading || saving}}" bindtap="currentWeek">回到本周</button></view>
       <view wx:if="{{lessonsLoading}}" class="loading-copy">正在读取本周课次…</view>
       <view wx:if="{{lessonsError}}" class="error-panel"><view class="error">{{lessonsError}}</view><button size="mini" class="text-button" disabled="{{loading || lessonsLoading || saving}}" bindtap="retryLessons">重新读取课次</button></view>
       <view wx:if="{{coursesLoading}}" class="loading-copy">正在读取课程安排…</view>
       <view wx:if="{{coursesError}}" class="error-panel"><view class="error">{{coursesError}}</view><button size="mini" class="text-button" disabled="{{loading || coursesLoading || saving}}" bindtap="retryCourses">重新读取课程安排</button></view>
-      <view class="week-caption"><text>{{grid.weekStart}} — {{grid.weekEnd}}</text><text>{{loading || lessonsLoading ? '读取中…' : lessonsError ? '课次读取失败' : '本周 ' + grid.scheduledCount + ' 次课'}}</text></view>
+      <view class="week-caption-space" aria-hidden="true"></view>
       <week-timetable wx:if="{{viewMode === 'week' && grid}}" grid="{{grid}}" disabled="{{loading || lessonsLoading || saving}}" show-empty="{{!loading && !error && !lessonsLoading && !lessonsError}}" bind:selectlesson="inspectLesson"/>
       <block wx:if="{{viewMode === 'day'}}">
       <picker class="{{(loading || saving) ? 'picker-disabled' : ''}}" mode="date" value="{{selectedDate}}" start="{{semester.start_date}}" end="{{semester.end_date}}" disabled="{{loading || saving}}" bindchange="changeDate"><view class="picker-trigger day-date-picker"><text class="picker-value">{{selectedDate}}</text><text class="picker-detail">选择日期</text><view class="picker-chevron" aria-hidden="true"></view></view></picker>
@@ -43,23 +50,37 @@
       </block>
       <view class="agent-import-action"><button class="primary-button agent-import-button" disabled="{{loading || saving}}" bindtap="openAgent">Agent自动导入</button></view>
     </block>
-    <block wx:if="{{semester}}">
-    <view class="section-head" bindtap="toggleCourses"><text class="section-title">课程信息 · {{structuredCourses.length}} 门</text><view class="course-list-toggle"><text>{{courseListOpen ? '收起' : '管理'}}</text><view class="picker-chevron {{courseListOpen ? 'picker-chevron--up' : ''}}" aria-hidden="true"></view></view></view>
-    <block wx:if="{{courseListOpen}}">
+    <view wx:if="{{semester}}" id="course-information" class="course-information">
+    <view class="section-head course-information-heading">
+      <text class="section-title">课程信息 · {{structuredCourses.length}} 门</text>
+    </view>
       <view wx:if="{{structuredLoading}}" class="loading-copy">正在读取课程信息…</view>
       <view wx:if="{{structuredError}}" class="error-panel"><view class="error">{{structuredError}}</view><button size="mini" class="text-button" disabled="{{loading || structuredLoading || saving}}" bindtap="retryStructured">重新读取课程信息</button></view>
       <view wx:if="{{!structuredCourses.length && !loading && !error && !structuredLoading && !structuredError}}" class="small muted">本学期尚无课程信息。上传截图或直接描述课程即可保存。</view>
-      <view wx:for="{{structuredCourses}}" wx:for-item="course" wx:key="id" class="structured-course">
-        <view class="row-between"><text class="template-name">{{course.nameLabel}}</text><text class="section-link" data-id="{{course.id}}" bindtap="openStructuredCourse">编辑</text></view>
+    <view wx:if="{{structuredCourses.length}}" class="course-deck course-deck-count-{{structuredCourses.length > 2 ? 3 : structuredCourses.length}} {{courseListOpen ? 'course-deck-open' : ''}} {{courseDeckReady ? 'course-deck-ready' : ''}} {{courseDeckMoving ? 'course-deck-moving' : ''}}" style="{{courseDeckHeight}}">
+      <view wx:for="{{structuredCourses}}" wx:for-item="course" wx:for-index="courseIndex" wx:key="id" class="structured-course course-deck-depth-{{courseIndex > 1 ? 2 : courseIndex}} {{courseIndex === 0 ? 'course-deck-first' : ''}} {{courseIndex > 2 ? 'course-deck-hidden' : ''}}" style="{{courseDeckStyles[courseIndex]}}" bindtap="toggleCourses" hover-class="course-card-pressed" hover-start-time="20" hover-stay-time="80" role="button" aria-label="{{course.nameLabel}}，{{courseListOpen ? '点击收起全部课程信息' : '点击展开全部课程信息'}}" aria-expanded="{{courseListOpen}}" aria-hidden="{{!courseListOpen && courseIndex > 0}}">
+        <view wx:if="{{courseIndex === 0}}" class="course-stack-cover" aria-hidden="{{courseListOpen}}">
+          <text class="course-stack-course-name">{{course.nameLabel}}</text>
+          <view wx:if="{{!course.noSchedules}}" class="course-stack-meta">{{course.schedules[0].weekdayLabel}} · {{course.schedules[0].timeLabel}}</view>
+          <text wx:if="{{!course.noSchedules && course.schedules[0].locationLabel !== '未知'}}" class="course-stack-location">{{course.schedules[0].locationLabel}}</text>
+          <text wx:if="{{course.noSchedules}}" class="course-stack-meta">上课安排待补充</text>
+          <view class="course-stack-footer">
+            <text wx:if="{{structuredCourses.length > 1}}" class="course-stack-remaining">另有 {{structuredCourses.length - 1}} 门课程</text>
+            <view class="course-stack-open-hint"><text>点击展开</text><view class="picker-chevron" aria-hidden="true"></view></view>
+          </view>
+        </view>
+        <view class="course-card-content" aria-hidden="{{!courseListOpen}}">
+        <view class="course-card-heading"><text class="template-name">{{course.nameLabel}}</text><button size="mini" class="course-card-edit" data-id="{{course.id}}" catchtap="openStructuredCourse" disabled="{{!courseListOpen || saving || loading || structuredLoading}}">编辑</button></view>
         <view wx:if="{{course.noSchedules}}" class="small muted">安排未知 · 可以随时补充</view>
         <view wx:for="{{course.schedules}}" wx:for-item="schedule" wx:key="id" class="structured-schedule">
           <view>{{schedule.weekdayLabel}} · {{schedule.timeLabel}}</view><view>{{schedule.weeksLabel}} · {{schedule.periodsLabel}}</view><view>教师：{{schedule.teacherLabel}} · 地点：{{schedule.locationLabel}}</view>
           <text wx:if="{{schedule.missingLabel}}" class="missing-information">{{schedule.missingLabel}} · 先保存在课程列表</text>
         </view>
+        </view>
       </view>
-      <button wx:if="{{structuredDocument}}" size="mini" class="text-button structured-add" disabled="{{saving || loading || structuredLoading}}" bindtap="openStructuredCourse">＋ 添加课程信息</button>
-    </block>
-    </block>
+    </view>
+      <button wx:if="{{structuredDocument && ((courseListOpen && !courseDeckMoving) || !structuredCourses.length)}}" size="mini" class="text-button structured-add" disabled="{{saving || loading || structuredLoading}}" bindtap="openStructuredCourse">＋ 添加课程信息</button>
+    </view>
   </block>
 </view>
 <class-tab-bar selected="{{1}}" bind:select="switchClassTab"/>

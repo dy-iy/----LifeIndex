@@ -1,42 +1,50 @@
 :host { display: block; width: 100%; min-width: 0; }
-.index-card { position: relative; box-sizing: border-box; padding: 22rpx 24rpx 24rpx; overflow: hidden; border: 1rpx solid rgba(221, 213, 196, .72); border-radius: 32rpx; background-color: #fffdf7; background-image: radial-gradient(rgba(149, 119, 73, .048) .55px, transparent 1px); background-size: 7rpx 7rpx; color: #253d35; box-shadow: 0 8rpx 26rpx rgba(74, 58, 38, .06); font-family: "PingFang SC", "Microsoft YaHei", sans-serif; }
-.card-quote, .period-tabs, .chart-frame, .chart-tools { position: relative; z-index: 1; }
-.card-reading { display: flex; align-items: baseline; gap: 12rpx; padding-right: 54rpx; }
+.index-card { position: relative; box-sizing: border-box; padding: 22rpx 24rpx 24rpx; overflow: hidden; border: 1rpx solid rgba(255, 255, 255, .88); border-bottom-color: rgba(255, 255, 255, .48); border-radius: 34rpx; background-color: transparent; background-image: linear-gradient(135deg, rgba(255, 255, 255, .22), rgba(255, 255, 255, .015) 48%, rgba(255, 255, 255, .08)); -webkit-backdrop-filter: blur(22rpx); backdrop-filter: blur(22rpx); color: #41484c; box-shadow: 0 14rpx 38rpx rgba(0, 0, 0, .055), 0 2rpx 6rpx rgba(0, 0, 0, .025), inset 0 2rpx 3rpx rgba(255, 255, 255, .96), inset 0 -2rpx 5rpx rgba(255, 255, 255, .22); font-family: "PingFang SC", "Microsoft YaHei", sans-serif; }
+.index-card::before { position: absolute; z-index: 0; top: 3rpx; right: 3rpx; bottom: 3rpx; left: 3rpx; border: 1rpx solid rgba(255, 255, 255, .36); border-radius: 30rpx; content: ""; pointer-events: none; }
+.card-toolbar, .card-quote, .chart-frame, .chart-tools { position: relative; z-index: 1; }
+.card-toolbar { display: flex; justify-content: flex-end; margin-bottom: 12rpx; }
+.card-reading { display: flex; align-items: baseline; gap: 12rpx; }
 .card-price { flex-shrink: 0; color: #737b80; font-family: Georgia, "Times New Roman", serif; font-size: 94rpx; font-weight: 700; line-height: 1.02; letter-spacing: -2rpx; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .card-price--compact { font-size: 72rpx; }
 .card-price--long { font-size: 52rpx; }
-.card-unit { flex-shrink: 0; color: #839188; font-size: 23rpx; }
+.card-unit { flex-shrink: 0; color: #8c9194; font-size: 23rpx; }
 .card-change { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 42rpx; row-gap: 10rpx; margin-top: 9rpx; color: #737b80; font-family: Georgia, "Times New Roman", serif; font-size: 40rpx; line-height: 1.18; font-weight: 700; font-variant-numeric: tabular-nums; }
 .card-points { display: flex; flex: 0 0 auto; align-items: baseline; gap: 9rpx; white-space: nowrap; }
 .card-points-value { flex-shrink: 0; white-space: nowrap; }
-.change-unit { flex-shrink: 0; color: #839188; font-family: "PingFang SC", sans-serif; font-size: 22rpx; font-weight: 400; }
+.change-unit { flex-shrink: 0; color: #8c9194; font-family: "PingFang SC", sans-serif; font-size: 22rpx; font-weight: 400; }
 .card-percent { flex: 0 0 auto; white-space: nowrap; }
 .change-value--compact { font-size: 32rpx; }
 .change-value--long { font-size: 26rpx; }
 .quote--rise .card-price, .quote--rise .card-change { color: #e53935; }
 .quote--fall .card-price, .quote--fall .card-change { color: #15945e; }
-.period-tabs { display: flex; margin-top: 20rpx; margin-bottom: 18rpx; }
-.period-tabs .period-tab { position: relative; box-sizing: border-box; display: flex; align-items: center; justify-content: center; flex: 0 0 25%; width: 25%; min-width: 0; height: 55rpx; margin: 0; padding: 0 0 8rpx; border: 0; border-radius: 0; background: transparent; color: #8b958e; font-size: 26rpx; line-height: 1.3; letter-spacing: 2rpx; }
-.period-tabs .period-tab::after, .chart-error button::after { border: 0; }
-.period-tabs .period-tab + .period-tab { border-left: 1rpx solid #e8e0d4; }
-.period-tabs .period-tab[disabled] { background: transparent; color: #8b958e; }
-.period-tabs .period-tab--active, .period-tabs .period-tab--active[disabled] { color: #253d35; font-weight: 600; }
-.period-underline { position: absolute; right: 32%; bottom: 2rpx; left: 32%; height: 5rpx; border-radius: 50%; background: #bf91d9; transform: rotate(-2deg); }
-.period-underline::after { position: absolute; right: -6rpx; bottom: -4rpx; left: 2rpx; height: 2rpx; border-radius: 50%; background: rgba(191, 145, 217, .4); content: ""; }
-.chart-frame { padding: 10rpx 10rpx 0; border: 1rpx solid #e9e3d9; border-radius: 20rpx; background: rgba(255, 255, 255, .8); box-shadow: 0 3rpx 12rpx rgba(85, 61, 38, .035); }
-.chart-stage { position: relative; height: 324rpx; overflow: hidden; border-radius: 12rpx; background: #fff; }
+.period-tabs { position: relative; display: flex; flex: 0 0 312rpx; box-sizing: border-box; width: 312rpx; max-width: 100%; height: 60rpx; padding: 5rpx; border: 1rpx solid rgba(255, 255, 255, .78); border-radius: 999rpx; background: linear-gradient(160deg, rgba(255, 255, 255, .22), rgba(255, 255, 255, .06)); box-shadow: inset 0 2rpx 4rpx rgba(0, 0, 0, .045), 0 1rpx 1rpx rgba(255, 255, 255, .7); }
+.period-slider { position: absolute; box-sizing: border-box; top: 5rpx; bottom: 5rpx; left: 5rpx; width: calc(25% - 2.5rpx); border: 1rpx solid rgba(255, 255, 255, .98); border-radius: 999rpx; background: linear-gradient(150deg, #fff, rgba(255, 255, 255, .86) 62%, rgba(255, 255, 255, .72)); box-shadow: 0 3rpx 9rpx rgba(0, 0, 0, .09), inset 0 2rpx 3rpx #fff, inset 0 -1rpx 2rpx rgba(255, 255, 255, .6); transition: transform 260ms cubic-bezier(.22, .68, .25, 1); pointer-events: none; }
+.period-slider--day { transform: translateX(100%); }
+.period-slider--week { transform: translateX(200%); }
+.period-slider--month { transform: translateX(300%); }
+.period-tabs .period-tab { position: relative; z-index: 1; box-sizing: border-box; display: flex; align-items: center; justify-content: center; flex: 1 1 25%; width: 25%; min-width: 0; height: 48rpx; margin: 0; padding: 0; border: 0; border-radius: 999rpx; background: transparent; color: #84898c; font-family: "PingFang SC", "Microsoft YaHei", sans-serif; font-size: 22rpx; font-weight: 400; line-height: 1; white-space: nowrap; transition: color 180ms ease; }
+.period-tabs .period-tab::after, .chart-error .chart-error-retry::after { border: 0; }
+.period-tabs .period-tab--active { color: #464d52; font-weight: 600; text-shadow: 0 1rpx 0 rgba(255, 255, 255, .75); }
+.period-tab-pressed { opacity: .68; }
+.chart-frame { margin-top: 22rpx; padding: 10rpx 10rpx 0; border: 1rpx solid rgba(255, 255, 255, .7); border-bottom-color: rgba(255, 255, 255, .34); border-radius: 22rpx; background: rgba(255, 255, 255, .06); box-shadow: inset 0 1rpx 3rpx rgba(255, 255, 255, .7), 0 4rpx 14rpx rgba(0, 0, 0, .02); }
+.chart-stage { position: relative; height: 324rpx; overflow: hidden; border-radius: 14rpx; background: transparent; }
 .chart-scroll, .chart-plot { position: relative; height: 324rpx; }
 .chart-scroll { display: block; width: 100%; }
-.plot-grid { position: absolute; left: 104rpx; right: 44rpx; height: 1rpx; border-top: 1rpx dashed #e9eceb; }
+.plot-grid { position: absolute; left: 104rpx; right: 44rpx; height: 1rpx; border-top: 1rpx dashed rgba(0, 0, 0, .075); }
 .intraday-line { position: absolute; top: 0; left: 0; height: 273rpx; pointer-events: none; }
 .time-axis { position: absolute; top: 273rpx; right: 0; bottom: 0; left: 0; }
-.plot-label { position: absolute; top: 3rpx; width: 84rpx; color: #879087; font-size: 19rpx; line-height: 36rpx; text-align: center; white-space: nowrap; }
-.chart-axis { position: absolute; z-index: 3; top: 0; left: 0; width: 104rpx; height: 273rpx; background: #fff; pointer-events: none; }
-.axis-label { position: absolute; left: 6rpx; color: #879087; font-size: 19rpx; line-height: 28rpx; font-variant-numeric: tabular-nums; transform: translateY(-50%); }
+.plot-label { position: absolute; top: 3rpx; width: 84rpx; color: #8a9093; font-size: 19rpx; line-height: 36rpx; text-align: center; white-space: nowrap; }
+.chart-axis { position: absolute; z-index: 3; top: 0; left: 0; width: 104rpx; height: 273rpx; background: rgba(255, 255, 255, .96); pointer-events: none; }
+/* Clip scrolling marks behind the price axis so its glass can stay clear. */
+@supports ((-webkit-clip-path: polygon(0 0, 100% 0, 100% 100%)) or (clip-path: polygon(0 0, 100% 0, 100% 100%))) {
+  .chart-scroll { -webkit-clip-path: polygon(104rpx 0, 100% 0, 100% 100%, 0 100%, 0 273rpx, 104rpx 273rpx); clip-path: polygon(104rpx 0, 100% 0, 100% 100%, 0 100%, 0 273rpx, 104rpx 273rpx); }
+  .chart-axis { background: transparent; }
+}
+.axis-label { position: absolute; left: 6rpx; color: #8a9093; font-size: 19rpx; line-height: 28rpx; font-variant-numeric: tabular-nums; transform: translateY(-50%); }
 .axis-label.rise { color: #e53935; }
 .axis-label.fall { color: #15945e; }
 .candle-hit { position: absolute; top: 0; height: 273rpx; }
-.candle-selected { background: rgba(57, 125, 167, .05); }
+.candle-selected { background: rgba(0, 0, 0, .035); }
 .candle-wick { position: absolute; width: 2rpx; background: currentColor; }
 .candle-body { position: absolute; box-sizing: border-box; background: currentColor; }
 .candle-body.rise { border: 2rpx solid #e53935; background: #fff; }
@@ -44,27 +52,25 @@
 .candle-body.flat { color: #737b80; }
 .crosshair-v { position: absolute; z-index: 4; top: 17rpx; height: 263rpx; border-left: 1rpx solid #8c9ca3; pointer-events: none; }
 .crosshair-h { position: absolute; z-index: 4; border-top: 1rpx solid #8c9ca3; pointer-events: none; }
-.crosshair-price, .crosshair-date { position: absolute; z-index: 5; border-radius: 4rpx; background: #597b77; color: #fff; font-size: 19rpx; line-height: 34rpx; text-align: center; font-variant-numeric: tabular-nums; pointer-events: none; }
+.crosshair-price, .crosshair-date { position: absolute; z-index: 5; border-radius: 4rpx; background: #626b71; color: #fff; font-size: 19rpx; line-height: 34rpx; text-align: center; font-variant-numeric: tabular-nums; pointer-events: none; }
 .crosshair-price { left: 1rpx; width: 102rpx; }
 .crosshair-date { top: 276rpx; }
-.crosshair-dot { position: absolute; z-index: 5; width: 10rpx; height: 10rpx; border: 2rpx solid #fff; border-radius: 50%; background: #597b77; pointer-events: none; }
-.chart-empty { position: absolute; top: 122rpx; right: 14rpx; left: 14rpx; color: #939d94; font-size: 25rpx; line-height: 1.6; text-align: center; }
-.chart-loading { position: absolute; z-index: 7; top: 6rpx; right: 8rpx; padding: 3rpx 8rpx; border-radius: 5rpx; background: rgba(255, 255, 255, .94); color: #879087; font-size: 20rpx; line-height: 28rpx; pointer-events: none; }
-.candle-detail { position: absolute; z-index: 6; top: 0; right: 3rpx; max-width: calc(100% - 104rpx); padding: 3rpx 8rpx; border-radius: 5rpx; background: rgba(255, 255, 255, .95); color: #718279; font-size: 18rpx; line-height: 24rpx; text-align: right; font-variant-numeric: tabular-nums; pointer-events: none; }
+.crosshair-dot { position: absolute; z-index: 5; width: 10rpx; height: 10rpx; border: 2rpx solid #fff; border-radius: 50%; background: #626b71; pointer-events: none; }
+.chart-empty { position: absolute; top: 122rpx; right: 14rpx; left: 14rpx; color: #949a9e; font-size: 25rpx; line-height: 1.6; text-align: center; }
+.chart-loading { position: absolute; z-index: 7; top: 6rpx; right: 8rpx; padding: 3rpx 8rpx; border-radius: 5rpx; background: rgba(255, 255, 255, .94); color: #8a9093; font-size: 20rpx; line-height: 28rpx; pointer-events: none; }
+.candle-detail { position: absolute; z-index: 6; top: 0; right: 3rpx; max-width: calc(100% - 104rpx); padding: 3rpx 8rpx; border-radius: 5rpx; background: rgba(255, 255, 255, .95); color: #727b81; font-size: 18rpx; line-height: 24rpx; text-align: right; font-variant-numeric: tabular-nums; pointer-events: none; }
 .chart-error { display: flex; align-items: center; gap: 10rpx; padding: 4rpx 6rpx 10rpx; color: #a67465; font-size: 21rpx; line-height: 1.5; }
-.chart-error > text { flex: 1; min-width: 0; overflow-wrap: anywhere; }
-.chart-error button { flex-shrink: 0; width: auto; min-width: 0; margin: 0; padding: 6rpx 12rpx; background: transparent; color: #597b77; font-size: 21rpx; line-height: 1.5; }
+.chart-error > .chart-error-text { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.chart-error .chart-error-retry { flex-shrink: 0; width: auto; min-width: 0; margin: 0; padding: 6rpx 12rpx; background: transparent; color: #626b71; font-size: 21rpx; line-height: 1.5; }
 .chart-tools { display: flex; align-items: center; justify-content: space-between; gap: 18rpx; min-height: 76rpx; margin-top: 18rpx; }
 .chart-help { flex: 1; min-width: 0; }
-.chart-range { display: block; color: #69796f; font-size: 23rpx; line-height: 1.5; }
-.chart-hint { display: block; margin-top: 4rpx; color: #8b958e; font-size: 20rpx; line-height: 1.5; }
+.chart-range { display: block; color: #747d83; font-size: 23rpx; line-height: 1.5; }
+.chart-hint { display: block; margin-top: 4rpx; color: #90979b; font-size: 20rpx; line-height: 1.5; }
 .zoom-controls { display: flex; flex-shrink: 0; gap: 14rpx; }
-.zoom-controls .zoom-button { display: flex; align-items: center; justify-content: center; flex-shrink: 0; width: 64rpx; min-height: 0; height: 64rpx; margin: 0; padding: 0; border: 1rpx solid #dce1d8; border-radius: 12rpx; color: #496951; background: #f5f6ef; font-size: 37rpx; font-weight: 400; line-height: 1; }
+.zoom-controls .zoom-button { display: flex; align-items: center; justify-content: center; flex-shrink: 0; width: 64rpx; min-height: 0; height: 64rpx; margin: 0; padding: 0; border: 1rpx solid rgba(255, 255, 255, .86); border-radius: 18rpx; color: #687379; background: linear-gradient(145deg, rgba(255, 255, 255, .36), rgba(255, 255, 255, .08)); box-shadow: 0 3rpx 9rpx rgba(0, 0, 0, .035), inset 0 1rpx 2rpx rgba(255, 255, 255, .9); font-size: 34rpx; font-weight: 400; line-height: 1; }
 .zoom-controls .zoom-button::after { border: 0; }
-.zoom-controls .zoom-button[disabled] { color: #b2b9af; background: #f5f5ef; }
+.zoom-controls .zoom-button.zoom-button-disabled { color: #b3b8bb; background: rgba(255, 255, 255, .1); box-shadow: inset 0 1rpx 2rpx rgba(255, 255, 255, .7); }
 .zoom-button-pressed { opacity: .65; }
-.card-paper-corner { position: absolute; top: -34rpx; right: -64rpx; width: 205rpx; height: 234rpx; border-radius: 20% 0 45% 50%; background: rgba(224, 200, 239, .22); transform: rotate(-17deg); pointer-events: none; }
-.card-paper-corner::after { position: absolute; top: 72rpx; left: 8rpx; width: 156rpx; height: 92rpx; border: 2rpx solid rgba(188, 146, 214, .35); border-radius: 50%; transform: rotate(-42deg); content: ""; }
-.card-spark { position: absolute; top: 29rpx; right: 159rpx; width: 5rpx; height: 23rpx; border-radius: 50%; background: #edc477; opacity: .7; pointer-events: none; }
-.card-spark::after { position: absolute; top: 9rpx; left: -6rpx; width: 17rpx; height: 5rpx; border-radius: 50%; background: #edc477; content: ""; }
-.card-bottom-curve { position: absolute; bottom: -43rpx; left: -55rpx; width: 390rpx; height: 65rpx; border-top: 2rpx solid rgba(186, 144, 219, .3); border-radius: 50%; transform: rotate(7deg); pointer-events: none; }
+.card-glass-glow { position: absolute; right: -100rpx; bottom: -140rpx; width: 520rpx; height: 480rpx; border-radius: 50%; background: radial-gradient(ellipse, rgba(255, 255, 255, .12), rgba(255, 255, 255, 0) 70%); pointer-events: none; }
+.card-glass-reflection { position: absolute; top: -320rpx; left: -160rpx; width: 460rpx; height: 740rpx; border-radius: 50%; background: linear-gradient(100deg, rgba(255, 255, 255, 0) 28%, rgba(255, 255, 255, .18) 49%, rgba(255, 255, 255, 0) 72%); transform: rotate(32deg); pointer-events: none; }
+@media (prefers-reduced-motion: reduce) { .period-slider, .period-tabs .period-tab { transition: none; } }

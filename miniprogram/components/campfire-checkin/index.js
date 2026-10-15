@@ -6,6 +6,18 @@ const { localDate, localDateTime } = require("../../config/timezone");
 const { isDateSelectable, isMonthSelectable } = require("../../services/checkin-calendar");
 
 const REFRESH_INTERVAL = 5000;
+const MEMBER_CHECKIN_FEEDBACK_DURATION = 1500;
+const MEMBER_CHECKIN_PARTICLES = Array.from({ length: 16 }, (_, index) => {
+  const angle = index * Math.PI * 2 / 16;
+  const distance = 56 + index % 3 * 17;
+  const size = 4 + index % 3;
+  const x = Math.cos(angle) * distance;
+  const y = Math.sin(angle) * distance * .7;
+  return { id: index, style: `--checkin-x:${x.toFixed(2)}rpx;--checkin-y:${y.toFixed(2)}rpx;`
+    + `--checkin-mid-x:${(x * .35).toFixed(2)}rpx;--checkin-mid-y:${(y * .35).toFixed(2)}rpx;`
+    + `--checkin-turn:${90 + index * 23}deg;width:${size}rpx;height:${size}rpx;`
+    + `animation-delay:${440 + index % 4 * 24}ms;animation-duration:${680 + index % 3 * 90}ms;` };
+});
 
 function rewardPoints(value) {
   const [whole, fraction] = value.split(".");
@@ -40,6 +52,7 @@ Component({
     fullAchieved: false, reward: null, rewardPoints: "",
     createdDate: "", todayDate: "", viewingHistory: false, historyNotice: "",
     calendarMonth: "", calendarDays: [], calendarLoading: false, calendarError: "", calendarContext: "",
+    memberCheckinCelebrating: false, memberCheckinParticles: MEMBER_CHECKIN_PARTICLES,
   },
   observers: {
     "groupId, memberCount, groupVersion, active"() { if (this._attached) this.syncContext(); },
@@ -55,6 +68,7 @@ Component({
     },
     detached() {
       this._attached = false;
+      this.clearMemberCheckinFeedback();
       this.stopRefresh();
       this.invalidateRead();
       this.invalidateCalendar();
@@ -66,6 +80,23 @@ Component({
     hide() { this._pageVisible = false; if (this._attached) this.syncContext(); },
   },
   methods: {
+    clearMemberCheckinFeedback() {
+      if (this._memberCheckinFeedbackTimer) clearTimeout(this._memberCheckinFeedbackTimer);
+      this._memberCheckinFeedbackTimer = null;
+      if (this._attached && this.data.memberCheckinCelebrating) this.setData({ memberCheckinCelebrating: false });
+    },
+    playMemberCheckinFeedback(operation) {
+      this.clearMemberCheckinFeedback();
+      if (!this.isCurrent(operation) || !this.canRefresh() || operation.day !== this.data.day
+        || !this.data.myCheckedIn || this.data.viewingHistory) return;
+      this.setData({ memberCheckinCelebrating: true });
+      this._memberCheckinFeedbackTimer = setTimeout(() => {
+        this._memberCheckinFeedbackTimer = null;
+        if (this.isCurrent(operation) && operation.day === this.data.day) {
+          this.setData({ memberCheckinCelebrating: false });
+        }
+      }, MEMBER_CHECKIN_FEEDBACK_DURATION);
+    },
     canRefresh() {
       return Boolean(this._attached && this._pageVisible && this.properties.active
         && this.properties.groupId && this._snapshot && this._snapshot.owner && !this._accessLost);
@@ -100,6 +131,7 @@ Component({
       const membersChanged = this._memberBasis !== memberBasis;
       const wasRunning = this._running;
       if (changed) {
+        this.clearMemberCheckinFeedback();
         this.stopRefresh();
         this.invalidateRead();
         this.invalidateCalendar();
@@ -128,6 +160,7 @@ Component({
       this._running = this.canRefresh();
       this.setData({ animating: this._running });
       if (!this._running) {
+        this.clearMemberCheckinFeedback();
         this.stopRefresh();
         this.invalidateRead();
         this.invalidateCalendar();
@@ -266,6 +299,7 @@ Component({
       }
       this._followToday = date === this.data.todayDate;
       if (sameDay && this.data.ready) return this.refresh();
+      this.clearMemberCheckinFeedback();
       this.stopRefresh();
       this.invalidateRead();
       const scene = renderScene(0, 0);
@@ -280,6 +314,7 @@ Component({
     },
     applyStatus(result) {
       if (!this.freshMetadata(result)) return false;
+      if (result.local_date !== this.data.day) this.clearMemberCheckinFeedback();
       this._dayGroupVersion = result.group_version;
       const scene = renderScene(result.completed_count, result.member_count);
       if (!result.history_complete) {
@@ -330,6 +365,7 @@ Component({
     },
     accessError(error) {
       if (error.statusCode !== 404 && error.statusCode !== 401) return false;
+      this.clearMemberCheckinFeedback();
       this._accessLost = true;
       this.stopRefresh();
       this.invalidateCalendar();
@@ -392,18 +428,22 @@ Component({
         if (this.canRefresh()) wx.showToast({ title: "已进入新一天，请重新打卡", icon: "none" });
         return;
       }
-      const operation = { context: this._context, snapshot: this._snapshot };
+      const operation = { context: this._context, snapshot: this._snapshot, day: this.data.day };
       this._postOperation = operation;
       this.stopRefresh();
       // A read started before this write must never replace its receipt.
       this.invalidateRead();
       this.invalidateCalendar();
+      this.clearMemberCheckinFeedback();
       this.setData({ submitting: true, loading: false, error: "" });
       try {
         const result = await checkins.checkin(this.properties.groupId, this.data.day);
         if (!this.isCurrent(operation)) return;
-        if (!this.applyStatus(result)) this.setData({ ready: false, membersReady: false });
-        if (this.canRefresh()) wx.showToast({ title: "打卡成功", icon: "success" });
+        if (this.applyStatus(result)) this.playMemberCheckinFeedback(operation);
+        else {
+          this.setData({ ready: false, membersReady: false });
+          if (this.canRefresh()) wx.showToast({ title: "打卡成功", icon: "success" });
+        }
       } catch (error) {
         if (this.isCurrent(operation) && !error.stale && !this.accessError(error)) {
           const dateChanged = error.statusCode === 409 && /打卡日期已更新|已进入新一天/.test(error.message || "");
